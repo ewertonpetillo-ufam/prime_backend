@@ -2,14 +2,52 @@ pipeline {
     agent any
     
     environment {
-        GIT_REPO = 'https://github.com/ewertonpetillo-ufam/prime.git'
+        // Git e Pipeline
+        GIT_REPO = 'https://github.com/ewertonpetillo-ufam/prime_backend.git'
         BRANCH = 'main'
         CONTAINER_NAME = 'prime-backend'
         IMAGE_NAME = 'prime-backend-pipeline-backend'
         
+        // API acessível apenas internamente (via VPN)
+        // Detecta o IP do servidor automaticamente
+        SERVER_IP = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
+        
         // Credenciais do Telegram
         TELEGRAM_BOT_TOKEN = credentials('telegram-bot-token')
         TELEGRAM_CHAT_ID = credentials('telegram-chat-id')
+        
+        // Application Config
+        NODE_ENV = 'production'
+        PORT = '4000'
+        API_PREFIX = 'api/v1'
+        
+        // Database (Produção)
+        DB_HOST = credentials('prime-db-host')
+        DB_PORT = '5432'
+        DB_USERNAME = credentials('prime-db-username')
+        DB_PASSWORD = credentials('prime-db-password')
+        DB_DATABASE = credentials('prime-db-name')
+        
+        // JWT Authentication
+        JWT_SECRET = credentials('prime-jwt-secret')
+        JWT_EXPIRATION = '24h'
+        
+        // Client Credentials
+        CLIENT_1_ID = credentials('prime-client1-id')
+        CLIENT_1_SECRET = credentials('prime-client1-secret')
+        CLIENT_2_ID = credentials('prime-client2-id')
+        CLIENT_2_SECRET = credentials('prime-client2-secret')
+        
+        // HMAC for CPF Anonymization
+        HMAC_SECRET = credentials('prime-hmac-secret')
+        
+        // Swagger Documentation
+        SWAGGER_USERNAME = credentials('prime-swagger-username')
+        SWAGGER_PASSWORD = credentials('prime-swagger-password')
+        
+        // CORS - Múltiplas origens separadas por vírgula
+        // Inclui frontend interno (container) e URL pública
+        CORS_ORIGIN = 'http://nextjs-prime:3000,https://prime.icomp.ufam.edu.br'
     }
     
     triggers {
@@ -20,11 +58,16 @@ pipeline {
         stage('Notify Start') {
             steps {
                 script {
-                    sendTelegram("🔔 *Build Iniciado*\n\n" +
+                    def initiator = getUserInfo()
+                    def serverIp = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
+                    
+                    sendTelegram("🔔 *Build Backend Iniciado*\n\n" +
                                 "📦 Projeto: ${env.JOB_NAME}\n" +
                                 "🔢 Build: #${env.BUILD_NUMBER}\n" +
-                                "👤 Iniciado por: ${env.BUILD_USER ?: 'Jenkins'}\n" +
-                                "🌿 Branch: ${BRANCH}")
+                                "👤 Iniciado por: ${initiator}\n" +
+                                "🌿 Branch: ${BRANCH}\n" +
+                                "🐘 Database: ${DB_HOST}\n" +
+                                "🔒 API Interna: ${serverIp}:4000")
                 }
             }
         }
@@ -43,8 +86,55 @@ pipeline {
                 echo '🔍 Verificando estrutura do projeto...'
                 sh '''
                     ls -la
+                    echo "\n=== Dockerfile ==="
                     cat Dockerfile
+                    echo "\n=== docker-compose.yml ==="
                     cat docker-compose.yml
+                '''
+            }
+        }
+        
+        stage('Criar .env') {
+            steps {
+                echo '🔐 Criando arquivo .env com credenciais de produção...'
+                sh '''
+                    cat > .env << EOF
+# Application
+NODE_ENV=${NODE_ENV}
+PORT=${PORT}
+API_PREFIX=${API_PREFIX}
+
+# Database (Produção)
+DB_HOST=${DB_HOST}
+DB_PORT=${DB_PORT}
+DB_USERNAME=${DB_USERNAME}
+DB_PASSWORD=${DB_PASSWORD}
+DB_DATABASE=${DB_DATABASE}
+
+# JWT Authentication
+JWT_SECRET=${JWT_SECRET}
+JWT_EXPIRATION=${JWT_EXPIRATION}
+
+# Client Credentials for JWT
+CLIENT_1_ID=${CLIENT_1_ID}
+CLIENT_1_SECRET=${CLIENT_1_SECRET}
+CLIENT_2_ID=${CLIENT_2_ID}
+CLIENT_2_SECRET=${CLIENT_2_SECRET}
+
+# HMAC for CPF Anonymization
+HMAC_SECRET=${HMAC_SECRET}
+
+# Swagger Documentation
+SWAGGER_USERNAME=${SWAGGER_USERNAME}
+SWAGGER_PASSWORD=${SWAGGER_PASSWORD}
+
+# CORS
+CORS_ORIGIN=${CORS_ORIGIN}
+EOF
+                    
+                    echo "✅ Arquivo .env criado"
+                    echo "\n=== Variáveis configuradas (sem senhas) ==="
+                    grep -v "PASSWORD\\|SECRET\\|_SECRET" .env || echo "Todas as variáveis sensíveis configuradas"
                 '''
             }
         }
@@ -53,9 +143,29 @@ pipeline {
             steps {
                 echo '🌐 Criando redes Docker necessárias...'
                 sh '''
-                    docker network create frontend 2>/dev/null || true
-                    docker network create prime-network 2>/dev/null || true
-                    echo "✅ Redes Docker verificadas/criadas"
+                    docker network create frontend 2>/dev/null || echo "✓ Rede frontend já existe"
+                    docker network create prime-network 2>/dev/null || echo "✓ Rede prime-network já existe"
+                    
+                    echo "\n=== Redes Docker disponíveis ==="
+                    docker network ls | grep -E "frontend|prime-network"
+                '''
+            }
+        }
+        
+        stage('Testar Conexão com Banco') {
+            steps {
+                echo '🐘 Testando conexão com banco de dados de produção...'
+                sh '''
+                    echo "Testando conectividade com ${DB_HOST}:${DB_PORT}..."
+                    
+                    # Testar se a porta está acessível
+                    if timeout 5 bash -c "cat < /dev/null > /dev/tcp/${DB_HOST}/${DB_PORT}"; then
+                        echo "✅ Porta ${DB_PORT} acessível em ${DB_HOST}"
+                    else
+                        echo "❌ Não foi possível conectar em ${DB_HOST}:${DB_PORT}"
+                        echo "Verifique se o banco está rodando e se há firewall bloqueando"
+                        exit 1
+                    fi
                 '''
             }
         }
@@ -82,7 +192,7 @@ pipeline {
         
         stage('Deploy') {
             steps {
-                echo '🚀 Subindo nova versão da aplicação...'
+                echo '🚀 Subindo nova versão do backend...'
                 sh '''
                     docker compose up -d
                 '''
@@ -93,18 +203,52 @@ pipeline {
             steps {
                 echo '🏥 Verificando se a aplicação subiu...'
                 sh '''
-                    echo "Aguardando 30 segundos para inicialização..."
-                    sleep 30
+                    echo "Aguardando 40 segundos para inicialização completa..."
+                    sleep 40
                     
                     if docker ps | grep -q ${CONTAINER_NAME}; then
                         echo "✅ Container está rodando"
-                        docker logs --tail 30 ${CONTAINER_NAME}
                         
-                        # Verificar healthcheck do backend
-                        echo "Verificando healthcheck..."
-                        docker inspect ${CONTAINER_NAME} --format='{{.State.Health.Status}}' || echo "Healthcheck ainda não disponível"
+                        echo "\n=== Status do Container ==="
+                        docker ps --filter "name=${CONTAINER_NAME}" --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}"
+                        
+                        echo "\n=== Últimas 40 linhas do log ==="
+                        docker logs --tail 40 ${CONTAINER_NAME}
+                        
+                        echo "\n=== Verificando Healthcheck ==="
+                        for i in {1..6}; do
+                            STATUS=$(docker inspect ${CONTAINER_NAME} --format='{{.State.Health.Status}}' 2>/dev/null || echo "sem healthcheck")
+                            echo "Tentativa $i/6: Status = $STATUS"
+                            
+                            if [ "$STATUS" = "healthy" ]; then
+                                echo "✅ Aplicação está saudável!"
+                                break
+                            fi
+                            
+                            if [ $i -lt 6 ]; then
+                                echo "Aguardando mais 10 segundos..."
+                                sleep 10
+                            fi
+                        done
+                        
+                        # Testar endpoint da API
+                        echo "\n=== Testando endpoint /api/v1 ==="
+                        if docker exec ${CONTAINER_NAME} wget --quiet --tries=1 --spider http://localhost:4000/api/v1 2>&1; then
+                            echo "✅ API respondendo em /api/v1"
+                        else
+                            echo "⚠️  Endpoint /api/v1 ainda não está respondendo"
+                        fi
+                        
+                        # Testar Swagger (se disponível)
+                        echo "\n=== Testando Swagger Docs ==="
+                        if docker exec ${CONTAINER_NAME} wget --quiet --tries=1 --spider http://localhost:4000/api/docs 2>&1; then
+                            echo "✅ Swagger disponível em /api/docs"
+                        else
+                            echo "ℹ️  Swagger não disponível ou endpoint diferente"
+                        fi
                     else
                         echo "❌ Container não está rodando!"
+                        echo "\n=== Logs do container ==="
                         docker logs ${CONTAINER_NAME} 2>&1 || true
                         exit 1
                     fi
@@ -114,10 +258,19 @@ pipeline {
         
         stage('Cleanup') {
             steps {
-                echo '🧹 Limpando imagens antigas...'
+                echo '🧹 Limpando recursos...'
                 sh '''
+                    # Remove arquivo .env por segurança
+                    rm -f .env
+                    
+                    # Remove imagens antigas
                     docker image prune -f
-                    docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+                    
+                    echo "\n=== Containers Prime Ativos ==="
+                    docker ps --filter "name=prime" --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}"
+                    
+                    echo "\n=== Uso de recursos do container ==="
+                    docker stats ${CONTAINER_NAME} --no-stream --format "table {{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}"
                 '''
             }
         }
@@ -127,11 +280,19 @@ pipeline {
         success {
             script {
                 def duration = currentBuild.durationString.replace(' and counting', '')
-                sendTelegramWithButtons("✅ *Build Sucesso*\n\n" +
+                def initiator = getUserInfo()
+                def serverIp = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
+                
+                sendTelegramWithButtons("✅ *Deploy Backend Sucesso*\n\n" +
                             "📦 Projeto: ${env.JOB_NAME}\n" +
                             "🔢 Build: #${env.BUILD_NUMBER}\n" +
+                            "👤 Iniciado por: ${initiator}\n" +
                             "⏱️ Duração: ${duration}\n" +
-                            "🐳 Container: ${CONTAINER_NAME}\n\n" +
+                            "🐳 Container: ${CONTAINER_NAME}\n" +
+                            "🐘 Database: ${DB_HOST}\n\n" +
+                            "🔒 *API Interna (VPN)*\n" +
+                            "API: http://${serverIp}:4000/api/v1\n" +
+                            "Docs: http://${serverIp}:4000/api/docs\n\n" +
                             "Deploy realizado com sucesso! 🎉")
             }
             echo '✅ Pipeline executado com sucesso!'
@@ -140,14 +301,16 @@ pipeline {
         failure {
             script {
                 def duration = currentBuild.durationString.replace(' and counting', '')
+                def initiator = getUserInfo()
                 def logOutput = sh(
-                    script: "docker logs ${CONTAINER_NAME} 2>&1 | tail -20 || echo 'Sem logs disponíveis'",
+                    script: "docker logs ${CONTAINER_NAME} 2>&1 | tail -30 || echo 'Sem logs disponíveis'",
                     returnStdout: true
                 ).trim()
                 
-                sendTelegramWithButtons("❌ *Build Falhou*\n\n" +
+                sendTelegramWithButtons("❌ *Deploy Backend Falhou*\n\n" +
                             "📦 Projeto: ${env.JOB_NAME}\n" +
                             "🔢 Build: #${env.BUILD_NUMBER}\n" +
+                            "👤 Iniciado por: ${initiator}\n" +
                             "⏱️ Duração: ${duration}\n" +
                             "📝 Stage: ${env.STAGE_NAME}\n\n" +
                             "```\n${logOutput}\n```")
@@ -157,8 +320,36 @@ pipeline {
         
         always {
             echo '📊 Execução finalizada'
+            // Sempre remove o .env por segurança
+            sh 'rm -f .env || true'
         }
     }
+}
+
+// Função para detectar quem iniciou o build
+def getUserInfo() {
+    def causes = currentBuild.getBuildCauses()
+    
+    for (cause in causes) {
+        if (cause._class.contains('UserIdCause')) {
+            return cause.userId ?: cause.userName ?: 'Usuário Jenkins'
+        }
+        if (cause._class.contains('SCMTrigger')) {
+            def gitAuthor = sh(
+                script: "git log -1 --pretty=format:'%an' 2>/dev/null || echo 'Git'",
+                returnStdout: true
+            ).trim()
+            return "SCM (Git Push por ${gitAuthor})"
+        }
+        if (cause._class.contains('TimerTrigger')) {
+            return 'Timer (Agendamento)'
+        }
+        if (cause._class.contains('UpstreamCause')) {
+            return "Upstream (${cause.upstreamProject})"
+        }
+    }
+    
+    return 'Jenkins (automático)'
 }
 
 // Função para enviar mensagens no Telegram
@@ -190,4 +381,3 @@ def sendTelegramWithButtons(String message) {
         -d reply_markup='${keyboard}'
     """
 }
-

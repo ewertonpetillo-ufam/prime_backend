@@ -18,9 +18,28 @@ async function bootstrap() {
   const apiPrefix = configService.get<string>('API_PREFIX') || 'api/v1';
   app.setGlobalPrefix(apiPrefix);
 
-  // CORS configuration
+  // CORS configuration - Aceita apps nativos (sem Origin) e múltiplas origens
+  const corsOriginEnv = configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000';
+  const allowedOrigins = corsOriginEnv.split(',').map(origin => origin.trim()).filter(Boolean);
+
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Caso 1: Requisição sem Origin (apps nativos, Postman, cURL, ferramentas)
+      if (!origin) {
+        console.log('✅ Requisição sem Origin (app nativo/tool) - PERMITIDO');
+        return callback(null, true);
+      }
+
+      // Caso 2: Origin está na lista permitida
+      if (allowedOrigins.includes(origin)) {
+        console.log(`✅ Origin permitido: ${origin}`);
+        return callback(null, true);
+      }
+
+      // Caso 3: Origin não autorizado
+      console.log(`❌ Origin bloqueado: ${origin}`);
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-ID'],
@@ -87,8 +106,10 @@ async function bootstrap() {
   const port = configService.get<number>('PORT') || 4000;
   await app.listen(port);
 
-  console.log(`🚀 PRIME API is running on: http://localhost:${port}/${apiPrefix}`);
-  console.log(`📚 Swagger docs available at: http://localhost:${port}/api/docs`);
+  console.log(`🚀 PRIME API is running on: http://0.0.0.0:${port}/${apiPrefix}`);
+  console.log(`📚 Swagger docs available at: http://0.0.0.0:${port}/api/docs`);
+  console.log(`🔒 CORS configurado para: ${allowedOrigins.join(', ') || 'nenhuma origem específica'}`);
+  console.log(`📱 Apps nativos: permitidos (sem Origin)`);
 }
 
 bootstrap();
