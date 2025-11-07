@@ -56,15 +56,14 @@ pipeline {
             steps {
                 script {
                     def initiator = getUserInfo()
-                    def serverIp = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
                     
                     sendTelegram("🔔 *Build Backend Iniciado*\n\n" +
                                 "📦 Projeto: ${env.JOB_NAME}\n" +
                                 "🔢 Build: #${env.BUILD_NUMBER}\n" +
                                 "👤 Iniciado por: ${initiator}\n" +
                                 "🌿 Branch: ${BRANCH}\n" +
-                                "🐘 Database: ${DB_HOST}\n" +
-                                "🔒 API Interna: ${serverIp}:4000")
+                                "🐘 Database: ${env.DB_HOST}\n" +
+                                "🔒 API: porta 4000 (acesso via VPN)")
                 }
             }
         }
@@ -284,48 +283,69 @@ EOF
     post {
         success {
             script {
-                def duration = currentBuild.durationString.replace(' and counting', '')
-                def initiator = getUserInfo()
-                def serverIp = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
-                
-                sendTelegramWithButtons("✅ *Deploy Backend Sucesso*\n\n" +
-                            "📦 Projeto: ${env.JOB_NAME}\n" +
-                            "🔢 Build: #${env.BUILD_NUMBER}\n" +
-                            "👤 Iniciado por: ${initiator}\n" +
-                            "⏱️ Duração: ${duration}\n" +
-                            "🐳 Container: ${env.CONTAINER_NAME}\n" +
-                            "🐘 Database: ${env.DB_HOST}\n\n" +
-                            "🔒 *API Interna (VPN)*\n" +
-                            "API: http://${serverIp}:4000/api/v1\n" +
-                            "Docs: http://${serverIp}:4000/api/docs\n\n" +
-                            "Deploy realizado com sucesso! 🎉")
+                try {
+                    def duration = currentBuild.durationString.replace(' and counting', '')
+                    def initiator = getUserInfo()
+                    
+                    sendTelegramWithButtons("✅ *Deploy Backend Sucesso*\n\n" +
+                                "📦 Projeto: ${env.JOB_NAME}\n" +
+                                "🔢 Build: #${env.BUILD_NUMBER}\n" +
+                                "👤 Iniciado por: ${initiator}\n" +
+                                "⏱️ Duração: ${duration}\n" +
+                                "🐳 Container: ${env.CONTAINER_NAME}\n" +
+                                "🐘 Database: ${env.DB_HOST}\n\n" +
+                                "🔒 API disponível na porta 4000\n" +
+                                "📚 Swagger: /api/docs\n\n" +
+                                "Deploy realizado com sucesso! 🎉")
+                } catch (Exception e) {
+                    echo "⚠️ Erro ao enviar notificação Telegram: ${e.getMessage()}"
+                }
             }
             echo '✅ Pipeline executado com sucesso!'
         }
         
         failure {
             script {
-                def duration = currentBuild.durationString.replace(' and counting', '')
-                def initiator = getUserInfo()
-                def containerName = env.CONTAINER_NAME ?: 'prime-backend'
-                def logOutput = ''
-                
                 try {
-                    logOutput = sh(
-                        script: "docker logs ${containerName} 2>&1 | tail -30 || echo 'Sem logs disponíveis'",
-                        returnStdout: true
-                    ).trim()
+                    def duration = currentBuild.durationString.replace(' and counting', '')
+                    def initiator = getUserInfo()
+                    def containerName = env.CONTAINER_NAME ?: 'prime-backend'
+                    def logOutput = ''
+                    
+                    // Tentar obter logs apenas se estiver em contexto de node
+                    try {
+                        logOutput = sh(
+                            script: "docker logs ${containerName} 2>&1 | tail -30 || echo 'Sem logs disponíveis'",
+                            returnStdout: true
+                        ).trim()
+                    } catch (Exception e) {
+                        logOutput = 'Logs não disponíveis (container pode não existir ou sem contexto de node)'
+                    }
+                    
+                    def errorMessage = "❌ *Deploy Backend Falhou*\n\n" +
+                                "📦 Projeto: ${env.JOB_NAME}\n" +
+                                "🔢 Build: #${env.BUILD_NUMBER}\n" +
+                                "👤 Iniciado por: ${initiator}\n" +
+                                "⏱️ Duração: ${duration}\n" +
+                                "📝 Stage: ${env.STAGE_NAME ?: 'Desconhecido'}\n"
+                    
+                    if (logOutput) {
+                        errorMessage += "\n```\n${logOutput}\n```"
+                    }
+                    
+                    sendTelegramWithButtons(errorMessage)
                 } catch (Exception e) {
-                    logOutput = 'Não foi possível obter logs do container'
+                    echo "⚠️ Erro ao processar falha: ${e.getMessage()}"
+                    // Tentar enviar mensagem simples sem logs
+                    try {
+                        sendTelegram("❌ *Deploy Backend Falhou*\n\n" +
+                                    "📦 Projeto: ${env.JOB_NAME}\n" +
+                                    "🔢 Build: #${env.BUILD_NUMBER}\n" +
+                                    "Verifique os logs no Jenkins para mais detalhes.")
+                    } catch (Exception e2) {
+                        echo "⚠️ Não foi possível enviar notificação Telegram"
+                    }
                 }
-                
-                sendTelegramWithButtons("❌ *Deploy Backend Falhou*\n\n" +
-                            "📦 Projeto: ${env.JOB_NAME}\n" +
-                            "🔢 Build: #${env.BUILD_NUMBER}\n" +
-                            "👤 Iniciado por: ${initiator}\n" +
-                            "⏱️ Duração: ${duration}\n" +
-                            "📝 Stage: ${env.STAGE_NAME ?: 'Desconhecido'}\n\n" +
-                            "```\n${logOutput}\n```")
             }
             echo '❌ Pipeline falhou!'
         }
@@ -346,25 +366,33 @@ EOF
 
 // Função para detectar quem iniciou o build
 def getUserInfo() {
-    def causes = currentBuild.getBuildCauses()
-    
-    for (cause in causes) {
-        if (cause._class.contains('UserIdCause')) {
-            return cause.userId ?: cause.userName ?: 'Usuário Jenkins'
+    try {
+        def causes = currentBuild.getBuildCauses()
+        
+        for (cause in causes) {
+            if (cause._class.contains('UserIdCause')) {
+                return cause.userId ?: cause.userName ?: 'Usuário Jenkins'
+            }
+            if (cause._class.contains('SCMTrigger')) {
+                try {
+                    def gitAuthor = sh(
+                        script: "git log -1 --pretty=format:'%an' 2>/dev/null || echo 'Git'",
+                        returnStdout: true
+                    ).trim()
+                    return "SCM (Git Push por ${gitAuthor})"
+                } catch (Exception e) {
+                    return 'SCM (Git Push)'
+                }
+            }
+            if (cause._class.contains('TimerTrigger')) {
+                return 'Timer (Agendamento)'
+            }
+            if (cause._class.contains('UpstreamCause')) {
+                return "Upstream (${cause.upstreamProject})"
+            }
         }
-        if (cause._class.contains('SCMTrigger')) {
-            def gitAuthor = sh(
-                script: "git log -1 --pretty=format:'%an' 2>/dev/null || echo 'Git'",
-                returnStdout: true
-            ).trim()
-            return "SCM (Git Push por ${gitAuthor})"
-        }
-        if (cause._class.contains('TimerTrigger')) {
-            return 'Timer (Agendamento)'
-        }
-        if (cause._class.contains('UpstreamCause')) {
-            return "Upstream (${cause.upstreamProject})"
-        }
+    } catch (Exception e) {
+        echo "⚠️ Erro ao obter informações do usuário: ${e.getMessage()}"
     }
     
     return 'Jenkins (automático)'
@@ -372,30 +400,45 @@ def getUserInfo() {
 
 // Função para enviar mensagens no Telegram
 def sendTelegram(String message) {
-    sh """
-        curl -s -X POST https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage \
-        -d chat_id=\${TELEGRAM_CHAT_ID} \
-        -d text='${message}' \
-        -d parse_mode=Markdown \
-        -d disable_web_page_preview=true
-    """
+    try {
+        sh """
+            curl -s -X POST https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage \
+            -d chat_id=\${TELEGRAM_CHAT_ID} \
+            -d text='${message.replace("'", "'\\''")}' \
+            -d parse_mode=Markdown \
+            -d disable_web_page_preview=true
+        """
+    } catch (Exception e) {
+        echo "⚠️ Erro ao enviar mensagem Telegram: ${e.getMessage()}"
+    }
 }
 
 // Função para enviar mensagens com botões
 def sendTelegramWithButtons(String message) {
-    def keyboard = """
-    {
-        "inline_keyboard": [[
-            {"text": "📊 Ver Build", "url": "${env.BUILD_URL}"}
-        ]]
+    try {
+        def buildUrl = env.BUILD_URL ?: 'https://jenkins'
+        def keyboard = """
+        {
+            "inline_keyboard": [[
+                {"text": "📊 Ver Build", "url": "${buildUrl}"}
+            ]]
+        }
+        """
+        
+        sh """
+            curl -s -X POST https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage \
+            -d chat_id=\${TELEGRAM_CHAT_ID} \
+            -d text='${message.replace("'", "'\\''")}' \
+            -d parse_mode=Markdown \
+            -d reply_markup='${keyboard}'
+        """
+    } catch (Exception e) {
+        echo "⚠️ Erro ao enviar mensagem Telegram com botões: ${e.getMessage()}"
+        // Tentar enviar sem botões como fallback
+        try {
+            sendTelegram(message)
+        } catch (Exception e2) {
+            echo "⚠️ Não foi possível enviar notificação Telegram"
+        }
     }
-    """
-    
-    sh """
-        curl -s -X POST https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage \
-        -d chat_id=\${TELEGRAM_CHAT_ID} \
-        -d text='${message}' \
-        -d parse_mode=Markdown \
-        -d reply_markup='${keyboard}'
-    """
 }
