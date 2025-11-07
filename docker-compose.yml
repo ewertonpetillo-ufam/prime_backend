@@ -21,9 +21,25 @@ services:
     ports:
       - "4000:4000"
 
+    labels:
+      - "traefik.enable=true"
+
+      # Router HTTPS - Apenas Swagger exposto publicamente
+      - "traefik.http.routers.backend-swagger-secure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/docs`)"
+      - "traefik.http.routers.backend-swagger-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-swagger-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend-swagger-secure.middlewares=authelia@docker"
+
+      # Router HTTP - Apenas Swagger
+      - "traefik.http.routers.backend-swagger-insecure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/docs`)"
+      - "traefik.http.routers.backend-swagger-insecure.entrypoints=web"
+
+      # Serviço - aponta para a porta do container
+      - "traefik.http.services.backend-swagger.loadbalancer.server.port=4000"
+
     # Redes internas para comunicação com outros containers
     networks:
-      - frontend      # Para comunicação com Next.js frontend
+      - frontend      # Para comunicação com Next.js frontend e Traefik
       - prime-network # Para comunicação com banco de dados
 
     healthcheck:
