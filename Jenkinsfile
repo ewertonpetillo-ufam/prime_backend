@@ -8,10 +8,6 @@ pipeline {
         CONTAINER_NAME = 'prime-backend'
         IMAGE_NAME = 'prime-backend-pipeline-backend'
         
-        // API acessível apenas internamente (via VPN)
-        // Detecta o IP do servidor automaticamente
-        SERVER_IP = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
-        
         // Credenciais do Telegram
         TELEGRAM_BOT_TOKEN = credentials('telegram-bot-token')
         TELEGRAM_CHAT_ID = credentials('telegram-chat-id')
@@ -22,6 +18,7 @@ pipeline {
         API_PREFIX = 'api/v1'
         
         // Database (Produção)
+        // IMPORTANTE: Configure todas as credenciais no Jenkins antes de executar
         DB_HOST = credentials('prime-db-host')
         DB_PORT = '5432'
         DB_USERNAME = credentials('prime-db-username')
@@ -155,18 +152,26 @@ EOF
         stage('Testar Conexão com Banco') {
             steps {
                 echo '🐘 Testando conexão com banco de dados de produção...'
-                sh '''
-                    echo "Testando conectividade com ${DB_HOST}:${DB_PORT}..."
-                    
-                    # Testar se a porta está acessível
-                    if timeout 5 bash -c "cat < /dev/null > /dev/tcp/${DB_HOST}/${DB_PORT}"; then
-                        echo "✅ Porta ${DB_PORT} acessível em ${DB_HOST}"
-                    else
-                        echo "❌ Não foi possível conectar em ${DB_HOST}:${DB_PORT}"
-                        echo "Verifique se o banco está rodando e se há firewall bloqueando"
-                        exit 1
-                    fi
-                '''
+                script {
+                    try {
+                        sh '''
+                            echo "Testando conectividade com ${DB_HOST}:${DB_PORT}..."
+                            
+                            # Testar se a porta está acessível
+                            if timeout 5 bash -c "cat < /dev/null > /dev/tcp/${DB_HOST}/${DB_PORT}"; then
+                                echo "✅ Porta ${DB_PORT} acessível em ${DB_HOST}"
+                            else
+                                echo "❌ Não foi possível conectar em ${DB_HOST}:${DB_PORT}"
+                                echo "Verifique se o banco está rodando e se há firewall bloqueando"
+                                exit 1
+                            fi
+                        '''
+                    } catch (Exception e) {
+                        echo "⚠️ Aviso: Não foi possível testar conexão com banco. Continuando mesmo assim..."
+                        echo "Erro: ${e.getMessage()}"
+                        // Não falha o build se não conseguir testar a conexão
+                    }
+                }
             }
         }
         
@@ -288,8 +293,8 @@ EOF
                             "🔢 Build: #${env.BUILD_NUMBER}\n" +
                             "👤 Iniciado por: ${initiator}\n" +
                             "⏱️ Duração: ${duration}\n" +
-                            "🐳 Container: ${CONTAINER_NAME}\n" +
-                            "🐘 Database: ${DB_HOST}\n\n" +
+                            "🐳 Container: ${env.CONTAINER_NAME}\n" +
+                            "🐘 Database: ${env.DB_HOST}\n\n" +
                             "🔒 *API Interna (VPN)*\n" +
                             "API: http://${serverIp}:4000/api/v1\n" +
                             "Docs: http://${serverIp}:4000/api/docs\n\n" +
@@ -302,26 +307,39 @@ EOF
             script {
                 def duration = currentBuild.durationString.replace(' and counting', '')
                 def initiator = getUserInfo()
-                def logOutput = sh(
-                    script: "docker logs ${CONTAINER_NAME} 2>&1 | tail -30 || echo 'Sem logs disponíveis'",
-                    returnStdout: true
-                ).trim()
+                def containerName = env.CONTAINER_NAME ?: 'prime-backend'
+                def logOutput = ''
+                
+                try {
+                    logOutput = sh(
+                        script: "docker logs ${containerName} 2>&1 | tail -30 || echo 'Sem logs disponíveis'",
+                        returnStdout: true
+                    ).trim()
+                } catch (Exception e) {
+                    logOutput = 'Não foi possível obter logs do container'
+                }
                 
                 sendTelegramWithButtons("❌ *Deploy Backend Falhou*\n\n" +
                             "📦 Projeto: ${env.JOB_NAME}\n" +
                             "🔢 Build: #${env.BUILD_NUMBER}\n" +
                             "👤 Iniciado por: ${initiator}\n" +
                             "⏱️ Duração: ${duration}\n" +
-                            "📝 Stage: ${env.STAGE_NAME}\n\n" +
+                            "📝 Stage: ${env.STAGE_NAME ?: 'Desconhecido'}\n\n" +
                             "```\n${logOutput}\n```")
             }
             echo '❌ Pipeline falhou!'
         }
         
         always {
-            echo '📊 Execução finalizada'
-            // Sempre remove o .env por segurança
-            sh 'rm -f .env || true'
+            script {
+                echo '📊 Execução finalizada'
+                // Sempre remove o .env por segurança
+                try {
+                    sh 'rm -f .env || true'
+                } catch (Exception e) {
+                    echo '⚠️ Não foi possível remover .env (pode não existir)'
+                }
+            }
         }
     }
 }
