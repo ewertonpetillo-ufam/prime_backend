@@ -170,4 +170,34 @@ export class BinaryCollectionsService {
     const collection = await this.findOne(id);
     await this.binaryCollectionsRepository.remove(collection);
   }
+
+  /**
+   * Get binary collection CSV data for download
+   * @param id - Binary collection UUID
+   * @returns Buffer containing the CSV file data
+   */
+  async downloadCsv(id: string): Promise<{ buffer: Buffer; filename: string }> {
+    const collection = await this.binaryCollectionsRepository.findOne({
+      where: { id },
+      select: ['id', 'csv_data', 'metadata'],
+    });
+
+    if (!collection) {
+      throw new NotFoundException(`Binary collection with ID ${id} not found`);
+    }
+
+    if (!collection.csv_data) {
+      throw new NotFoundException(`CSV data not found for binary collection ${id}`);
+    }
+
+    // Get filename from metadata or generate a default one
+    const filename =
+      collection.metadata?.file_name ||
+      `binary-collection-${id}.csv`;
+
+    return {
+      buffer: collection.csv_data,
+      filename,
+    };
+  }
 }

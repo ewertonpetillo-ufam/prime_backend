@@ -11,6 +11,8 @@ import {
   UploadedFile,
   Body,
   BadRequestException,
+  StreamableFile,
+  Header,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -159,6 +161,37 @@ export class BinaryCollectionsController {
   })
   findByCpf(@Param('cpf') cpf: string) {
     return this.binaryCollectionsService.findByCpf(cpf);
+  }
+
+  @Get(':id/download')
+  @Header('Content-Type', 'text/csv')
+  @ApiOperation({
+    summary: 'Download binary collection CSV file',
+    description: 'Downloads the CSV file associated with the binary collection',
+  })
+  @ApiParam({ name: 'id', description: 'Binary collection UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'CSV file downloaded successfully',
+    content: {
+      'text/csv': {
+        schema: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Binary collection not found or CSV data not available',
+  })
+  async downloadCsv(@Param('id', ParseUUIDPipe) id: string) {
+    const { buffer, filename } = await this.binaryCollectionsService.downloadCsv(id);
+    return new StreamableFile(buffer, {
+      type: 'text/csv',
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 
   @Get(':id')
