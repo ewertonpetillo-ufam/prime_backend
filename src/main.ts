@@ -101,6 +101,43 @@ async function bootstrap() {
     .addTag('Search', 'Search and summary endpoints')
     .build();
 
+  // Protect Swagger with HTTP Basic Auth
+  const swaggerUsername = configService.get<string>('SWAGGER_USERNAME');
+  const swaggerPassword = configService.get<string>('SWAGGER_PASSWORD');
+
+  if (swaggerUsername && swaggerPassword) {
+    app.use('/api/docs*', (req, res, next) => {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader || !authHeader.startsWith('Basic ')) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger Documentation"');
+        return res.status(401).json({
+          statusCode: 401,
+          message: 'Authentication required',
+          error: 'Unauthorized',
+        });
+      }
+
+      // Decode Basic Auth credentials
+      const base64Credentials = authHeader.split(' ')[1];
+      const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+      const [username, password] = credentials.split(':');
+
+      // Validate credentials
+      if (username === swaggerUsername && password === swaggerPassword) {
+        return next();
+      }
+
+      // Invalid credentials
+      res.setHeader('WWW-Authenticate', 'Basic realm="Swagger Documentation"');
+      return res.status(401).json({
+        statusCode: 401,
+        message: 'Invalid credentials',
+        error: 'Unauthorized',
+      });
+    });
+  }
+
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
@@ -113,7 +150,11 @@ async function bootstrap() {
   await app.listen(port);
 
   console.log(`🚀 PRIME API is running on: http://0.0.0.0:${port}/${apiPrefix}`);
-  console.log(`📚 Swagger docs available at: http://0.0.0.0:${port}/api/docs`);
+  if (swaggerUsername && swaggerPassword) {
+    console.log(`📚 Swagger docs: http://0.0.0.0:${port}/api/docs (protegido com Basic Auth)`);
+  } else {
+    console.log(`📚 Swagger docs: http://0.0.0.0:${port}/api/docs (sem autenticação - configure SWAGGER_USERNAME e SWAGGER_PASSWORD)`);
+  }
   console.log(`🔒 CORS configurado para: ${allowedOrigins.join(', ') || 'nenhuma origem específica'}`);
   console.log(`📱 Apps nativos: permitidos (sem Origin)`);
 }

@@ -25,14 +25,17 @@ services:
       - "traefik.enable=true"
 
       # Router HTTPS - Apenas Swagger exposto publicamente
+      # Prioridade alta para garantir que seja processado antes do WordPress
+      # Sem Authelia (já tem Basic Auth próprio)
       - "traefik.http.routers.backend-swagger-secure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/docs`)"
       - "traefik.http.routers.backend-swagger-secure.entrypoints=websecure"
       - "traefik.http.routers.backend-swagger-secure.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.backend-swagger-secure.middlewares=authelia@docker"
+      - "traefik.http.routers.backend-swagger-secure.priority=10"
 
       # Router HTTP - Apenas Swagger
       - "traefik.http.routers.backend-swagger-insecure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/docs`)"
       - "traefik.http.routers.backend-swagger-insecure.entrypoints=web"
+      - "traefik.http.routers.backend-swagger-insecure.priority=10"
 
       # Serviço - aponta para a porta do container
       - "traefik.http.services.backend-swagger.loadbalancer.server.port=4000"
