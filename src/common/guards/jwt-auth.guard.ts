@@ -12,6 +12,22 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const url = request.url;
+
+    // Allow Swagger UI and related assets without authentication
+    if (
+      url.startsWith('/api/docs') ||
+      url.startsWith('/api/docs/') ||
+      url.startsWith('/api/docs-json') ||
+      url.startsWith('/api/docs-yaml') ||
+      url.includes('swagger-ui') ||
+      url.includes('swagger.json') ||
+      url.includes('favicon.ico')
+    ) {
+      return true;
+    }
+
     // Check if route is marked as public
     const isPublic = this.reflector.getAllAndOverride<boolean>('isPublic', [
       context.getHandler(),

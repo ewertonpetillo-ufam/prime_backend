@@ -26,17 +26,23 @@ async function bootstrap() {
     origin: (origin, callback) => {
       // Caso 1: Requisição sem Origin (apps nativos, Postman, cURL, ferramentas)
       if (!origin) {
-        console.log('✅ Requisição sem Origin (app nativo/tool) - PERMITIDO');
+        // Log apenas em desenvolvimento para reduzir ruído
+        if (configService.get<string>('NODE_ENV') === 'development') {
+          console.log('✅ Requisição sem Origin (app nativo/tool) - PERMITIDO');
+        }
         return callback(null, true);
       }
 
       // Caso 2: Origin está na lista permitida
       if (allowedOrigins.includes(origin)) {
-        console.log(`✅ Origin permitido: ${origin}`);
+        // Log apenas em desenvolvimento
+        if (configService.get<string>('NODE_ENV') === 'development') {
+          console.log(`✅ Origin permitido: ${origin}`);
+        }
         return callback(null, true);
       }
 
-      // Caso 3: Origin não autorizado
+      // Caso 3: Origin não autorizado - sempre logar para segurança
       console.log(`❌ Origin bloqueado: ${origin}`);
       return callback(new Error('Not allowed by CORS'));
     },

@@ -42,11 +42,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     }
 
-    // Log error details
-    this.logger.error(
-      `${request.method} ${request.url} - Status: ${status} - ${message}`,
-      exception instanceof Error ? exception.stack : undefined,
-    );
+    // Ignore common non-critical errors to reduce log noise
+    const shouldLog = !this.shouldIgnoreError(request.url, status, message);
+
+    if (shouldLog) {
+      this.logger.error(
+        `${request.method} ${request.url} - Status: ${status} - ${message}`,
+        exception instanceof Error ? exception.stack : undefined,
+      );
+    }
 
     // Send response
     const errorResponse = {
@@ -101,5 +105,35 @@ export class AllExceptionsFilter implements ExceptionFilter {
       default:
         return error.message || 'Database operation failed';
     }
+  }
+
+  private shouldIgnoreError(url: string, status: number, message: string): boolean {
+    // Ignore healthcheck requests (HEAD /api/v1)
+    if (url === '/api/v1' && status === 401) {
+      return true;
+    }
+
+    // Ignore common 404s
+    if (status === 404) {
+      const ignoredPaths = [
+        '/favicon.ico',
+        '/robots.txt',
+        '/login/css/',
+        '/login/js/',
+        '/login/images/',
+        '.css',
+        '.js',
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.gif',
+        '.ico',
+        '.svg',
+      ];
+
+      return ignoredPaths.some((path) => url.includes(path));
+    }
+
+    return false;
   }
 }
