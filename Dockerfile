@@ -26,8 +26,18 @@ RUN apk add --no-cache wget
 # Copy package files
 COPY package*.json ./
 
+# Copy patches directory (needed for postinstall)
+COPY patches ./patches
+
+# Install patch-package globally so postinstall script can run
+RUN npm install -g patch-package
+
 # Install only production dependencies
+# postinstall will automatically run patch-package
 RUN npm ci --only=production --legacy-peer-deps
+
+# Remove patch-package to reduce image size (patches already applied)
+RUN npm uninstall -g patch-package || true
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
