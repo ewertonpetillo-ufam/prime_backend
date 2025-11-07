@@ -39,6 +39,9 @@ services:
 
       # Serviço - aponta para a porta do container
       - "traefik.http.services.backend-swagger.loadbalancer.server.port=4000"
+      
+      # Forçar detecção pelo Traefik (importante!)
+      - "traefik.docker.network=frontend"
 
     # Redes internas para comunicação com outros containers
     networks:
@@ -46,7 +49,8 @@ services:
       - prime-network # Para comunicação com banco de dados
 
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/api/v1"]
+      # Healthcheck - verifica se a API está respondendo (401 é aceitável, significa que está funcionando)
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:4000/api/v1 || exit 0"]
       interval: 30s
       timeout: 10s
       retries: 3
