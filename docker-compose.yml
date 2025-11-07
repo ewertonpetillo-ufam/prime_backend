@@ -24,21 +24,49 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # Router HTTPS - Apenas Swagger exposto publicamente
+      # Router HTTPS - Swagger exposto publicamente
       # Prioridade alta para garantir que seja processado antes do WordPress
       # Sem Authelia (já tem Basic Auth próprio)
       - "traefik.http.routers.backend-swagger-secure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/docs`)"
       - "traefik.http.routers.backend-swagger-secure.entrypoints=websecure"
       - "traefik.http.routers.backend-swagger-secure.tls.certresolver=letsencrypt"
       - "traefik.http.routers.backend-swagger-secure.priority=10"
+      - "traefik.http.routers.backend-swagger-secure.service=backend-api"
 
-      # Router HTTP - Apenas Swagger
+      # Router HTTP - Swagger
       - "traefik.http.routers.backend-swagger-insecure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/docs`)"
       - "traefik.http.routers.backend-swagger-insecure.entrypoints=web"
       - "traefik.http.routers.backend-swagger-insecure.priority=10"
+      - "traefik.http.routers.backend-swagger-insecure.service=backend-api"
+
+      # Router HTTPS - Endpoints da API (/api/v1/*)
+      - "traefik.http.routers.backend-api-secure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/v1`)"
+      - "traefik.http.routers.backend-api-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-api-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend-api-secure.priority=10"
+      - "traefik.http.routers.backend-api-secure.service=backend-api"
+
+      # Router HTTP - Endpoints da API (/api/v1/*)
+      - "traefik.http.routers.backend-api-insecure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api/v1`)"
+      - "traefik.http.routers.backend-api-insecure.entrypoints=web"
+      - "traefik.http.routers.backend-api-insecure.priority=10"
+      - "traefik.http.routers.backend-api-insecure.service=backend-api"
+
+      # Router HTTPS - API geral (/api/*) para recursos do Swagger
+      - "traefik.http.routers.backend-api-general-secure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-api-general-secure.entrypoints=websecure"
+      - "traefik.http.routers.backend-api-general-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend-api-general-secure.priority=5"
+      - "traefik.http.routers.backend-api-general-secure.service=backend-api"
+
+      # Router HTTP - API geral (/api/*) para recursos do Swagger
+      - "traefik.http.routers.backend-api-general-insecure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-api-general-insecure.entrypoints=web"
+      - "traefik.http.routers.backend-api-general-insecure.priority=5"
+      - "traefik.http.routers.backend-api-general-insecure.service=backend-api"
 
       # Serviço - aponta para a porta do container
-      - "traefik.http.services.backend-swagger.loadbalancer.server.port=4000"
+      - "traefik.http.services.backend-api.loadbalancer.server.port=4000"
       
       # Forçar detecção pelo Traefik (importante!)
       - "traefik.docker.network=frontend"
