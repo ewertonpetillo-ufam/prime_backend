@@ -13,6 +13,7 @@ exports.ActiveTaskDefinition = exports.TaskCategory = void 0;
 const typeorm_1 = require("typeorm");
 const swagger_1 = require("@nestjs/swagger");
 const patient_task_collection_entity_1 = require("./patient-task-collection.entity");
+const task_checklist_item_entity_1 = require("./task-checklist-item.entity");
 var TaskCategory;
 (function (TaskCategory) {
     TaskCategory["MOTOR"] = "MOTOR";
@@ -76,6 +77,10 @@ __decorate([
     (0, typeorm_1.OneToMany)(() => patient_task_collection_entity_1.PatientTaskCollection, (task) => task.active_task),
     __metadata("design:type", Array)
 ], ActiveTaskDefinition.prototype, "patient_tasks", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => task_checklist_item_entity_1.TaskChecklistItem, (item) => item.task, { cascade: true }),
+    __metadata("design:type", Array)
+], ActiveTaskDefinition.prototype, "checklist_items", void 0);
 exports.ActiveTaskDefinition = ActiveTaskDefinition = __decorate([
     (0, typeorm_1.Entity)('active_task_definitions')
 ], ActiveTaskDefinition);

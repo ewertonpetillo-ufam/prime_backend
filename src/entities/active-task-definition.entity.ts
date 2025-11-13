@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PatientTaskCollection } from './patient-task-collection.entity';
+import { TaskChecklistItem } from './task-checklist-item.entity';
 
 export enum TaskCategory {
   MOTOR = 'MOTOR',
@@ -53,4 +54,7 @@ export class ActiveTaskDefinition {
 
   @OneToMany(() => PatientTaskCollection, (task) => task.active_task)
   patient_tasks: PatientTaskCollection[];
+
+  @OneToMany(() => TaskChecklistItem, (item) => item.task, { cascade: true })
+  checklist_items: TaskChecklistItem[];
 }

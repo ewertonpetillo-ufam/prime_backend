@@ -9,10 +9,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Questionnaire = exports.QuestionnaireStatus = void 0;
+exports.Questionnaire = void 0;
 const typeorm_1 = require("typeorm");
 const patient_entity_1 = require("./patient.entity");
-const evaluator_entity_1 = require("./evaluator.entity");
+const user_entity_1 = require("./user.entity");
 const anthropometric_data_entity_1 = require("./anthropometric-data.entity");
 const clinical_assessment_entity_1 = require("./clinical-assessment.entity");
 const patient_medication_entity_1 = require("./patient-medication.entity");
@@ -30,13 +30,6 @@ const patient_task_collection_entity_1 = require("./patient-task-collection.enti
 const pdf_report_entity_1 = require("./pdf-report.entity");
 const clinical_impression_entity_1 = require("./clinical-impression.entity");
 const binary_collection_entity_1 = require("./binary-collection.entity");
-var QuestionnaireStatus;
-(function (QuestionnaireStatus) {
-    QuestionnaireStatus["DRAFT"] = "DRAFT";
-    QuestionnaireStatus["IN_PROGRESS"] = "IN_PROGRESS";
-    QuestionnaireStatus["COMPLETED"] = "COMPLETED";
-    QuestionnaireStatus["ARCHIVED"] = "ARCHIVED";
-})(QuestionnaireStatus || (exports.QuestionnaireStatus = QuestionnaireStatus = {}));
 let Questionnaire = class Questionnaire {
 };
 exports.Questionnaire = Questionnaire;
@@ -58,22 +51,26 @@ __decorate([
 ], Questionnaire.prototype, "collection_date", void 0);
 __decorate([
     (0, typeorm_1.Column)({
-        type: 'enum',
-        enum: QuestionnaireStatus,
-        default: QuestionnaireStatus.DRAFT,
+        type: 'varchar',
+        length: 20,
+        default: 'draft',
     }),
     __metadata("design:type", String)
 ], Questionnaire.prototype, "status", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 10, nullable: true, default: '1.0' }),
     __metadata("design:type", String)
-], Questionnaire.prototype, "notes", void 0);
+], Questionnaire.prototype, "assessment_version", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: 'timestamptz' }),
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Date)
+], Questionnaire.prototype, "completed_at", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
     __metadata("design:type", Date)
 ], Questionnaire.prototype, "created_at", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamptz' }),
+    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
     __metadata("design:type", Date)
 ], Questionnaire.prototype, "updated_at", void 0);
 __decorate([
@@ -84,11 +81,11 @@ __decorate([
     __metadata("design:type", patient_entity_1.Patient)
 ], Questionnaire.prototype, "patient", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => evaluator_entity_1.Evaluator, (evaluator) => evaluator.questionnaires, {
+    (0, typeorm_1.ManyToOne)(() => user_entity_1.User, (user) => user.questionnaires, {
         onDelete: 'SET NULL',
     }),
     (0, typeorm_1.JoinColumn)({ name: 'evaluator_id' }),
-    __metadata("design:type", evaluator_entity_1.Evaluator)
+    __metadata("design:type", user_entity_1.User)
 ], Questionnaire.prototype, "evaluator", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => anthropometric_data_entity_1.AnthropometricData, (anthropometric) => anthropometric.questionnaire, { cascade: true }),

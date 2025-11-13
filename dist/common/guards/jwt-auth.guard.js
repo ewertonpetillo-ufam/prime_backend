@@ -19,6 +19,17 @@ let JwtAuthGuard = class JwtAuthGuard extends (0, passport_1.AuthGuard)('jwt') {
         this.reflector = reflector;
     }
     canActivate(context) {
+        const request = context.switchToHttp().getRequest();
+        const url = request.url;
+        if (url.startsWith('/api/docs') ||
+            url.startsWith('/api/docs/') ||
+            url.startsWith('/api/docs-json') ||
+            url.startsWith('/api/docs-yaml') ||
+            url.includes('swagger-ui') ||
+            url.includes('swagger.json') ||
+            url.includes('favicon.ico')) {
+            return true;
+        }
         const isPublic = this.reflector.getAllAndOverride('isPublic', [
             context.getHandler(),
             context.getClass(),

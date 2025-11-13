@@ -84,6 +84,9 @@ export class BinaryCollection {
   @Column({ type: 'text', nullable: true })
   processing_error: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  created_by: string;
+
   // Relations
   @ManyToOne(() => Questionnaire, (questionnaire) => questionnaire.binary_collections, {
     onDelete: 'SET NULL',

@@ -4,4 +4,5 @@ export declare class AllExceptionsFilter implements ExceptionFilter {
     catch(exception: unknown, host: ArgumentsHost): void;
     private mapDatabaseError;
     private getDatabaseErrorMessage;
+    private shouldIgnoreError;
 }

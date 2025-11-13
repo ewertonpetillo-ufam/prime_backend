@@ -36,6 +36,13 @@ let BinaryCollectionsController = class BinaryCollectionsController {
     findByCpf(cpf) {
         return this.binaryCollectionsService.findByCpf(cpf);
     }
+    async downloadCsv(id) {
+        const { buffer, filename } = await this.binaryCollectionsService.downloadCsv(id);
+        return new common_1.StreamableFile(buffer, {
+            type: 'text/csv',
+            disposition: `attachment; filename="${filename}"`,
+        });
+    }
     findOne(id) {
         return this.binaryCollectionsService.findOne(id);
     }
@@ -165,6 +172,35 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], BinaryCollectionsController.prototype, "findByCpf", null);
+__decorate([
+    (0, common_1.Get)(':id/download'),
+    (0, common_1.Header)('Content-Type', 'text/csv'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Download binary collection CSV file',
+        description: 'Downloads the CSV file associated with the binary collection',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Binary collection UUID' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'CSV file downloaded successfully',
+        content: {
+            'text/csv': {
+                schema: {
+                    type: 'string',
+                    format: 'binary',
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 404,
+        description: 'Binary collection not found or CSV data not available',
+    }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], BinaryCollectionsController.prototype, "downloadCsv", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({

@@ -24,9 +24,21 @@ __decorate([
     __metadata("design:type", String)
 ], ClinicalAssessment.prototype, "questionnaire_id", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'text' }),
+    __metadata("design:type", String)
+], ClinicalAssessment.prototype, "diagnostic_description", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Number)
-], ClinicalAssessment.prototype, "diagnosis_year", void 0);
+], ClinicalAssessment.prototype, "age_at_onset", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 255, nullable: true }),
+    __metadata("design:type", String)
+], ClinicalAssessment.prototype, "initial_symptom", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
+    __metadata("design:type", String)
+], ClinicalAssessment.prototype, "affected_side", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Number)
@@ -36,33 +48,69 @@ __decorate([
     __metadata("design:type", Number)
 ], ClinicalAssessment.prototype, "hoehn_yahr_stage_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'boolean', nullable: true }),
-    __metadata("design:type", Boolean)
-], ClinicalAssessment.prototype, "motor_fluctuations", void 0);
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], ClinicalAssessment.prototype, "schwab_england_score", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'boolean', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
-], ClinicalAssessment.prototype, "wearing_off", void 0);
+], ClinicalAssessment.prototype, "has_family_history", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'boolean', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
+    __metadata("design:type", String)
+], ClinicalAssessment.prototype, "family_kinship_degree", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
-], ClinicalAssessment.prototype, "dyskinesia", void 0);
+], ClinicalAssessment.prototype, "has_dyskinesia", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], ClinicalAssessment.prototype, "dyskinesia_interfered", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Number)
 ], ClinicalAssessment.prototype, "dyskinesia_type_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'boolean', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
     __metadata("design:type", Boolean)
-], ClinicalAssessment.prototype, "previous_surgery", void 0);
+], ClinicalAssessment.prototype, "has_freezing_of_gait", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], ClinicalAssessment.prototype, "has_wearing_off", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 4, scale: 2, nullable: true }),
+    __metadata("design:type", Number)
+], ClinicalAssessment.prototype, "average_on_time_hours", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], ClinicalAssessment.prototype, "has_delayed_on", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 4, scale: 2, nullable: true }),
+    __metadata("design:type", Number)
+], ClinicalAssessment.prototype, "ldopa_onset_time_hours", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], ClinicalAssessment.prototype, "assessed_on_levodopa", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], ClinicalAssessment.prototype, "has_surgery_history", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], ClinicalAssessment.prototype, "surgery_year", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Number)
 ], ClinicalAssessment.prototype, "surgery_type_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
-    __metadata("design:type", Number)
-], ClinicalAssessment.prototype, "surgery_year", void 0);
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, nullable: true }),
+    __metadata("design:type", String)
+], ClinicalAssessment.prototype, "surgery_target", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
@@ -70,13 +118,21 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),
     __metadata("design:type", String)
-], ClinicalAssessment.prototype, "notes", void 0);
+], ClinicalAssessment.prototype, "other_medications", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: 'timestamptz' }),
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ClinicalAssessment.prototype, "disease_evolution", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ClinicalAssessment.prototype, "current_symptoms", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
     __metadata("design:type", Date)
 ], ClinicalAssessment.prototype, "created_at", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamptz' }),
+    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
     __metadata("design:type", Date)
 ], ClinicalAssessment.prototype, "updated_at", void 0);
 __decorate([

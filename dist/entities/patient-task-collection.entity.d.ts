@@ -3,9 +3,12 @@ import { ActiveTaskDefinition } from './active-task-definition.entity';
 export declare class PatientTaskCollection {
     id: string;
     questionnaire_id: string;
-    active_task_id: number;
-    completed_at: Date;
-    progress_percent: number;
+    task_id: number;
+    completion_percentage: number;
+    completed_items: number[];
+    collected_at: Date;
+    collector_notes: string;
+    created_at: Date;
     questionnaire: Questionnaire;
     active_task: ActiveTaskDefinition;
 }

@@ -26,21 +26,30 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ type: 'int' }),
     __metadata("design:type", Number)
-], PatientMedication.prototype, "medication_reference_id", void 0);
+], PatientMedication.prototype, "medication_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'numeric', precision: 8, scale: 2 }),
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 8, scale: 2 }),
     __metadata("design:type", Number)
-], PatientMedication.prototype, "daily_dose_mg", void 0);
+], PatientMedication.prototype, "dose_mg", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'int' }),
     __metadata("design:type", Number)
-], PatientMedication.prototype, "frequency_per_day", void 0);
+], PatientMedication.prototype, "doses_per_day", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 6, scale: 3 }),
+    __metadata("design:type", Number)
+], PatientMedication.prototype, "led_conversion_factor", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
+    __metadata("design:type", Date)
+], PatientMedication.prototype, "created_at", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.medications, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),
     __metadata("design:type", questionnaire_entity_1.Questionnaire)
 ], PatientMedication.prototype, "questionnaire", void 0);
 exports.PatientMedication = PatientMedication = __decorate([
-    (0, typeorm_1.Entity)('patient_medications')
+    (0, typeorm_1.Entity)('patient_medications'),
+    (0, typeorm_1.Index)(['questionnaire_id', 'medication_id'], { unique: true })
 ], PatientMedication);
 //# sourceMappingURL=patient-medication.entity.js.map
