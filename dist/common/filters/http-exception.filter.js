@@ -39,7 +39,10 @@ let AllExceptionsFilter = AllExceptionsFilter_1 = class AllExceptionsFilter {
                 message = this.getDatabaseErrorMessage(exception);
             }
         }
-        this.logger.error(`${request.method} ${request.url} - Status: ${status} - ${message}`, exception instanceof Error ? exception.stack : undefined);
+        const shouldLog = !this.shouldIgnoreError(request.url, status, message);
+        if (shouldLog) {
+            this.logger.error(`${request.method} ${request.url} - Status: ${status} - ${message}`, exception instanceof Error ? exception.stack : undefined);
+        }
         const errorResponse = {
             statusCode: status,
             timestamp: new Date().toISOString(),
@@ -87,6 +90,30 @@ let AllExceptionsFilter = AllExceptionsFilter_1 = class AllExceptionsFilter {
             default:
                 return error.message || 'Database operation failed';
         }
+    }
+    shouldIgnoreError(url, status, message) {
+        if (url === '/api/v1' && status === 401) {
+            return true;
+        }
+        if (status === 404) {
+            const ignoredPaths = [
+                '/favicon.ico',
+                '/robots.txt',
+                '/login/css/',
+                '/login/js/',
+                '/login/images/',
+                '.css',
+                '.js',
+                '.png',
+                '.jpg',
+                '.jpeg',
+                '.gif',
+                '.ico',
+                '.svg',
+            ];
+            return ignoredPaths.some((path) => url.includes(path));
+        }
+        return false;
     }
 };
 exports.AllExceptionsFilter = AllExceptionsFilter;

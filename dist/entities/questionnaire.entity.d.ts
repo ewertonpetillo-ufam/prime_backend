@@ -1,5 +1,5 @@
 import { Patient } from './patient.entity';
-import { Evaluator } from './evaluator.entity';
+import { User } from './user.entity';
 import { AnthropometricData } from './anthropometric-data.entity';
 import { ClinicalAssessment } from './clinical-assessment.entity';
 import { PatientMedication } from './patient-medication.entity';
@@ -17,23 +17,18 @@ import { PatientTaskCollection } from './patient-task-collection.entity';
 import { PdfReport } from './pdf-report.entity';
 import { ClinicalImpression } from './clinical-impression.entity';
 import { BinaryCollection } from './binary-collection.entity';
-export declare enum QuestionnaireStatus {
-    DRAFT = "DRAFT",
-    IN_PROGRESS = "IN_PROGRESS",
-    COMPLETED = "COMPLETED",
-    ARCHIVED = "ARCHIVED"
-}
 export declare class Questionnaire {
     id: string;
     patient_id: string;
     evaluator_id: string;
     collection_date: Date;
-    status: QuestionnaireStatus;
-    notes: string;
+    status: string;
+    assessment_version: string;
+    completed_at: Date;
     created_at: Date;
     updated_at: Date;
     patient: Patient;
-    evaluator: Evaluator;
+    evaluator: User;
     anthropometric_data: AnthropometricData;
     clinical_assessment: ClinicalAssessment;
     medications: PatientMedication[];

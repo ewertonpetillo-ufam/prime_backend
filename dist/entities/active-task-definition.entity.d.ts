@@ -1,4 +1,5 @@
 import { PatientTaskCollection } from './patient-task-collection.entity';
+import { TaskChecklistItem } from './task-checklist-item.entity';
 export declare enum TaskCategory {
     MOTOR = "MOTOR",
     SPEECH = "SPEECH",
@@ -16,4 +17,5 @@ export declare class ActiveTaskDefinition {
     instructions: string;
     active: boolean;
     patient_tasks: PatientTaskCollection[];
+    checklist_items: TaskChecklistItem[];
 }

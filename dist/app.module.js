@@ -19,6 +19,7 @@ const evaluators_module_1 = require("./modules/evaluators/evaluators.module");
 const patients_module_1 = require("./modules/patients/patients.module");
 const binary_collections_module_1 = require("./modules/binary-collections/binary-collections.module");
 const tasks_module_1 = require("./modules/tasks/tasks.module");
+const users_module_1 = require("./modules/users/users.module");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 const http_exception_filter_1 = require("./common/filters/http-exception.filter");
 let AppModule = class AppModule {
@@ -41,6 +42,7 @@ exports.AppModule = AppModule = __decorate([
             patients_module_1.PatientsModule,
             binary_collections_module_1.BinaryCollectionsModule,
             tasks_module_1.TasksModule,
+            users_module_1.UsersModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [

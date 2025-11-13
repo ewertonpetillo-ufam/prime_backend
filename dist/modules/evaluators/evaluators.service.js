@@ -30,17 +30,22 @@ let EvaluatorsService = class EvaluatorsService {
                 throw new common_1.ConflictException('Email already registered');
             }
         }
-        const evaluator = this.evaluatorsRepository.create(createEvaluatorDto);
+        const evaluator = this.evaluatorsRepository.create({
+            ...createEvaluatorDto,
+            role: 'evaluator',
+            active: true,
+        });
         return this.evaluatorsRepository.save(evaluator);
     }
     async findAll() {
         return this.evaluatorsRepository.find({
+            where: { role: 'evaluator' },
             order: { full_name: 'ASC' },
         });
     }
     async findOne(id) {
         const evaluator = await this.evaluatorsRepository.findOne({
-            where: { id },
+            where: { id, role: 'evaluator' },
         });
         if (!evaluator) {
             throw new common_1.NotFoundException(`Evaluator with ID ${id} not found`);

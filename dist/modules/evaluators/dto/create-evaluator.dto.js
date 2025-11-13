@@ -74,4 +74,16 @@ __decorate([
     (0, class_validator_1.MaxLength)(20),
     __metadata("design:type", String)
 ], CreateEvaluatorDto.prototype, "phone", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Password hash (will be generated if not provided)',
+        example: 'hashed_password_here',
+        required: false,
+        maxLength: 255,
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.MaxLength)(255),
+    __metadata("design:type", String)
+], CreateEvaluatorDto.prototype, "password_hash", void 0);
 //# sourceMappingURL=create-evaluator.dto.js.map

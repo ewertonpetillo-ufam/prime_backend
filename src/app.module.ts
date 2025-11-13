@@ -10,6 +10,7 @@ import { EvaluatorsModule } from './modules/evaluators/evaluators.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { BinaryCollectionsModule } from './modules/binary-collections/binary-collections.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { UsersModule } from './modules/users/users.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
@@ -34,6 +35,7 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
     PatientsModule,
     BinaryCollectionsModule,
     TasksModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [

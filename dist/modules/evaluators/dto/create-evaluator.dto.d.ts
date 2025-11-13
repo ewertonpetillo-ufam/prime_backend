@@ -4,4 +4,5 @@ export declare class CreateEvaluatorDto {
     specialty?: string;
     email?: string;
     phone?: string;
+    password_hash?: string;
 }

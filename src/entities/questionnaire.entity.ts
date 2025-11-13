@@ -10,7 +10,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Patient } from './patient.entity';
-import { Evaluator } from './evaluator.entity';
+import { User } from './user.entity';
 import { AnthropometricData } from './anthropometric-data.entity';
 import { ClinicalAssessment } from './clinical-assessment.entity';
 import { PatientMedication } from './patient-medication.entity';
@@ -29,12 +29,7 @@ import { PdfReport } from './pdf-report.entity';
 import { ClinicalImpression } from './clinical-impression.entity';
 import { BinaryCollection } from './binary-collection.entity';
 
-export enum QuestionnaireStatus {
-  DRAFT = 'DRAFT',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  ARCHIVED = 'ARCHIVED',
-}
+// Status values: 'draft', 'in_progress', 'completed', 'archived'
 
 @Entity('questionnaires')
 export class Questionnaire {
@@ -51,19 +46,22 @@ export class Questionnaire {
   collection_date: Date;
 
   @Column({
-    type: 'enum',
-    enum: QuestionnaireStatus,
-    default: QuestionnaireStatus.DRAFT,
+    type: 'varchar',
+    length: 20,
+    default: 'draft',
   })
-  status: QuestionnaireStatus;
+  status: string; // 'draft', 'in_progress', 'completed', 'archived'
 
-  @Column({ type: 'text', nullable: true })
-  notes: string;
+  @Column({ type: 'varchar', length: 10, nullable: true, default: '1.0' })
+  assessment_version: string;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @Column({ type: 'timestamp', nullable: true })
+  completed_at: Date;
+
+  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updated_at: Date;
 
   // Relations
@@ -73,11 +71,11 @@ export class Questionnaire {
   @JoinColumn({ name: 'patient_id' })
   patient: Patient;
 
-  @ManyToOne(() => Evaluator, (evaluator) => evaluator.questionnaires, {
+  @ManyToOne(() => User, (user) => user.questionnaires, {
     onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'evaluator_id' })
-  evaluator: Evaluator;
+  evaluator: User;
 
   @OneToOne(
     () => AnthropometricData,

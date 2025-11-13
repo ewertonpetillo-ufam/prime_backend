@@ -12,4 +12,8 @@ export declare class BinaryCollectionsService {
     findOne(id: string): Promise<BinaryCollection>;
     findByCpf(patient_cpf: string): Promise<Omit<BinaryCollection, 'csv_data'>[]>;
     remove(id: string): Promise<void>;
+    downloadCsv(id: string): Promise<{
+        buffer: Buffer;
+        filename: string;
+    }>;
 }

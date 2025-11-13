@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { CryptoUtil } from './utils/crypto.util';
 
@@ -10,6 +11,14 @@ async function bootstrap() {
 
   // Get ConfigService instance
   const configService = app.get(ConfigService);
+  const nodeEnv = configService.get<string>('NODE_ENV') || 'development';
+  const isProduction = nodeEnv === 'production';
+
+  // Security headers with Helmet
+  app.use(helmet({
+    contentSecurityPolicy: isProduction,
+    crossOriginEmbedderPolicy: isProduction,
+  }));
 
   // Initialize CryptoUtil with ConfigService
   CryptoUtil.setConfigService(configService);
@@ -18,37 +27,53 @@ async function bootstrap() {
   const apiPrefix = configService.get<string>('API_PREFIX') || 'api/v1';
   app.setGlobalPrefix(apiPrefix);
 
-  // CORS configuration - Aceita apps nativos (sem Origin) e múltiplas origens
+  // CORS configuration - Restritivo em produção, permissivo em desenvolvimento
   const corsOriginEnv = configService.get<string>('CORS_ORIGIN') || 'http://localhost:3000';
   const allowedOrigins = corsOriginEnv.split(',').map(origin => origin.trim()).filter(Boolean);
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Caso 1: Requisição sem Origin (apps nativos, Postman, cURL, ferramentas)
+      // Em produção: NUNCA aceitar requisições sem Origin (mais seguro)
       if (!origin) {
-        // Log apenas em desenvolvimento para reduzir ruído
-        if (configService.get<string>('NODE_ENV') === 'development') {
-          console.log('✅ Requisição sem Origin (app nativo/tool) - PERMITIDO');
+        if (isProduction) {
+          // Em produção, bloquear requisições sem Origin
+          return callback(new Error('CORS: Origin header is required in production'));
+        }
+        // Em desenvolvimento, permitir para facilitar testes
+        if (nodeEnv === 'development') {
+          console.log('✅ Requisição sem Origin (app nativo/tool) - PERMITIDO [DEV ONLY]');
         }
         return callback(null, true);
       }
 
-      // Caso 2: Origin está na lista permitida
+      // Verificar se Origin está na lista permitida
       if (allowedOrigins.includes(origin)) {
-        // Log apenas em desenvolvimento
-        if (configService.get<string>('NODE_ENV') === 'development') {
+        if (nodeEnv === 'development') {
           console.log(`✅ Origin permitido: ${origin}`);
         }
         return callback(null, true);
       }
 
-      // Caso 3: Origin não autorizado - sempre logar para segurança
-      console.log(`❌ Origin bloqueado: ${origin}`);
+      // Em desenvolvimento: permitir qualquer localhost (para facilitar testes)
+      if (!isProduction && origin && origin.startsWith('http://localhost:')) {
+        if (nodeEnv === 'development') {
+          console.log(`✅ Origin localhost permitido em dev: ${origin}`);
+        }
+        return callback(null, true);
+      }
+
+      // Origin não autorizado - sempre logar
+      if (isProduction) {
+        console.warn(`⚠️  CORS bloqueado em produção: ${origin}`);
+      } else {
+        console.log(`❌ Origin bloqueado: ${origin}`);
+      }
       return callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Client-ID'],
+    maxAge: isProduction ? 86400 : 0, // Cache preflight por 24h em produção
   });
 
   // Global validation pipe
@@ -89,6 +114,7 @@ async function bootstrap() {
       'Basic-auth',
     )
     .addTag('Authentication', 'JWT authentication endpoints')
+    .addTag('Users', 'User management endpoints')
     .addTag('Evaluators', 'Healthcare professionals management')
     .addTag('Patients', 'Patient management with CPF anonymization')
     .addTag('Questionnaires', 'Clinical assessment sessions')
@@ -101,62 +127,89 @@ async function bootstrap() {
     .addTag('Search', 'Search and summary endpoints')
     .build();
 
-  // Protect Swagger with HTTP Basic Auth
+  // Swagger configuration - Desabilitado em produção por padrão (segurança)
+  const enableSwagger = configService.get<string>('ENABLE_SWAGGER') === 'true' || !isProduction;
   const swaggerUsername = configService.get<string>('SWAGGER_USERNAME');
   const swaggerPassword = configService.get<string>('SWAGGER_PASSWORD');
 
-  if (swaggerUsername && swaggerPassword) {
-    app.use('/api/docs*', (req, res, next) => {
-      const authHeader = req.headers.authorization;
+  if (enableSwagger) {
+    // Em produção, Swagger DEVE estar protegido com autenticação
+    if (isProduction && (!swaggerUsername || !swaggerPassword)) {
+      console.warn('⚠️  ATENÇÃO: Swagger habilitado em produção sem autenticação! Configure SWAGGER_USERNAME e SWAGGER_PASSWORD.');
+    }
 
-      if (!authHeader || !authHeader.startsWith('Basic ')) {
-        res.setHeader('WWW-Authenticate', 'Basic realm="Swagger Documentation"');
-        return res.status(401).json({
-          statusCode: 401,
-          message: 'Authentication required',
-          error: 'Unauthorized',
-        });
-      }
+    // Protect Swagger with HTTP Basic Auth (obrigatório em produção)
+    if (swaggerUsername && swaggerPassword) {
+      app.use((req, res, next) => {
+        // Check if the request is for Swagger documentation
+        if (req.path.startsWith('/api/docs')) {
+          const authHeader = req.headers.authorization;
 
-      // Decode Basic Auth credentials
-      const base64Credentials = authHeader.split(' ')[1];
-      const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
-      const [username, password] = credentials.split(':');
+          if (!authHeader || !authHeader.startsWith('Basic ')) {
+            res.setHeader('WWW-Authenticate', 'Basic realm="Swagger Documentation"');
+            return res.status(401).json({
+              statusCode: 401,
+              message: 'Authentication required',
+              error: 'Unauthorized',
+            });
+          }
 
-      // Validate credentials
-      if (username === swaggerUsername && password === swaggerPassword) {
+          // Decode Basic Auth credentials
+          const base64Credentials = authHeader.split(' ')[1];
+          const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+          const [username, password] = credentials.split(':');
+
+          // Validate credentials
+          if (username === swaggerUsername && password === swaggerPassword) {
+            return next();
+          }
+
+          // Invalid credentials
+          res.setHeader('WWW-Authenticate', 'Basic realm="Swagger Documentation"');
+          return res.status(401).json({
+            statusCode: 401,
+            message: 'Invalid credentials',
+            error: 'Unauthorized',
+          });
+        }
+        // If not a Swagger request, continue normally
         return next();
-      }
-
-      // Invalid credentials
-      res.setHeader('WWW-Authenticate', 'Basic realm="Swagger Documentation"');
-      return res.status(401).json({
-        statusCode: 401,
-        message: 'Invalid credentials',
-        error: 'Unauthorized',
       });
-    });
-  }
+    }
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-  });
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+      },
+    });
+  } else if (isProduction) {
+    console.log('🔒 Swagger desabilitado em produção (configure ENABLE_SWAGGER=true para habilitar)');
+  }
 
   // Start server
   const port = configService.get<number>('PORT') || 4000;
   await app.listen(port);
 
+  // Logs de inicialização
   console.log(`🚀 PRIME API is running on: http://0.0.0.0:${port}/${apiPrefix}`);
-  if (swaggerUsername && swaggerPassword) {
-    console.log(`📚 Swagger docs: http://0.0.0.0:${port}/api/docs (protegido com Basic Auth)`);
-  } else {
-    console.log(`📚 Swagger docs: http://0.0.0.0:${port}/api/docs (sem autenticação - configure SWAGGER_USERNAME e SWAGGER_PASSWORD)`);
+  console.log(`🌍 Ambiente: ${isProduction ? 'PRODUÇÃO' : 'DESENVOLVIMENTO'}`);
+  
+  if (enableSwagger) {
+    if (swaggerUsername && swaggerPassword) {
+      console.log(`📚 Swagger docs: http://0.0.0.0:${port}/api/docs (protegido com Basic Auth)`);
+    } else {
+      console.log(`⚠️  Swagger docs: http://0.0.0.0:${port}/api/docs (SEM AUTENTICAÇÃO - configure SWAGGER_USERNAME e SWAGGER_PASSWORD)`);
+    }
   }
-  console.log(`🔒 CORS configurado para: ${allowedOrigins.join(', ') || 'nenhuma origem específica'}`);
-  console.log(`📱 Apps nativos: permitidos (sem Origin)`);
+  
+  if (isProduction) {
+    console.log(`🔒 CORS configurado para: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'NENHUMA ORIGEM (BLOQUEADO)'}`);
+    console.log(`🛡️  Requisições sem Origin: BLOQUEADAS em produção`);
+  } else {
+    console.log(`🔒 CORS configurado para: ${allowedOrigins.join(', ') || 'nenhuma origem específica'}`);
+    console.log(`📱 Apps nativos: permitidos (sem Origin) [DEV ONLY]`);
+  }
 }
 
 bootstrap();

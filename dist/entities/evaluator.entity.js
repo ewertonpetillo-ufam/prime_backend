@@ -24,7 +24,19 @@ __decorate([
     __metadata("design:type", String)
 ], Evaluator.prototype, "full_name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 50, nullable: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 255, unique: true }),
+    __metadata("design:type", String)
+], Evaluator.prototype, "email", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 255 }),
+    __metadata("design:type", String)
+], Evaluator.prototype, "password_hash", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 50, default: 'evaluator' }),
+    __metadata("design:type", String)
+], Evaluator.prototype, "role", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 50, nullable: true, unique: true }),
     __metadata("design:type", String)
 ], Evaluator.prototype, "registration_number", void 0);
 __decorate([
@@ -32,19 +44,19 @@ __decorate([
     __metadata("design:type", String)
 ], Evaluator.prototype, "specialty", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 255, nullable: true, unique: true }),
-    __metadata("design:type", String)
-], Evaluator.prototype, "email", void 0);
-__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 20, nullable: true }),
     __metadata("design:type", String)
 ], Evaluator.prototype, "phone", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: 'timestamptz' }),
+    (0, typeorm_1.Column)({ type: 'boolean', default: true }),
+    __metadata("design:type", Boolean)
+], Evaluator.prototype, "active", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
     __metadata("design:type", Date)
 ], Evaluator.prototype, "created_at", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamptz' }),
+    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
     __metadata("design:type", Date)
 ], Evaluator.prototype, "updated_at", void 0);
 __decorate([
@@ -52,6 +64,6 @@ __decorate([
     __metadata("design:type", Array)
 ], Evaluator.prototype, "questionnaires", void 0);
 exports.Evaluator = Evaluator = __decorate([
-    (0, typeorm_1.Entity)('evaluators')
+    (0, typeorm_1.Entity)('users')
 ], Evaluator);
 //# sourceMappingURL=evaluator.entity.js.map

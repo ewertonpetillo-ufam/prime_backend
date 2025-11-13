@@ -13,10 +13,13 @@ exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
+const bcrypt = require("bcrypt");
+const users_service_1 = require("../users/users.service");
 let AuthService = class AuthService {
-    constructor(jwtService, configService) {
+    constructor(jwtService, configService, usersService) {
         this.jwtService = jwtService;
         this.configService = configService;
+        this.usersService = usersService;
     }
     async login(loginDto) {
         const { client_id, client_secret } = loginDto;
@@ -40,6 +43,42 @@ let AuthService = class AuthService {
         };
         return validCredentials[client_id] === client_secret;
     }
+    async userLogin(userLoginDto) {
+        const { email, password } = userLoginDto;
+        const user = await this.usersService.findByEmail(email);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid email or password');
+        }
+        if (!user.active) {
+            throw new common_1.UnauthorizedException('User account is inactive');
+        }
+        let passwordHash = user.password_hash;
+        if (passwordHash.startsWith('$wp$')) {
+            passwordHash = '$' + passwordHash.substring(3);
+        }
+        const isPasswordValid = await bcrypt.compare(password, passwordHash);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Invalid email or password');
+        }
+        const payload = {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+            client_id: 'web_frontend',
+        };
+        const access_token = this.jwtService.sign(payload);
+        return {
+            access_token,
+            token_type: 'Bearer',
+            expires_in: this.getTokenExpirationInSeconds(),
+            user: {
+                id: user.id,
+                email: user.email,
+                full_name: user.full_name,
+                role: user.role,
+            },
+        };
+    }
     getTokenExpirationInSeconds() {
         const expiration = this.configService.get('JWT_EXPIRATION');
         if (expiration.endsWith('h')) {
@@ -58,6 +97,7 @@ exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [jwt_1.JwtService,
-        config_1.ConfigService])
+        config_1.ConfigService,
+        users_service_1.UsersService])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

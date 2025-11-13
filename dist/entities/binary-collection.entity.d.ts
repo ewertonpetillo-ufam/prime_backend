@@ -31,6 +31,7 @@ export declare class BinaryCollection {
     metadata: any;
     processing_status: ProcessingStatus;
     processing_error: string;
+    created_by: string;
     questionnaire: Questionnaire;
     active_task: ActiveTaskDefinition;
 }

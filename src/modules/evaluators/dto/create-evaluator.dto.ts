@@ -62,4 +62,15 @@ export class CreateEvaluatorDto {
   @IsOptional()
   @MaxLength(20)
   phone?: string;
+
+  @ApiProperty({
+    description: 'Password hash (will be generated if not provided)',
+    example: 'hashed_password_here',
+    required: false,
+    maxLength: 255,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(255)
+  password_hash?: string;
 }
