@@ -28,19 +28,24 @@ export class EvaluatorsService {
       }
     }
 
-    const evaluator = this.evaluatorsRepository.create(createEvaluatorDto);
+    const evaluator = this.evaluatorsRepository.create({
+      ...createEvaluatorDto,
+      role: 'evaluator', // Ensure role is set to evaluator
+      active: true, // Default to active
+    });
     return this.evaluatorsRepository.save(evaluator);
   }
 
   async findAll(): Promise<Evaluator[]> {
     return this.evaluatorsRepository.find({
+      where: { role: 'evaluator' },
       order: { full_name: 'ASC' },
     });
   }
 
   async findOne(id: string): Promise<Evaluator> {
     const evaluator = await this.evaluatorsRepository.findOne({
-      where: { id },
+      where: { id, role: 'evaluator' },
     });
 
     if (!evaluator) {

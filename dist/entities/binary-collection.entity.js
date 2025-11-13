@@ -108,6 +108,10 @@ __decorate([
     __metadata("design:type", String)
 ], BinaryCollection.prototype, "processing_error", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'uuid', nullable: true }),
+    __metadata("design:type", String)
+], BinaryCollection.prototype, "created_by", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => questionnaire_entity_1.Questionnaire, (questionnaire) => questionnaire.binary_collections, {
         onDelete: 'SET NULL',
     }),

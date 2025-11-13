@@ -27,15 +27,27 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ type: 'int' }),
     __metadata("design:type", Number)
-], PatientTaskCollection.prototype, "active_task_id", void 0);
+], PatientTaskCollection.prototype, "task_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamptz' }),
-    __metadata("design:type", Date)
-], PatientTaskCollection.prototype, "completed_at", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'decimal', precision: 5, scale: 2, default: 0 }),
     __metadata("design:type", Number)
-], PatientTaskCollection.prototype, "progress_percent", void 0);
+], PatientTaskCollection.prototype, "completion_percentage", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'jsonb', default: '[]' }),
+    __metadata("design:type", Array)
+], PatientTaskCollection.prototype, "completed_items", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Date)
+], PatientTaskCollection.prototype, "collected_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], PatientTaskCollection.prototype, "collector_notes", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
+    __metadata("design:type", Date)
+], PatientTaskCollection.prototype, "created_at", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.task_collections, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),
@@ -43,7 +55,7 @@ __decorate([
 ], PatientTaskCollection.prototype, "questionnaire", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => active_task_definition_entity_1.ActiveTaskDefinition, (t) => t.patient_tasks),
-    (0, typeorm_1.JoinColumn)({ name: 'active_task_id' }),
+    (0, typeorm_1.JoinColumn)({ name: 'task_id' }),
     __metadata("design:type", active_task_definition_entity_1.ActiveTaskDefinition)
 ], PatientTaskCollection.prototype, "active_task", void 0);
 exports.PatientTaskCollection = PatientTaskCollection = __decorate([
