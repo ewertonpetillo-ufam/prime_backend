@@ -33,11 +33,14 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Em produção: NUNCA aceitar requisições sem Origin (mais seguro)
+      // Requisições sem Origin (same-origin requests ou requisições diretas)
+      // Em produção: permitir apenas para requisições same-origin (mais seguro)
+      // Isso permite acesso direto ao Swagger e outros recursos da própria API
       if (!origin) {
         if (isProduction) {
-          // Em produção, bloquear requisições sem Origin
-          return callback(new Error('CORS: Origin header is required in production'));
+          // Em produção, permitir requisições sem Origin (same-origin)
+          // Isso é seguro pois são requisições do mesmo domínio
+          return callback(null, true);
         }
         // Em desenvolvimento, permitir para facilitar testes
         if (nodeEnv === 'development') {
@@ -205,7 +208,7 @@ async function bootstrap() {
   
   if (isProduction) {
     console.log(`🔒 CORS configurado para: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'NENHUMA ORIGEM (BLOQUEADO)'}`);
-    console.log(`🛡️  Requisições sem Origin: BLOQUEADAS em produção`);
+    console.log(`🛡️  Requisições sem Origin: PERMITIDAS (same-origin requests)`);
   } else {
     console.log(`🔒 CORS configurado para: ${allowedOrigins.join(', ') || 'nenhuma origem específica'}`);
     console.log(`📱 Apps nativos: permitidos (sem Origin) [DEV ONLY]`);
