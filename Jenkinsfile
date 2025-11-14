@@ -39,6 +39,7 @@ pipeline {
         HMAC_SECRET = credentials('prime-hmac-secret')
         
         // Swagger Documentation
+        ENABLE_SWAGGER = 'true'
         SWAGGER_USERNAME = credentials('prime-swagger-username')
         SWAGGER_PASSWORD = credentials('prime-swagger-password')
         
@@ -121,6 +122,7 @@ CLIENT_2_SECRET=${CLIENT_2_SECRET}
 HMAC_SECRET=${HMAC_SECRET}
 
 # Swagger Documentation
+ENABLE_SWAGGER=${ENABLE_SWAGGER}
 SWAGGER_USERNAME=${SWAGGER_USERNAME}
 SWAGGER_PASSWORD=${SWAGGER_PASSWORD}
 
