@@ -25,7 +25,7 @@ async function bootstrap() {
         origin: (origin, callback) => {
             if (!origin) {
                 if (isProduction) {
-                    return callback(new Error('CORS: Origin header is required in production'));
+                    return callback(null, true);
                 }
                 if (nodeEnv === 'development') {
                     console.log('✅ Requisição sem Origin (app nativo/tool) - PERMITIDO [DEV ONLY]');
@@ -153,7 +153,7 @@ async function bootstrap() {
     }
     if (isProduction) {
         console.log(`🔒 CORS configurado para: ${allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'NENHUMA ORIGEM (BLOQUEADO)'}`);
-        console.log(`🛡️  Requisições sem Origin: BLOQUEADAS em produção`);
+        console.log(`🛡️  Requisições sem Origin: PERMITIDAS (same-origin requests)`);
     }
     else {
         console.log(`🔒 CORS configurado para: ${allowedOrigins.join(', ') || 'nenhuma origem específica'}`);

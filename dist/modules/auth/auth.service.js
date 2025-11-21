@@ -76,7 +76,30 @@ let AuthService = class AuthService {
                 email: user.email,
                 full_name: user.full_name,
                 role: user.role,
+                first_login: user.first_login,
             },
+        };
+    }
+    async changePassword(userId, changePasswordDto) {
+        const { currentPassword, newPassword } = changePasswordDto;
+        const user = await this.usersService.findOne(userId);
+        if (!user) {
+            throw new common_1.NotFoundException('User not found');
+        }
+        let passwordHash = user.password_hash;
+        if (passwordHash.startsWith('$wp$')) {
+            passwordHash = '$' + passwordHash.substring(3);
+        }
+        const isPasswordValid = await bcrypt.compare(currentPassword, passwordHash);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Current password is incorrect');
+        }
+        const saltRounds = 10;
+        const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+        await this.usersService.updatePassword(userId, newPasswordHash, false);
+        return {
+            success: true,
+            message: 'Password changed successfully',
         };
     }
     getTokenExpirationInSeconds() {
