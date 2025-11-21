@@ -24,6 +24,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserRole } from '../../entities/user.entity';
+import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -57,6 +58,17 @@ export class UsersController {
   })
   findAll(@Query('role') role?: UserRole) {
     return this.usersService.findAll(role);
+  }
+
+  @Get('me')
+  @ApiOperation({ summary: 'Get current authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current user information',
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  getCurrentUser(@CurrentUser() user: { userId: string }) {
+    return this.usersService.findOne(user.userId);
   }
 
   @Get(':id')

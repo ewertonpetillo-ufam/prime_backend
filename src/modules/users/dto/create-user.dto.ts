@@ -94,5 +94,15 @@ export class CreateUserDto {
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  @ApiProperty({
+    description: 'Whether this is the user\'s first login',
+    example: true,
+    default: true,
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  first_login?: boolean;
 }
 

@@ -18,7 +18,9 @@ const swagger_1 = require("@nestjs/swagger");
 const auth_service_1 = require("./auth.service");
 const login_dto_1 = require("./dto/login.dto");
 const user_login_dto_1 = require("./dto/user-login.dto");
+const change_password_dto_1 = require("./dto/change-password.dto");
 const public_decorator_1 = require("../../common/decorators/public.decorator");
+const user_decorator_1 = require("../../common/decorators/user.decorator");
 let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
@@ -28,6 +30,9 @@ let AuthController = class AuthController {
     }
     async userLogin(userLoginDto) {
         return this.authService.userLogin(userLoginDto);
+    }
+    async changePassword(user, changePasswordDto) {
+        return this.authService.changePassword(user.userId, changePasswordDto);
     }
 };
 exports.AuthController = AuthController;
@@ -102,6 +107,37 @@ __decorate([
     __metadata("design:paramtypes", [user_login_dto_1.UserLoginDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "userLogin", null);
+__decorate([
+    (0, common_1.Post)('change-password'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiBearerAuth)('JWT-auth'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Change user password',
+        description: 'Change the password for the authenticated user. Requires current password verification.',
+    }),
+    (0, swagger_1.ApiBody)({ type: change_password_dto_1.ChangePasswordDto }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Password changed successfully',
+        schema: {
+            example: {
+                success: true,
+                message: 'Password changed successfully',
+            },
+        },
+    }),
+    (0, swagger_1.ApiBadRequestResponse)({
+        description: 'Invalid request payload',
+    }),
+    (0, swagger_1.ApiUnauthorizedResponse)({
+        description: 'Current password is incorrect or user not authenticated',
+    }),
+    __param(0, (0, user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, change_password_dto_1.ChangePasswordDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "changePassword", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Authentication'),
     (0, common_1.Controller)('auth'),

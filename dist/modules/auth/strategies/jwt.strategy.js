@@ -24,12 +24,20 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         this.configService = configService;
     }
     async validate(payload) {
-        if (!payload.client_id) {
-            throw new common_1.UnauthorizedException('Invalid token');
+        if (payload.sub) {
+            return {
+                userId: payload.sub,
+                email: payload.email,
+                role: payload.role,
+                client_id: payload.client_id,
+            };
         }
-        return {
-            client_id: payload.client_id,
-        };
+        if (payload.client_id) {
+            return {
+                client_id: payload.client_id,
+            };
+        }
+        throw new common_1.UnauthorizedException('Invalid token');
     }
 };
 exports.JwtStrategy = JwtStrategy;
