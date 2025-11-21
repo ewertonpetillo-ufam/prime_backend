@@ -57,7 +57,14 @@ export class UsersController {
     description: 'List of all users',
   })
   findAll(@Query('role') role?: UserRole) {
-    return this.usersService.findAll(role);
+    console.log(`[UsersController] GET /users - role filter: ${role || 'none'}`);
+    const result = this.usersService.findAll(role);
+    result.then(users => {
+      console.log(`[UsersController] GET /users - returning ${users.length} users`);
+    }).catch(error => {
+      console.error(`[UsersController] GET /users - error:`, error);
+    });
+    return result;
   }
 
   @Get('me')
