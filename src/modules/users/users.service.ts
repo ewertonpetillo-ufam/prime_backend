@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../../entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -39,10 +40,20 @@ export class UsersService {
       }
     }
 
+    // Generate default password hash if not provided
+    let passwordHash = createUserDto.password_hash;
+    if (!passwordHash) {
+      const defaultPassword = 'Prime2025';
+      const saltRounds = 10;
+      passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
+    }
+
     const user = this.usersRepository.create({
       ...createUserDto,
+      password_hash: passwordHash,
       role: createUserDto.role || UserRole.EVALUATOR,
       active: createUserDto.active !== undefined ? createUserDto.active : true,
+      first_login: true, // New users must change password on first login
     });
     return this.usersRepository.save(user);
   }
@@ -115,6 +126,13 @@ export class UsersService {
       where: { role },
       order: { full_name: 'ASC' },
     });
+  }
+
+  async updatePassword(id: string, passwordHash: string, firstLogin: boolean = false): Promise<User> {
+    const user = await this.findOne(id);
+    user.password_hash = passwordHash;
+    user.first_login = firstLogin;
+    return this.usersRepository.save(user);
   }
 }
 

@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { UserLoginDto } from './dto/user-login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
@@ -96,7 +97,43 @@ export class AuthService {
         email: user.email,
         full_name: user.full_name,
         role: user.role,
+        first_login: user.first_login,
       },
+    };
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const { currentPassword, newPassword } = changePasswordDto;
+
+    // Find user by ID
+    const user = await this.usersService.findOne(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    let passwordHash = user.password_hash;
+    if (passwordHash.startsWith('$wp$')) {
+      passwordHash = '$' + passwordHash.substring(3);
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, passwordHash);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update user password and set first_login to false
+    await this.usersService.updatePassword(userId, newPasswordHash, false);
+
+    return {
+      success: true,
+      message: 'Password changed successfully',
     };
   }
 

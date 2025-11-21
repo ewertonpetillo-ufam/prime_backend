@@ -6,11 +6,14 @@ import {
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { UserLoginDto } from './dto/user-login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -84,5 +87,36 @@ export class AuthController {
   })
   async userLogin(@Body() userLoginDto: UserLoginDto) {
     return this.authService.userLogin(userLoginDto);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Change user password',
+    description: 'Change the password for the authenticated user. Requires current password verification.',
+  })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Password changed successfully',
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request payload',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Current password is incorrect or user not authenticated',
+  })
+  async changePassword(
+    @CurrentUser() user: { userId: string },
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(user.userId, changePasswordDto);
   }
 }
