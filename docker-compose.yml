@@ -53,20 +53,6 @@ services:
       - "traefik.http.routers.backend-api-insecure.priority=20"
       - "traefik.http.routers.backend-api-insecure.service=backend-api"
 
-      # Router HTTPS - API geral (/api/*) para recursos do Swagger
-      # Prioridade alta (15) mas menor que as rotas específicas
-      - "traefik.http.routers.backend-api-general-secure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.backend-api-general-secure.entrypoints=websecure"
-      - "traefik.http.routers.backend-api-general-secure.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.backend-api-general-secure.priority=15"
-      - "traefik.http.routers.backend-api-general-secure.service=backend-api"
-
-      # Router HTTP - API geral (/api/*) para recursos do Swagger
-      - "traefik.http.routers.backend-api-general-insecure.rule=Host(`prime.icomp.ufam.edu.br`) && PathPrefix(`/api`)"
-      - "traefik.http.routers.backend-api-general-insecure.entrypoints=web"
-      - "traefik.http.routers.backend-api-general-insecure.priority=15"
-      - "traefik.http.routers.backend-api-general-insecure.service=backend-api"
-
       # Serviço - aponta para a porta do container
       - "traefik.http.services.backend-api.loadbalancer.server.port=4000"
       
