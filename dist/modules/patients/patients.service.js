@@ -37,6 +37,7 @@ let PatientsService = class PatientsService {
         const patient = this.patientsRepository.create({
             ...patientData,
             cpf_hash,
+            cpf,
         });
         return this.patientsRepository.save(patient);
     }
@@ -48,6 +49,7 @@ let PatientsService = class PatientsService {
     async findOne(id) {
         const patient = await this.patientsRepository.findOne({
             where: { id },
+            relations: [],
         });
         if (!patient) {
             throw new common_1.NotFoundException(`Patient with ID ${id} not found`);
@@ -68,9 +70,26 @@ let PatientsService = class PatientsService {
         return patient;
     }
     async update(id, updatePatientDto) {
-        const patient = await this.findOne(id);
-        Object.assign(patient, updatePatientDto);
-        return this.patientsRepository.save(patient);
+        const updateData = { ...updatePatientDto };
+        if (updateData.cpf) {
+            const currentCpf = await this.patientsRepository
+                .createQueryBuilder('patient')
+                .select('patient.cpf', 'cpf')
+                .where('patient.id = :id', { id })
+                .getRawOne();
+            if (currentCpf?.cpf) {
+                delete updateData.cpf;
+            }
+        }
+        await this.patientsRepository.update(id, updateData);
+        const updatedPatient = await this.patientsRepository
+            .createQueryBuilder('patient')
+            .where('patient.id = :id', { id })
+            .getOne();
+        if (!updatedPatient) {
+            throw new common_1.NotFoundException(`Patient with ID ${id} not found`);
+        }
+        return updatedPatient;
     }
     async remove(id) {
         const patient = await this.findOne(id);

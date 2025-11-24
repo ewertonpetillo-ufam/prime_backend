@@ -23,6 +23,9 @@ export class Patient {
   @Column({ type: 'varchar', length: 128, unique: true })
   cpf_hash: string;
 
+  @Column({ type: 'varchar', length: 11, nullable: true })
+  cpf: string;
+
   @Column({ type: 'varchar', length: 255 })
   full_name: string;
 
@@ -70,6 +73,15 @@ export class Patient {
 
   @Column({ type: 'int', nullable: true })
   years_since_quit_smoking: number;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  deficiencia_visual: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  hoarseness: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
+  stuttering: boolean;
 
   @Column({ type: 'boolean', default: true })
   active: boolean;

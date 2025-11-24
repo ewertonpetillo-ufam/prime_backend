@@ -64,15 +64,11 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ type: 'numeric', precision: 5, scale: 2, nullable: true }),
     __metadata("design:type", Number)
-], AnthropometricData.prototype, "neck_circumference_cm", void 0);
+], AnthropometricData.prototype, "abdominal_circumference_cm", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: 'timestamptz' }),
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
     __metadata("design:type", Date)
 ], AnthropometricData.prototype, "created_at", void 0);
-__decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamptz' }),
-    __metadata("design:type", Date)
-], AnthropometricData.prototype, "updated_at", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => questionnaire_entity_1.Questionnaire, (questionnaire) => questionnaire.anthropometric_data, {
         onDelete: 'CASCADE',
