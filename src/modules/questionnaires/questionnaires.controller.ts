@@ -1,6 +1,9 @@
 import {
   Controller,
   Post,
+  Get,
+  Query,
+  Param,
   Body,
   HttpCode,
   HttpStatus,
@@ -78,6 +81,52 @@ export class QuestionnairesController {
   })
   async saveStep3(@Body() dto: SaveStep3Dto) {
     return this.questionnairesService.saveStep3(dto);
+  }
+
+  @Get('reference-data')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get reference data for questionnaires',
+    description: 'Returns all reference data needed for questionnaire forms (genders, ethnicities, education levels, etc.)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reference data retrieved successfully',
+  })
+  async getReferenceData() {
+    return this.questionnairesService.getReferenceData();
+  }
+
+  @Get('search')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Search questionnaires',
+    description: 'Search questionnaires by patient name or CPF',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Questionnaires found successfully',
+  })
+  async searchQuestionnaires(@Query('term') term?: string) {
+    return this.questionnairesService.searchQuestionnaires(term);
+  }
+
+  @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get questionnaire by ID',
+    description: 'Returns a complete questionnaire with all related data',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Questionnaire found successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionnaire not found',
+  })
+  async getQuestionnaireById(@Param('id') id: string) {
+    return this.questionnairesService.getQuestionnaireById(id);
   }
 }
 

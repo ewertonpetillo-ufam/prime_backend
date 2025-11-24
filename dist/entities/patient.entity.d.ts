@@ -7,6 +7,7 @@ import { IncomeRange } from './income-range.entity';
 export declare class Patient {
     id: string;
     cpf_hash: string;
+    cpf: string;
     full_name: string;
     date_of_birth: Date;
     gender_id: number;
@@ -23,6 +24,9 @@ export declare class Patient {
     is_current_smoker: boolean;
     smoking_duration_years: number;
     years_since_quit_smoking: number;
+    deficiencia_visual: boolean;
+    hoarseness: boolean;
+    stuttering: boolean;
     active: boolean;
     created_at: Date;
     updated_at: Date;

@@ -8,8 +8,7 @@ export declare class AnthropometricData {
     waist_circumference_cm: number;
     hip_circumference_cm: number;
     waist_hip_ratio: number;
-    neck_circumference_cm: number;
+    abdominal_circumference_cm: number;
     created_at: Date;
-    updated_at: Date;
     questionnaire: Questionnaire;
 }

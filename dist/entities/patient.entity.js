@@ -29,6 +29,10 @@ __decorate([
     __metadata("design:type", String)
 ], Patient.prototype, "cpf_hash", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 11, nullable: true }),
+    __metadata("design:type", String)
+], Patient.prototype, "cpf", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 255 }),
     __metadata("design:type", String)
 ], Patient.prototype, "full_name", void 0);
@@ -92,6 +96,18 @@ __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Number)
 ], Patient.prototype, "years_since_quit_smoking", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', nullable: true, default: false }),
+    __metadata("design:type", Boolean)
+], Patient.prototype, "deficiencia_visual", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', nullable: true, default: false }),
+    __metadata("design:type", Boolean)
+], Patient.prototype, "hoarseness", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', nullable: true, default: false }),
+    __metadata("design:type", Boolean)
+], Patient.prototype, "stuttering", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: true }),
     __metadata("design:type", Boolean)
