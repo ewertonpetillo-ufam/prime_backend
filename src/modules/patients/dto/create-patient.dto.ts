@@ -218,4 +218,37 @@ export class CreatePatientDto {
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  @ApiProperty({
+    description: 'Visual deficiency',
+    example: false,
+    required: false,
+    default: false,
+    type: Boolean,
+  })
+  @IsBoolean()
+  @IsOptional()
+  deficiencia_visual?: boolean;
+
+  @ApiProperty({
+    description: 'Hoarseness (rouquidão)',
+    example: false,
+    required: false,
+    default: false,
+    type: Boolean,
+  })
+  @IsBoolean()
+  @IsOptional()
+  hoarseness?: boolean;
+
+  @ApiProperty({
+    description: 'Stuttering (gagueja)',
+    example: false,
+    required: false,
+    default: false,
+    type: Boolean,
+  })
+  @IsBoolean()
+  @IsOptional()
+  stuttering?: boolean;
 }

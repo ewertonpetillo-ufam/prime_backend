@@ -36,11 +36,12 @@ export class PatientsService {
       throw new ConflictException('Patient with this CPF already registered');
     }
 
-    // Create patient with hashed CPF
+    // Create patient with hashed CPF and plain CPF
     const { cpf, ...patientData } = createPatientDto;
     const patient = this.patientsRepository.create({
       ...patientData,
       cpf_hash,
+      cpf, // Store CPF in plain text for retrieval
     });
 
     return this.patientsRepository.save(patient);
@@ -55,6 +56,8 @@ export class PatientsService {
   async findOne(id: string): Promise<Patient> {
     const patient = await this.patientsRepository.findOne({
       where: { id },
+      // Don't load relations eagerly to improve performance
+      relations: [],
     });
 
     if (!patient) {
@@ -86,10 +89,35 @@ export class PatientsService {
   }
 
   async update(id: string, updatePatientDto: UpdatePatientDto): Promise<Patient> {
-    const patient = await this.findOne(id);
-
-    Object.assign(patient, updatePatientDto);
-    return this.patientsRepository.save(patient);
+    // Only check CPF if it's being updated - use a lightweight query
+    const updateData = { ...updatePatientDto };
+    if (updateData.cpf) {
+      const currentCpf = await this.patientsRepository
+        .createQueryBuilder('patient')
+        .select('patient.cpf', 'cpf')
+        .where('patient.id = :id', { id })
+        .getRawOne();
+      
+      // Don't update CPF if it already exists
+      if (currentCpf?.cpf) {
+        delete updateData.cpf;
+      }
+    }
+    
+    // Use update() for better performance - avoids loading full entity and relations
+    await this.patientsRepository.update(id, updateData);
+    
+    // Return updated patient - use query builder to avoid eager loading
+    const updatedPatient = await this.patientsRepository
+      .createQueryBuilder('patient')
+      .where('patient.id = :id', { id })
+      .getOne();
+    
+    if (!updatedPatient) {
+      throw new NotFoundException(`Patient with ID ${id} not found`);
+    }
+    
+    return updatedPatient;
   }
 
   async remove(id: string): Promise<void> {

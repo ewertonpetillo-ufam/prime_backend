@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   OneToOne,
   JoinColumn,
   Generated,
@@ -53,13 +52,10 @@ export class AnthropometricData {
   waist_hip_ratio: number;
 
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
-  neck_circumference_cm: number;
+  abdominal_circumference_cm: number;
 
-  @CreateDateColumn({ type: 'timestamptz' })
+  @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
-
-  @UpdateDateColumn({ type: 'timestamptz' })
-  updated_at: Date;
 
   // Relations
   @OneToOne(() => Questionnaire, (questionnaire) => questionnaire.anthropometric_data, {

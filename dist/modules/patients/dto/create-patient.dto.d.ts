@@ -17,4 +17,7 @@ export declare class CreatePatientDto {
     smoking_duration_years?: number;
     years_since_quit_smoking?: number;
     active?: boolean;
+    deficiencia_visual?: boolean;
+    hoarseness?: boolean;
+    stuttering?: boolean;
 }

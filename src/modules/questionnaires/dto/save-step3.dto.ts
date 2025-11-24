@@ -154,5 +154,40 @@ export class SaveStep3Dto {
   @IsString()
   @IsOptional()
   scaleSE?: string;
+
+  @ApiPropertyOptional({ description: 'Vitamins', example: 'Vitamina D' })
+  @IsString()
+  @IsOptional()
+  vitamins?: string;
+
+  @ApiPropertyOptional({ description: 'Has surgery history', example: 'Sim' })
+  @IsString()
+  @IsOptional()
+  surgery?: string;
+
+  @ApiPropertyOptional({ description: 'Surgery year', example: '2020' })
+  @IsString()
+  @IsOptional()
+  surgerrYear?: string;
+
+  @ApiPropertyOptional({ description: 'Surgery type', example: 'DBS' })
+  @IsString()
+  @IsOptional()
+  surgeryType?: string;
+
+  @ApiPropertyOptional({ description: 'Surgery target', example: 'STN' })
+  @IsString()
+  @IsOptional()
+  surgeryTarget?: string;
+
+  @ApiPropertyOptional({ description: 'Disease evolution', example: 'Estável' })
+  @IsString()
+  @IsOptional()
+  evolution?: string;
+
+  @ApiPropertyOptional({ description: 'Current symptoms', example: 'Melhora com levodopa' })
+  @IsString()
+  @IsOptional()
+  symptom?: string;
 }
 

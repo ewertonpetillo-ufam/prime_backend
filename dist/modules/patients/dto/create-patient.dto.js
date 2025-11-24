@@ -220,4 +220,40 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Boolean)
 ], CreatePatientDto.prototype, "active", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Visual deficiency',
+        example: false,
+        required: false,
+        default: false,
+        type: Boolean,
+    }),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], CreatePatientDto.prototype, "deficiencia_visual", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Hoarseness (rouquidão)',
+        example: false,
+        required: false,
+        default: false,
+        type: Boolean,
+    }),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], CreatePatientDto.prototype, "hoarseness", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Stuttering (gagueja)',
+        example: false,
+        required: false,
+        default: false,
+        type: Boolean,
+    }),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], CreatePatientDto.prototype, "stuttering", void 0);
 //# sourceMappingURL=create-patient.dto.js.map
