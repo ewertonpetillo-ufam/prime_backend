@@ -18,6 +18,9 @@ import { QuestionnairesService } from './questionnaires.service';
 import { SaveStep1Dto } from './dto/save-step1.dto';
 import { SaveStep2Dto } from './dto/save-step2.dto';
 import { SaveStep3Dto } from './dto/save-step3.dto';
+import { SaveUpdrs3Dto } from './dto/save-updrs3.dto';
+import { SaveMeemDto } from './dto/save-meem.dto';
+import { SaveUdysrsDto } from './dto/save-udysrs.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Questionnaires')
@@ -81,6 +84,60 @@ export class QuestionnairesController {
   })
   async saveStep3(@Body() dto: SaveStep3Dto) {
     return this.questionnairesService.saveStep3(dto);
+  }
+
+  @Post('updrs3')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar protocolo MDS-UPDRS Parte III',
+    description: 'Persiste as pontuações motoras do protocolo UPDRS-III para um questionário',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações UPDRS-III salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveUpdrs3(@Body() dto: SaveUpdrs3Dto) {
+    return this.questionnairesService.saveUpdrs3Scores(dto);
+  }
+
+  @Post('meem')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar protocolo MEEM',
+    description: 'Persiste as pontuações do Mini Exame do Estado Mental',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações MEEM salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveMeem(@Body() dto: SaveMeemDto) {
+    return this.questionnairesService.saveMeemScores(dto);
+  }
+
+  @Post('udysrs')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar protocolo UDysRS',
+    description: 'Persiste as pontuações da Escala Unificada para Avaliação de Discinesias',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações UDysRS salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveUdysrs(@Body() dto: SaveUdysrsDto) {
+    return this.questionnairesService.saveUdysrsScores(dto);
   }
 
   @Get('reference-data')

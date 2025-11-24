@@ -210,6 +210,18 @@ __decorate([
 ], CreatePatientDto.prototype, "years_since_quit_smoking", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
+        description: 'Indicates if the patient has ever smoked before',
+        example: true,
+        required: false,
+        default: false,
+        type: Boolean,
+    }),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], CreatePatientDto.prototype, "smoked_before", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
         description: 'Patient active status (soft delete flag)',
         example: true,
         required: false,

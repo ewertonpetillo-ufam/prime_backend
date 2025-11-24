@@ -24,9 +24,121 @@ __decorate([
     __metadata("design:type", String)
 ], UdysrsScore.prototype, "questionnaire_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
-    __metadata("design:type", Object)
-], UdysrsScore.prototype, "data", void 0);
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "on_dyskinesia_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_speech", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_chewing", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_eating", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_dressing", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_hygiene", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_writing", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_hobbies", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_walking", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_social", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "impact_emotional", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "off_dystonia_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "dystonia_activities", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "dystonia_pain_impact", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "dystonia_pain_severity", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "severity_face", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "severity_neck", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "severity_right_arm", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "severity_left_arm", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "severity_trunk", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "severity_right_leg", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "severity_left_leg", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "disability_communication", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "disability_drinking", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "disability_dressing", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "disability_walking", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "historical_subscore", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "objective_subscore", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], UdysrsScore.prototype, "total_score", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.udysrs_score, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),

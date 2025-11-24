@@ -16,6 +16,9 @@ import { ParkinsonPhenotype } from '../../entities/parkinson-phenotype.entity';
 import { DyskinesiaType } from '../../entities/dyskinesia-type.entity';
 import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
 import { SurgeryType } from '../../entities/surgery-type.entity';
+import { Updrs3Score } from '../../entities/updrs3-score.entity';
+import { MeemScore } from '../../entities/meem-score.entity';
+import { UdysrsScore } from '../../entities/udysrs-score.entity';
 import { PatientsModule } from '../patients/patients.module';
 
 @Module({
@@ -35,6 +38,9 @@ import { PatientsModule } from '../patients/patients.module';
       DyskinesiaType,
       HoehnYahrScale,
       SurgeryType,
+      Updrs3Score,
+      MeemScore,
+      UdysrsScore,
     ]),
     PatientsModule,
   ],

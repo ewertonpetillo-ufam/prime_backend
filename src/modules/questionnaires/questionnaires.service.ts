@@ -25,6 +25,112 @@ import { CryptoUtil } from '../../utils/crypto.util';
 import { SaveStep1Dto } from './dto/save-step1.dto';
 import { SaveStep2Dto } from './dto/save-step2.dto';
 import { SaveStep3Dto } from './dto/save-step3.dto';
+import { Updrs3Score } from '../../entities/updrs3-score.entity';
+import { MeemScore } from '../../entities/meem-score.entity';
+import { UdysrsScore } from '../../entities/udysrs-score.entity';
+import { SaveUpdrs3Dto } from './dto/save-updrs3.dto';
+import { SaveMeemDto } from './dto/save-meem.dto';
+import { SaveUdysrsDto } from './dto/save-udysrs.dto';
+
+const UPDRS_SCORE_FIELDS = [
+  'speech',
+  'facial_expression',
+  'rigidity_neck',
+  'rigidity_rue',
+  'rigidity_lue',
+  'rigidity_rle',
+  'rigidity_lle',
+  'finger_tapping_right',
+  'finger_tapping_left',
+  'hand_movements_right',
+  'hand_movements_left',
+  'pronation_supination_right',
+  'pronation_supination_left',
+  'toe_tapping_right',
+  'toe_tapping_left',
+  'leg_agility_right',
+  'leg_agility_left',
+  'rising_from_chair',
+  'gait',
+  'freezing_of_gait',
+  'postural_stability',
+  'posture',
+  'global_bradykinesia',
+  'postural_tremor_right',
+  'postural_tremor_left',
+  'kinetic_tremor_right',
+  'kinetic_tremor_left',
+  'rest_tremor_rue',
+  'rest_tremor_lue',
+  'rest_tremor_rle',
+  'rest_tremor_lle',
+  'rest_tremor_lip_jaw',
+  'postural_tremor_amplitude',
+  'dyskinesia_present',
+  'dyskinesia_interfered',
+] as const;
+
+const MEEM_SCORE_FIELDS = [
+  'orientation_day',
+  'orientation_date',
+  'orientation_month',
+  'orientation_year',
+  'orientation_time',
+  'orientation_location',
+  'orientation_institution',
+  'orientation_city',
+  'orientation_state',
+  'orientation_country',
+  'registration_word1',
+  'registration_word2',
+  'registration_word3',
+  'attention_calc1',
+  'attention_calc2',
+  'attention_calc3',
+  'attention_calc4',
+  'attention_calc5',
+  'recall_word1',
+  'recall_word2',
+  'recall_word3',
+  'language_naming1',
+  'language_naming2',
+  'language_repetition',
+  'language_command1',
+  'language_command2',
+  'language_command3',
+  'language_reading',
+  'language_writing',
+  'language_copying',
+] as const;
+
+const UDYSRS_SCORE_FIELDS = [
+  'on_dyskinesia_time',
+  'impact_speech',
+  'impact_chewing',
+  'impact_eating',
+  'impact_dressing',
+  'impact_hygiene',
+  'impact_writing',
+  'impact_hobbies',
+  'impact_walking',
+  'impact_social',
+  'impact_emotional',
+  'off_dystonia_time',
+  'dystonia_activities',
+  'dystonia_pain_impact',
+  'dystonia_pain_severity',
+  'severity_face',
+  'severity_neck',
+  'severity_right_arm',
+  'severity_left_arm',
+  'severity_trunk',
+  'severity_right_leg',
+  'severity_left_leg',
+  'disability_communication',
+  'disability_drinking',
+  'disability_dressing',
+  'disability_walking',
+] as const;
 
 @Injectable()
 export class QuestionnairesService {
@@ -57,8 +163,27 @@ export class QuestionnairesService {
     private hoehnYahrScaleRepository: Repository<HoehnYahrScale>,
     @InjectRepository(SurgeryType)
     private surgeryTypeRepository: Repository<SurgeryType>,
+    @InjectRepository(Updrs3Score)
+    private updrs3Repository: Repository<Updrs3Score>,
+    @InjectRepository(MeemScore)
+    private meemRepository: Repository<MeemScore>,
+    @InjectRepository(UdysrsScore)
+    private udysrsRepository: Repository<UdysrsScore>,
     private patientsService: PatientsService,
   ) {}
+
+  private assignScoreFields(
+    target: Record<string, any>,
+    dto: Record<string, any>,
+    fields: readonly string[],
+  ) {
+    fields.forEach((field) => {
+      const value = dto[field];
+      if (value !== undefined) {
+        target[field] = value;
+      }
+    });
+  }
 
   /**
    * Map frontend gender value to gender_id
@@ -164,6 +289,18 @@ export class QuestionnairesService {
     if (!duration) return null;
     const match = duration.match(/(\d+)/);
     return match ? parseInt(match[1], 10) : null;
+  }
+
+  /**
+   * Normalize "Sim"/"Não" style answers (or boolean-ish strings) to booleans
+   */
+  private normalizeYesNoBoolean(value?: string | boolean): boolean | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'boolean') return value;
+    const normalized = value.trim().toLowerCase();
+    if (['sim', 'true', '1'].includes(normalized)) return true;
+    if (['não', 'nao', 'false', '0'].includes(normalized)) return false;
+    return null;
   }
 
   /**
@@ -302,6 +439,9 @@ export class QuestionnairesService {
     const years_since_quit_smoking = !is_current_smoker && dto.fumouAntes === 'Sim'
       ? this.parseSmokingDuration(dto.stoppedSmokingDuration)
       : null;
+    const smoked_before = is_current_smoker
+      ? true
+      : this.normalizeYesNoBoolean(dto.fumouAntes);
 
     // Create or update patient
     if (patient) {
@@ -323,6 +463,7 @@ export class QuestionnairesService {
         is_current_smoker,
         smoking_duration_years,
         years_since_quit_smoking,
+        smoked_before,
         deficiencia_visual: dto.deficienciaVisual === 'Sim',
         hoarseness: dto.rouquidao === 'Sim',
         stuttering: dto.gagueja === 'Sim',
@@ -356,6 +497,7 @@ export class QuestionnairesService {
         is_current_smoker,
         smoking_duration_years,
         years_since_quit_smoking,
+        smoked_before,
         deficiencia_visual: dto.deficienciaVisual === 'Sim',
         hoarseness: dto.rouquidao === 'Sim',
         stuttering: dto.gagueja === 'Sim',
@@ -607,6 +749,104 @@ export class QuestionnairesService {
   }
 
   /**
+   * Save UPDRS-III scores (Step 4 - Avaliação Neurológica)
+   */
+  async saveUpdrs3Scores(dto: SaveUpdrs3Dto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let updrsScore = await this.updrs3Repository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!updrsScore) {
+      updrsScore = this.updrs3Repository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(updrsScore, dto, UPDRS_SCORE_FIELDS);
+
+    const saved = await this.updrs3Repository.save(updrsScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
+   * Save MEEM scores
+   */
+  async saveMeemScores(dto: SaveMeemDto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let meemScore = await this.meemRepository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!meemScore) {
+      meemScore = this.meemRepository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(meemScore, dto, MEEM_SCORE_FIELDS);
+
+    const saved = await this.meemRepository.save(meemScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
+   * Save UDysRS scores
+   */
+  async saveUdysrsScores(dto: SaveUdysrsDto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let udysrsScore = await this.udysrsRepository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!udysrsScore) {
+      udysrsScore = this.udysrsRepository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(udysrsScore, dto, UDYSRS_SCORE_FIELDS);
+
+    const saved = await this.udysrsRepository.save(udysrsScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      historicalSubscore: saved.historical_subscore ?? null,
+      objectiveSubscore: saved.objective_subscore ?? null,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
    * Get all reference data for questionnaire forms
    */
   async getReferenceData() {
@@ -818,11 +1058,16 @@ export class QuestionnairesService {
       phoneNumberContact: patient.phone_secondary || '',
       email: patient.email || '',
       fumaCase: patient.is_current_smoker ? 'Sim' : 'Não',
-      fumouAntes: patient.years_since_quit_smoking !== null && patient.years_since_quit_smoking !== undefined
-        ? 'Sim'
-        : patient.is_current_smoker
-        ? 'Não'
-        : '',
+      fumouAntes:
+        patient.smoked_before === true
+          ? 'Sim'
+          : patient.smoked_before === false
+            ? 'Não'
+            : patient.years_since_quit_smoking !== null && patient.years_since_quit_smoking !== undefined
+              ? 'Sim'
+              : patient.is_current_smoker
+                ? 'Não'
+                : '',
       smokingDuration: patient.smoking_duration_years
         ? String(patient.smoking_duration_years)
         : '',
