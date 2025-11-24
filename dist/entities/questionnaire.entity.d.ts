@@ -11,7 +11,7 @@ import { NmfScore } from './nmf-score.entity';
 import { FogqScore } from './fogq-score.entity';
 import { StopbangScore } from './stopbang-score.entity';
 import { EpworthScore } from './epworth-score.entity';
-import { Pdss1Score } from './pdss1-score.entity';
+import { Pdss2Score } from './pdss2-score.entity';
 import { RbdsqScore } from './rbdsq-score.entity';
 import { PatientTaskCollection } from './patient-task-collection.entity';
 import { PdfReport } from './pdf-report.entity';
@@ -40,7 +40,7 @@ export declare class Questionnaire {
     fogq_score: FogqScore;
     stopbang_score: StopbangScore;
     epworth_score: EpworthScore;
-    pdss1_score: Pdss1Score;
+    pdss2_score: Pdss2Score;
     rbdsq_score: RbdsqScore;
     task_collections: PatientTaskCollection[];
     pdf_reports: PdfReport[];

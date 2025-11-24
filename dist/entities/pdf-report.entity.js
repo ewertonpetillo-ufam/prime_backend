@@ -24,9 +24,44 @@ __decorate([
     __metadata("design:type", String)
 ], PdfReport.prototype, "questionnaire_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
-    __metadata("design:type", Object)
-], PdfReport.prototype, "data", void 0);
+    (0, typeorm_1.Column)({
+        type: 'varchar',
+        length: 50,
+    }),
+    __metadata("design:type", String)
+], PdfReport.prototype, "report_type", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 500, nullable: true }),
+    __metadata("design:type", String)
+], PdfReport.prototype, "file_path", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'bytea', nullable: true }),
+    __metadata("design:type", Buffer)
+], PdfReport.prototype, "file_data", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 255 }),
+    __metadata("design:type", String)
+], PdfReport.prototype, "file_name", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], PdfReport.prototype, "file_size_bytes", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 100, default: 'application/pdf' }),
+    __metadata("design:type", String)
+], PdfReport.prototype, "mime_type", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'uuid', nullable: true }),
+    __metadata("design:type", String)
+], PdfReport.prototype, "uploaded_by", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
+    __metadata("design:type", Date)
+], PdfReport.prototype, "uploaded_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], PdfReport.prototype, "notes", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.pdf_reports, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),

@@ -24,9 +24,33 @@ __decorate([
     __metadata("design:type", String)
 ], FogqScore.prototype, "questionnaire_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
-    __metadata("design:type", Object)
-], FogqScore.prototype, "data", void 0);
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], FogqScore.prototype, "gait_worst_state", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], FogqScore.prototype, "impact_daily_activities", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], FogqScore.prototype, "feet_stuck", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], FogqScore.prototype, "longest_episode", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], FogqScore.prototype, "hesitation_initiation", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], FogqScore.prototype, "hesitation_turning", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], FogqScore.prototype, "total_score", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.fogq_score, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),

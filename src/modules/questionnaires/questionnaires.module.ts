@@ -19,6 +19,10 @@ import { SurgeryType } from '../../entities/surgery-type.entity';
 import { Updrs3Score } from '../../entities/updrs3-score.entity';
 import { MeemScore } from '../../entities/meem-score.entity';
 import { UdysrsScore } from '../../entities/udysrs-score.entity';
+import { StopbangScore } from '../../entities/stopbang-score.entity';
+import { EpworthScore } from '../../entities/epworth-score.entity';
+import { Pdss2Score } from '../../entities/pdss2-score.entity';
+import { RbdsqScore } from '../../entities/rbdsq-score.entity';
 import { PatientsModule } from '../patients/patients.module';
 
 @Module({
@@ -41,6 +45,10 @@ import { PatientsModule } from '../patients/patients.module';
       Updrs3Score,
       MeemScore,
       UdysrsScore,
+      StopbangScore,
+      EpworthScore,
+      Pdss2Score,
+      RbdsqScore,
     ]),
     PatientsModule,
   ],

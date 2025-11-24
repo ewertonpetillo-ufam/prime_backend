@@ -28,9 +28,19 @@ import { SaveStep3Dto } from './dto/save-step3.dto';
 import { Updrs3Score } from '../../entities/updrs3-score.entity';
 import { MeemScore } from '../../entities/meem-score.entity';
 import { UdysrsScore } from '../../entities/udysrs-score.entity';
+import { StopbangScore } from '../../entities/stopbang-score.entity';
+import { EpworthScore } from '../../entities/epworth-score.entity';
+import { Pdss2Score } from '../../entities/pdss2-score.entity';
+import { RbdsqScore } from '../../entities/rbdsq-score.entity';
+import { FogqScore } from '../../entities/fogq-score.entity';
 import { SaveUpdrs3Dto } from './dto/save-updrs3.dto';
 import { SaveMeemDto } from './dto/save-meem.dto';
 import { SaveUdysrsDto } from './dto/save-udysrs.dto';
+import { SaveStopbangDto } from './dto/save-stopbang.dto';
+import { SaveEpworthDto } from './dto/save-epworth.dto';
+import { SavePdss2Dto } from './dto/save-pdss2.dto';
+import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
+import { SaveFogqDto } from './dto/save-fogq.dto';
 
 const UPDRS_SCORE_FIELDS = [
   'speech',
@@ -132,6 +142,68 @@ const UDYSRS_SCORE_FIELDS = [
   'disability_walking',
 ] as const;
 
+const STOPBANG_SCORE_FIELDS = [
+  'snoring',
+  'tired',
+  'observed_apnea',
+  'blood_pressure',
+  'bmi_over_35',
+  'age_over_50',
+  'neck_circumference_large',
+  'gender_male',
+] as const;
+
+const EPWORTH_SCORE_FIELDS = [
+  'sitting_reading',
+  'watching_tv',
+  'sitting_inactive_public',
+  'passenger_car',
+  'lying_down_afternoon',
+  'sitting_talking',
+  'sitting_after_lunch',
+  'car_stopped_traffic',
+] as const;
+
+const PDSS2_SCORE_FIELDS = [
+  'q1',
+  'q2',
+  'q3',
+  'q4',
+  'q5',
+  'q6',
+  'q7',
+  'q8',
+  'q9',
+  'q10',
+  'q11',
+  'q12',
+  'q13',
+  'q14',
+  'q15',
+] as const;
+
+const RBDSQ_SCORE_FIELDS = [
+  'q1_vivid_dreams',
+  'q2_aggressive_content',
+  'q3_dream_enactment',
+  'q4_limb_movements',
+  'q5_injury_potential',
+  'q6_bed_disruption',
+  'q7_awakening_recall',
+  'q8_sleep_disruption',
+  'q9_neurological_disorder',
+  'q10_rem_behavior_problem',
+] as const;
+
+const FOGQ_SCORE_FIELDS = [
+  'gait_worst_state',
+  'impact_daily_activities',
+  'feet_stuck',
+  'longest_episode',
+  'hesitation_initiation',
+  'hesitation_turning',
+] as const;
+
 @Injectable()
 export class QuestionnairesService {
   constructor(
@@ -169,6 +241,16 @@ export class QuestionnairesService {
     private meemRepository: Repository<MeemScore>,
     @InjectRepository(UdysrsScore)
     private udysrsRepository: Repository<UdysrsScore>,
+    @InjectRepository(StopbangScore)
+    private stopbangRepository: Repository<StopbangScore>,
+    @InjectRepository(EpworthScore)
+    private epworthRepository: Repository<EpworthScore>,
+    @InjectRepository(Pdss2Score)
+    private pdss2Repository: Repository<Pdss2Score>,
+    @InjectRepository(RbdsqScore)
+    private rbdsqRepository: Repository<RbdsqScore>,
+    @InjectRepository(FogqScore)
+    private fogqRepository: Repository<FogqScore>,
     private patientsService: PatientsService,
   ) {}
 
@@ -847,6 +929,166 @@ export class QuestionnairesService {
   }
 
   /**
+   * Save STOP-Bang screening
+   */
+  async saveStopbangScores(dto: SaveStopbangDto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let stopbangScore = await this.stopbangRepository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!stopbangScore) {
+      stopbangScore = this.stopbangRepository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(stopbangScore, dto, STOPBANG_SCORE_FIELDS);
+
+    const saved = await this.stopbangRepository.save(stopbangScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
+   * Save Epworth Sleepiness Scale
+   */
+  async saveEpworthScores(dto: SaveEpworthDto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let epworthScore = await this.epworthRepository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!epworthScore) {
+      epworthScore = this.epworthRepository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(epworthScore, dto, EPWORTH_SCORE_FIELDS);
+
+    const saved = await this.epworthRepository.save(epworthScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
+   * Save PDSS-2 responses
+   */
+  async savePdss2Scores(dto: SavePdss2Dto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let pdssScore = await this.pdss2Repository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!pdssScore) {
+      pdssScore = this.pdss2Repository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(pdssScore, dto, PDSS2_SCORE_FIELDS);
+
+    const saved = await this.pdss2Repository.save(pdssScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
+   * Save RBDSQ questionnaire
+   */
+  async saveRbdsqScores(dto: SaveRbdsqDto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let rbdsqScore = await this.rbdsqRepository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!rbdsqScore) {
+      rbdsqScore = this.rbdsqRepository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(rbdsqScore, dto, RBDSQ_SCORE_FIELDS);
+
+    const saved = await this.rbdsqRepository.save(rbdsqScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
+   * Save FOGQ scores
+   */
+  async saveFogqScores(dto: SaveFogqDto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let fogqScore = await this.fogqRepository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!fogqScore) {
+      fogqScore = this.fogqRepository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(fogqScore, dto, FOGQ_SCORE_FIELDS);
+
+    const saved = await this.fogqRepository.save(fogqScore);
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
    * Get all reference data for questionnaire forms
    */
   async getReferenceData() {
@@ -936,6 +1178,11 @@ export class QuestionnairesService {
       .leftJoinAndSelect('q.anthropometric_data', 'anthropometric_data')
       .leftJoinAndSelect('q.clinical_assessment', 'clinical_assessment')
       .leftJoinAndSelect('q.medications', 'medications')
+      .leftJoinAndSelect('q.stopbang_score', 'stopbang_score')
+      .leftJoinAndSelect('q.epworth_score', 'epworth_score')
+      .leftJoinAndSelect('q.pdss2_score', 'pdss2_score')
+      .leftJoinAndSelect('q.rbdsq_score', 'rbdsq_score')
+      .leftJoinAndSelect('q.fogq_score', 'fogq_score')
       .where('q.id = :id', { id })
       .getOne();
 
@@ -1283,6 +1530,78 @@ export class QuestionnairesService {
       console.log('Sample formatted medication:', JSON.stringify(formData.medications[0], null, 2));
     }
 
+    // Carregar protocolos do sono - STOP-Bang
+    if (questionnaire.stopbang_score) {
+      const stopbang = questionnaire.stopbang_score;
+      formData.stopbang_snore = stopbang.snoring !== null && stopbang.snoring !== undefined ? (stopbang.snoring ? 'Sim' : 'Não') : '';
+      formData.stopbang_tired = stopbang.tired !== null && stopbang.tired !== undefined ? (stopbang.tired ? 'Sim' : 'Não') : '';
+      formData.stopbang_observed = stopbang.observed_apnea !== null && stopbang.observed_apnea !== undefined ? (stopbang.observed_apnea ? 'Sim' : 'Não') : '';
+      formData.stopbang_pressure = stopbang.blood_pressure !== null && stopbang.blood_pressure !== undefined ? (stopbang.blood_pressure ? 'Sim' : 'Não') : '';
+      formData.stopbang_age = stopbang.age_over_50 !== null && stopbang.age_over_50 !== undefined ? (stopbang.age_over_50 ? 'Sim' : 'Não') : '';
+      formData.stopbang_neck = stopbang.neck_circumference_large !== null && stopbang.neck_circumference_large !== undefined ? (stopbang.neck_circumference_large ? 'Sim' : 'Não') : '';
+      formData.stopbang_gender = stopbang.gender_male !== null && stopbang.gender_male !== undefined ? (stopbang.gender_male ? 'Sim' : 'Não') : '';
+      formData.scoreStopBang = stopbang.total_score !== null ? String(stopbang.total_score) : '';
+    }
+
+    // Carregar protocolos do sono - Epworth
+    if (questionnaire.epworth_score) {
+      const epworth = questionnaire.epworth_score;
+      formData.epworth_q1 = epworth.sitting_reading !== null && epworth.sitting_reading !== undefined ? String(epworth.sitting_reading) : '';
+      formData.epworth_q2 = epworth.watching_tv !== null && epworth.watching_tv !== undefined ? String(epworth.watching_tv) : '';
+      formData.epworth_q3 = epworth.sitting_inactive_public !== null && epworth.sitting_inactive_public !== undefined ? String(epworth.sitting_inactive_public) : '';
+      formData.epworth_q4 = epworth.passenger_car !== null && epworth.passenger_car !== undefined ? String(epworth.passenger_car) : '';
+      formData.epworth_q5 = epworth.lying_down_afternoon !== null && epworth.lying_down_afternoon !== undefined ? String(epworth.lying_down_afternoon) : '';
+      formData.epworth_q6 = epworth.sitting_talking !== null && epworth.sitting_talking !== undefined ? String(epworth.sitting_talking) : '';
+      formData.epworth_q7 = epworth.sitting_after_lunch !== null && epworth.sitting_after_lunch !== undefined ? String(epworth.sitting_after_lunch) : '';
+      formData.epworth_q8 = epworth.car_stopped_traffic !== null && epworth.car_stopped_traffic !== undefined ? String(epworth.car_stopped_traffic) : '';
+      formData.scoreEpworth = epworth.total_score !== null ? String(epworth.total_score) : '';
+    }
+
+    // Carregar protocolos do sono - PDSS-2
+    if (questionnaire.pdss2_score) {
+      const pdss2 = questionnaire.pdss2_score;
+      formData.pdss2_q1 = pdss2.q1 !== null && pdss2.q1 !== undefined ? String(pdss2.q1) : '';
+      formData.pdss2_q2 = pdss2.q2 !== null && pdss2.q2 !== undefined ? String(pdss2.q2) : '';
+      formData.pdss2_q3 = pdss2.q3 !== null && pdss2.q3 !== undefined ? String(pdss2.q3) : '';
+      formData.pdss2_q4 = pdss2.q4 !== null && pdss2.q4 !== undefined ? String(pdss2.q4) : '';
+      formData.pdss2_q5 = pdss2.q5 !== null && pdss2.q5 !== undefined ? String(pdss2.q5) : '';
+      formData.pdss2_q6 = pdss2.q6 !== null && pdss2.q6 !== undefined ? String(pdss2.q6) : '';
+      formData.pdss2_q7 = pdss2.q7 !== null && pdss2.q7 !== undefined ? String(pdss2.q7) : '';
+      formData.pdss2_q8 = pdss2.q8 !== null && pdss2.q8 !== undefined ? String(pdss2.q8) : '';
+      formData.pdss2_q9 = pdss2.q9 !== null && pdss2.q9 !== undefined ? String(pdss2.q9) : '';
+      formData.pdss2_q10 = pdss2.q10 !== null && pdss2.q10 !== undefined ? String(pdss2.q10) : '';
+      formData.pdss2_q11 = pdss2.q11 !== null && pdss2.q11 !== undefined ? String(pdss2.q11) : '';
+      formData.pdss2_q12 = pdss2.q12 !== null && pdss2.q12 !== undefined ? String(pdss2.q12) : '';
+      formData.pdss2_q13 = pdss2.q13 !== null && pdss2.q13 !== undefined ? String(pdss2.q13) : '';
+      formData.pdss2_q14 = pdss2.q14 !== null && pdss2.q14 !== undefined ? String(pdss2.q14) : '';
+      formData.pdss2_q15 = pdss2.q15 !== null && pdss2.q15 !== undefined ? String(pdss2.q15) : '';
+      formData.scorePDSS2 = pdss2.total_score !== null ? String(pdss2.total_score) : '';
+    }
+
+    // Carregar protocolos do sono - RBDSQ
+    if (questionnaire.rbdsq_score) {
+      const rbdsq = questionnaire.rbdsq_score;
+      formData.q1RBDSQ = rbdsq.q1_vivid_dreams !== null && rbdsq.q1_vivid_dreams !== undefined ? (rbdsq.q1_vivid_dreams ? '1' : '0') : '';
+      formData.q2RBDSQ = rbdsq.q2_aggressive_content !== null && rbdsq.q2_aggressive_content !== undefined ? (rbdsq.q2_aggressive_content ? '1' : '0') : '';
+      formData.q3RBDSQ = rbdsq.q3_dream_enactment !== null && rbdsq.q3_dream_enactment !== undefined ? (rbdsq.q3_dream_enactment ? '1' : '0') : '';
+      formData.q4RBDSQ = rbdsq.q4_limb_movements !== null && rbdsq.q4_limb_movements !== undefined ? (rbdsq.q4_limb_movements ? '1' : '0') : '';
+      formData.q5RBDSQ = rbdsq.q5_injury_potential !== null && rbdsq.q5_injury_potential !== undefined ? (rbdsq.q5_injury_potential ? '1' : '0') : '';
+      formData.q6RBDSQ = rbdsq.q6_bed_disruption !== null && rbdsq.q6_bed_disruption !== undefined ? (rbdsq.q6_bed_disruption ? '1' : '0') : '';
+      formData.q7RBDSQ = rbdsq.q7_awakening_recall !== null && rbdsq.q7_awakening_recall !== undefined ? (rbdsq.q7_awakening_recall ? '1' : '0') : '';
+      formData.q8RBDSQ = rbdsq.q8_sleep_disruption !== null && rbdsq.q8_sleep_disruption !== undefined ? (rbdsq.q8_sleep_disruption ? '1' : '0') : '';
+      formData.q9RBDSQ = rbdsq.q9_neurological_disorder !== null && rbdsq.q9_neurological_disorder !== undefined ? (rbdsq.q9_neurological_disorder ? '1' : '0') : '';
+      formData.q10RBDSQ = rbdsq.q10_rem_behavior_problem !== null && rbdsq.q10_rem_behavior_problem !== undefined ? (rbdsq.q10_rem_behavior_problem ? '1' : '0') : '';
+      formData.scoreRBDSQ = rbdsq.total_score !== null ? String(rbdsq.total_score) : '';
+    }
+
+    // Carregar FOGQ
+    if (questionnaire.fogq_score) {
+      const fogq = questionnaire.fogq_score;
+      // Os dados do FOGQ são armazenados no estado fogq, não no formData diretamente
+      // Mas vamos adicionar ao formData para referência
+      formData.scoreFOGQ = fogq.total_score !== null ? String(fogq.total_score) : '';
+    }
+
     return {
       id: questionnaire.id,
       fullName: patient.full_name,
@@ -1290,6 +1609,14 @@ export class QuestionnairesService {
       createdAt: questionnaire.created_at.toISOString().split('T')[0],
       updatedAt: questionnaire.updated_at.toISOString().split('T')[0],
       data: formData,
+      // Adicionar dados dos protocolos separadamente para facilitar o carregamento no frontend
+      sleepProtocols: {
+        stopbang: questionnaire.stopbang_score || null,
+        epworth: questionnaire.epworth_score || null,
+        pdss2: questionnaire.pdss2_score || null,
+        rbdsq: questionnaire.rbdsq_score || null,
+      },
+      fogq: questionnaire.fogq_score || null,
     };
   }
 }

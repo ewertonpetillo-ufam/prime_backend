@@ -21,6 +21,11 @@ import { SaveStep3Dto } from './dto/save-step3.dto';
 import { SaveUpdrs3Dto } from './dto/save-updrs3.dto';
 import { SaveMeemDto } from './dto/save-meem.dto';
 import { SaveUdysrsDto } from './dto/save-udysrs.dto';
+import { SaveStopbangDto } from './dto/save-stopbang.dto';
+import { SaveEpworthDto } from './dto/save-epworth.dto';
+import { SavePdss2Dto } from './dto/save-pdss2.dto';
+import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
+import { SaveFogqDto } from './dto/save-fogq.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Questionnaires')
@@ -138,6 +143,96 @@ export class QuestionnairesController {
   })
   async saveUdysrs(@Body() dto: SaveUdysrsDto) {
     return this.questionnairesService.saveUdysrsScores(dto);
+  }
+
+  @Post('stopbang')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar protocolo STOP-Bang',
+    description: 'Persiste as pontuações do questionário STOP-Bang',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações STOP-Bang salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveStopbang(@Body() dto: SaveStopbangDto) {
+    return this.questionnairesService.saveStopbangScores(dto);
+  }
+
+  @Post('epworth')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar escala de Sonolência de Epworth',
+    description: 'Persiste as respostas da escala Epworth',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações Epworth salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveEpworth(@Body() dto: SaveEpworthDto) {
+    return this.questionnairesService.saveEpworthScores(dto);
+  }
+
+  @Post('pdss2')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar protocolo PDSS-2',
+    description: 'Persiste as respostas da Parkinson Disease Sleep Scale 2',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações PDSS-2 salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async savePdss2(@Body() dto: SavePdss2Dto) {
+    return this.questionnairesService.savePdss2Scores(dto);
+  }
+
+  @Post('rbdsq')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar protocolo RBDSQ',
+    description: 'Persiste as respostas do questionário REM Behavior Disorder Screening',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações RBDSQ salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveRbdsq(@Body() dto: SaveRbdsqDto) {
+    return this.questionnairesService.saveRbdsqScores(dto);
+  }
+
+  @Post('fogq')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar protocolo FOGQ',
+    description: 'Persiste as respostas do Freezing of Gait Questionnaire',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pontuações FOGQ salvas com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveFogq(@Body() dto: SaveFogqDto) {
+    return this.questionnairesService.saveFogqScores(dto);
   }
 
   @Get('reference-data')

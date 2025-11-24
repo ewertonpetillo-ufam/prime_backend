@@ -24,7 +24,7 @@ const nmf_score_entity_1 = require("./nmf-score.entity");
 const fogq_score_entity_1 = require("./fogq-score.entity");
 const stopbang_score_entity_1 = require("./stopbang-score.entity");
 const epworth_score_entity_1 = require("./epworth-score.entity");
-const pdss1_score_entity_1 = require("./pdss1-score.entity");
+const pdss2_score_entity_1 = require("./pdss2-score.entity");
 const rbdsq_score_entity_1 = require("./rbdsq-score.entity");
 const patient_task_collection_entity_1 = require("./patient-task-collection.entity");
 const pdf_report_entity_1 = require("./pdf-report.entity");
@@ -140,11 +140,11 @@ __decorate([
     __metadata("design:type", epworth_score_entity_1.EpworthScore)
 ], Questionnaire.prototype, "epworth_score", void 0);
 __decorate([
-    (0, typeorm_1.OneToOne)(() => pdss1_score_entity_1.Pdss1Score, (pdss1) => pdss1.questionnaire, {
+    (0, typeorm_1.OneToOne)(() => pdss2_score_entity_1.Pdss2Score, (pdss2) => pdss2.questionnaire, {
         cascade: true,
     }),
-    __metadata("design:type", pdss1_score_entity_1.Pdss1Score)
-], Questionnaire.prototype, "pdss1_score", void 0);
+    __metadata("design:type", pdss2_score_entity_1.Pdss2Score)
+], Questionnaire.prototype, "pdss2_score", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => rbdsq_score_entity_1.RbdsqScore, (rbdsq) => rbdsq.questionnaire, {
         cascade: true,
