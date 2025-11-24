@@ -12,6 +12,7 @@ import { BinaryCollectionsModule } from './modules/binary-collections/binary-col
 import { TasksModule } from './modules/tasks/tasks.module';
 import { UsersModule } from './modules/users/users.module';
 import { SystemModule } from './modules/system/system.module';
+import { QuestionnairesModule } from './modules/questionnaires/questionnaires.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
@@ -38,6 +39,7 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
     TasksModule,
     UsersModule,
     SystemModule,
+    QuestionnairesModule,
   ],
   controllers: [AppController],
   providers: [
