@@ -44,5 +44,19 @@ export class PdfReportsService {
 
     return this.pdfReportRepository.save(pdfReport);
   }
+
+  async getReportById(id: string) {
+    const report = await this.pdfReportRepository
+      .createQueryBuilder('report')
+      .addSelect('report.file_data')
+      .where('report.id = :id', { id })
+      .getOne();
+
+    if (!report) {
+      throw new NotFoundException(`Relatório com ID ${id} não encontrado`);
+    }
+
+    return report;
+  }
 }
 

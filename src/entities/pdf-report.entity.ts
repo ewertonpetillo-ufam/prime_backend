@@ -18,7 +18,7 @@ export class PdfReport {
   @Column({ type: 'varchar', length: 500, nullable: true })
   file_path: string | null;
 
-  @Column({ type: 'bytea', nullable: true })
+  @Column({ type: 'bytea', nullable: true, select: false })
   file_data: Buffer | null;
 
   @Column({ type: 'varchar', length: 255 })

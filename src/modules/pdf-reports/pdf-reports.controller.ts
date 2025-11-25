@@ -6,6 +6,9 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  Get,
+  Param,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -19,6 +22,7 @@ import {
 import { PdfReportsService } from './pdf-reports.service';
 import { UploadPdfReportDto } from './dto/upload-pdf-report.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
+import { Response } from 'express';
 
 @ApiTags('PDF Reports')
 @ApiBearerAuth('JWT-auth')
@@ -60,6 +64,31 @@ export class PdfReportsController {
     @CurrentUser() user: { userId: string },
   ) {
     return this.pdfReportsService.uploadReport(dto, file, user?.userId);
+  }
+
+  @Get(':id/download')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Download de relatório PDF',
+    description: 'Retorna o arquivo PDF original para download',
+  })
+  @ApiResponse({ status: 200, description: 'Relatório retornado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Relatório não encontrado' })
+  async downloadReport(@Param('id') id: string, @Res() res: Response) {
+    const report = await this.pdfReportsService.getReportById(id);
+    const mimeType = report.mime_type || 'application/pdf';
+    const dispositionFileName = encodeURIComponent(report.file_name || 'relatorio.pdf');
+
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Disposition': `attachment; filename="${dispositionFileName}"`,
+    });
+
+    if (report.file_size_bytes) {
+      res.set('Content-Length', report.file_size_bytes.toString());
+    }
+
+    res.send(report.file_data ?? Buffer.from([]));
   }
 }
 

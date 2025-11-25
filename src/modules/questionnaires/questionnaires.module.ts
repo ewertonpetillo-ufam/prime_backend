@@ -23,6 +23,9 @@ import { StopbangScore } from '../../entities/stopbang-score.entity';
 import { EpworthScore } from '../../entities/epworth-score.entity';
 import { Pdss2Score } from '../../entities/pdss2-score.entity';
 import { RbdsqScore } from '../../entities/rbdsq-score.entity';
+import { FogqScore } from '../../entities/fogq-score.entity';
+import { BinaryCollection } from '../../entities/binary-collection.entity';
+import { PdfReport } from '../../entities/pdf-report.entity';
 import { PatientsModule } from '../patients/patients.module';
 
 @Module({
@@ -49,6 +52,9 @@ import { PatientsModule } from '../patients/patients.module';
       EpworthScore,
       Pdss2Score,
       RbdsqScore,
+      FogqScore,
+      BinaryCollection,
+      PdfReport,
     ]),
     PatientsModule,
   ],
