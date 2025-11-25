@@ -29,17 +29,6 @@ export class UsersService {
       }
     }
 
-    // Check if registration_number already exists (if provided)
-    if (createUserDto.registration_number) {
-      const existing = await this.usersRepository.findOne({
-        where: { registration_number: createUserDto.registration_number },
-      });
-
-      if (existing) {
-        throw new ConflictException('Registration number already registered');
-      }
-    }
-
     // Generate default password hash if not provided
     let passwordHash = createUserDto.password_hash;
     if (!passwordHash) {
@@ -95,20 +84,6 @@ export class UsersService {
 
       if (existing) {
         throw new ConflictException('Email already registered');
-      }
-    }
-
-    // Check if registration_number is being changed and if it's already in use
-    if (
-      updateUserDto.registration_number &&
-      updateUserDto.registration_number !== user.registration_number
-    ) {
-      const existing = await this.usersRepository.findOne({
-        where: { registration_number: updateUserDto.registration_number },
-      });
-
-      if (existing) {
-        throw new ConflictException('Registration number already registered');
       }
     }
 

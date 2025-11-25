@@ -39,7 +39,7 @@ export class UsersController {
     status: 201,
     description: 'User created successfully',
   })
-  @ApiResponse({ status: 409, description: 'Email or registration number already registered' })
+  @ApiResponse({ status: 409, description: 'Email already registered' })
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
@@ -99,7 +99,7 @@ export class UsersController {
     description: 'User updated successfully',
   })
   @ApiResponse({ status: 404, description: 'User not found' })
-  @ApiResponse({ status: 409, description: 'Email or registration number already registered' })
+  @ApiResponse({ status: 409, description: 'Email already registered' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
