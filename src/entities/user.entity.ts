@@ -35,7 +35,7 @@ export class User {
   })
   role: UserRole;
 
-  @Column({ type: 'varchar', length: 50, nullable: true, unique: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   registration_number: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
