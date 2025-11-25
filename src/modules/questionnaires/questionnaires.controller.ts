@@ -7,6 +7,7 @@ import {
   Body,
   HttpCode,
   HttpStatus,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -279,6 +280,64 @@ export class QuestionnairesController {
   })
   async getQuestionnaireById(@Param('id') id: string) {
     return this.questionnairesService.getQuestionnaireById(id);
+  }
+
+  @Patch(':id/complete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Finalize questionnaire',
+    description: 'Updates questionnaire status to completed',
+  })
+  @ApiResponse({ status: 200, description: 'Questionnaire finalized successfully' })
+  @ApiResponse({ status: 404, description: 'Questionnaire not found' })
+  async finalizeQuestionnaire(@Param('id') id: string) {
+    return this.questionnairesService.finalizeQuestionnaire(id);
+  }
+
+  @Get(':id/export')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Export questionnaire data',
+    description: 'Returns complete questionnaire data with all related information including binary collections',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Questionnaire data exported successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionnaire not found',
+  })
+  async exportQuestionnaireData(@Param('id') id: string) {
+    return this.questionnairesService.exportQuestionnaireData(id);
+  }
+
+  @Get('patient/:patientId/export')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Export all patient data',
+    description: 'Returns all questionnaires and binary collections for a specific patient',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Patient data exported successfully',
+  })
+  async exportPatientData(@Param('patientId') patientId: string) {
+    return this.questionnairesService.exportPatientData(patientId);
+  }
+
+  @Get('export/all')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Export all questionnaires data',
+    description: 'Returns all questionnaires with all related data including binary collections',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'All questionnaires data exported successfully',
+  })
+  async exportAllQuestionnairesData() {
+    return this.questionnairesService.exportAllQuestionnairesData();
   }
 }
 

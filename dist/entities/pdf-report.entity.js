@@ -35,7 +35,7 @@ __decorate([
     __metadata("design:type", String)
 ], PdfReport.prototype, "file_path", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'bytea', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'bytea', nullable: true, select: false }),
     __metadata("design:type", Buffer)
 ], PdfReport.prototype, "file_data", void 0);
 __decorate([
