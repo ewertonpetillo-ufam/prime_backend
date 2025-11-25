@@ -24,9 +24,41 @@ __decorate([
     __metadata("design:type", String)
 ], StopbangScore.prototype, "questionnaire_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
-    __metadata("design:type", Object)
-], StopbangScore.prototype, "data", void 0);
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "snoring", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "tired", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "observed_apnea", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "blood_pressure", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "bmi_over_35", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "age_over_50", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "neck_circumference_large", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], StopbangScore.prototype, "gender_male", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], StopbangScore.prototype, "total_score", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.stopbang_score, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),

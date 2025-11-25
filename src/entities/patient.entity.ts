@@ -75,6 +75,9 @@ export class Patient {
   years_since_quit_smoking: number;
 
   @Column({ type: 'boolean', nullable: true, default: false })
+  smoked_before: boolean;
+
+  @Column({ type: 'boolean', nullable: true, default: false })
   deficiencia_visual: boolean;
 
   @Column({ type: 'boolean', nullable: true, default: false })

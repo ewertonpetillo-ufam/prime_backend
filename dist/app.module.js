@@ -22,6 +22,7 @@ const tasks_module_1 = require("./modules/tasks/tasks.module");
 const users_module_1 = require("./modules/users/users.module");
 const system_module_1 = require("./modules/system/system.module");
 const questionnaires_module_1 = require("./modules/questionnaires/questionnaires.module");
+const pdf_reports_module_1 = require("./modules/pdf-reports/pdf-reports.module");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 const http_exception_filter_1 = require("./common/filters/http-exception.filter");
 let AppModule = class AppModule {
@@ -47,6 +48,7 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             system_module_1.SystemModule,
             questionnaires_module_1.QuestionnairesModule,
+            pdf_reports_module_1.PdfReportsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [

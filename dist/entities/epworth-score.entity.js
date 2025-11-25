@@ -24,9 +24,41 @@ __decorate([
     __metadata("design:type", String)
 ], EpworthScore.prototype, "questionnaire_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
-    __metadata("design:type", Object)
-], EpworthScore.prototype, "data", void 0);
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "sitting_reading", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "watching_tv", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "sitting_inactive_public", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "passenger_car", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "lying_down_afternoon", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "sitting_talking", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "sitting_after_lunch", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "car_stopped_traffic", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], EpworthScore.prototype, "total_score", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.epworth_score, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),

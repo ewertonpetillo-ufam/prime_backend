@@ -24,9 +24,145 @@ __decorate([
     __metadata("design:type", String)
 ], Updrs3Score.prototype, "questionnaire_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
-    __metadata("design:type", Object)
-], Updrs3Score.prototype, "scores", void 0);
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "speech", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "facial_expression", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rising_from_chair", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "gait", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "freezing_of_gait", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "postural_stability", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "posture", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "global_bradykinesia", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "postural_tremor_amplitude", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rigidity_neck", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rigidity_rue", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rigidity_lue", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rigidity_rle", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rigidity_lle", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "finger_tapping_right", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "finger_tapping_left", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "hand_movements_right", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "hand_movements_left", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "pronation_supination_right", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "pronation_supination_left", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "toe_tapping_right", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "toe_tapping_left", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "leg_agility_right", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "leg_agility_left", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "postural_tremor_right", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "postural_tremor_left", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "kinetic_tremor_right", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "kinetic_tremor_left", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rest_tremor_rue", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rest_tremor_lue", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rest_tremor_rle", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rest_tremor_lle", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'smallint', nullable: true }),
+    __metadata("design:type", Number)
+], Updrs3Score.prototype, "rest_tremor_lip_jaw", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', nullable: true }),
+    __metadata("design:type", Boolean)
+], Updrs3Score.prototype, "dyskinesia_present", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', nullable: true }),
+    __metadata("design:type", Boolean)
+], Updrs3Score.prototype, "dyskinesia_interfered", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', nullable: true }),
     __metadata("design:type", Number)

@@ -24,9 +24,49 @@ __decorate([
     __metadata("design:type", String)
 ], RbdsqScore.prototype, "questionnaire_id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
-    __metadata("design:type", Object)
-], RbdsqScore.prototype, "data", void 0);
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q1_vivid_dreams", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q2_aggressive_content", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q3_dream_enactment", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q4_limb_movements", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q5_injury_potential", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q6_bed_disruption", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q7_awakening_recall", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q8_sleep_disruption", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q9_neurological_disorder", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: false }),
+    __metadata("design:type", Boolean)
+], RbdsqScore.prototype, "q10_rem_behavior_problem", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], RbdsqScore.prototype, "total_score", void 0);
 __decorate([
     (0, typeorm_1.OneToOne)(() => questionnaire_entity_1.Questionnaire, (q) => q.rbdsq_score, { onDelete: 'CASCADE' }),
     (0, typeorm_1.JoinColumn)({ name: 'questionnaire_id' }),

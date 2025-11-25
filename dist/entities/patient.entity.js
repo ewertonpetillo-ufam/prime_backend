@@ -99,6 +99,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', nullable: true, default: false }),
     __metadata("design:type", Boolean)
+], Patient.prototype, "smoked_before", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', nullable: true, default: false }),
+    __metadata("design:type", Boolean)
 ], Patient.prototype, "deficiencia_visual", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', nullable: true, default: false }),

@@ -24,6 +24,7 @@ export declare class Patient {
     is_current_smoker: boolean;
     smoking_duration_years: number;
     years_since_quit_smoking: number;
+    smoked_before: boolean;
     deficiencia_visual: boolean;
     hoarseness: boolean;
     stuttering: boolean;
