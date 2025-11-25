@@ -22,7 +22,7 @@ import { NmfScore } from './nmf-score.entity';
 import { FogqScore } from './fogq-score.entity';
 import { StopbangScore } from './stopbang-score.entity';
 import { EpworthScore } from './epworth-score.entity';
-import { Pdss1Score } from './pdss1-score.entity';
+import { Pdss2Score } from './pdss2-score.entity';
 import { RbdsqScore } from './rbdsq-score.entity';
 import { PatientTaskCollection } from './patient-task-collection.entity';
 import { PdfReport } from './pdf-report.entity';
@@ -130,10 +130,10 @@ export class Questionnaire {
   })
   epworth_score: EpworthScore;
 
-  @OneToOne(() => Pdss1Score, (pdss1) => pdss1.questionnaire, {
+  @OneToOne(() => Pdss2Score, (pdss2) => pdss2.questionnaire, {
     cascade: true,
   })
-  pdss1_score: Pdss1Score;
+  pdss2_score: Pdss2Score;
 
   @OneToOne(() => RbdsqScore, (rbdsq) => rbdsq.questionnaire, {
     cascade: true,

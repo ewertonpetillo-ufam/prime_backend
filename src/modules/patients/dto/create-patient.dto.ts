@@ -209,6 +209,17 @@ export class CreatePatientDto {
   years_since_quit_smoking?: number;
 
   @ApiProperty({
+    description: 'Indicates if the patient has ever smoked before',
+    example: true,
+    required: false,
+    default: false,
+    type: Boolean,
+  })
+  @IsBoolean()
+  @IsOptional()
+  smoked_before?: boolean;
+
+  @ApiProperty({
     description: 'Patient active status (soft delete flag)',
     example: true,
     required: false,
