@@ -23,4 +23,5 @@ export declare class SaveStep1Dto {
     deficienciaVisual?: string;
     rouquidao?: string;
     gagueja?: string;
+    questionnaireId?: string;
 }

@@ -36,7 +36,7 @@ __decorate([
     __metadata("design:type", String)
 ], Evaluator.prototype, "role", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 50, nullable: true, unique: true }),
+    (0, typeorm_1.Column)({ type: 'varchar', length: 50, nullable: true }),
     __metadata("design:type", String)
 ], Evaluator.prototype, "registration_number", void 0);
 __decorate([

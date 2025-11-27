@@ -55,6 +55,9 @@ export class Questionnaire {
   @Column({ type: 'varchar', length: 10, nullable: true, default: '1.0' })
   assessment_version: string;
 
+  @Column({ type: 'integer', nullable: true, default: 1 })
+  last_step: number; // Último passo salvo (1-8)
+
   @Column({ type: 'timestamp', nullable: true })
   completed_at: Date;
 
