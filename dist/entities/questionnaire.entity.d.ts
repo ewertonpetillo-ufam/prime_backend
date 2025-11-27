@@ -24,6 +24,7 @@ export declare class Questionnaire {
     collection_date: Date;
     status: string;
     assessment_version: string;
+    last_step: number;
     completed_at: Date;
     created_at: Date;
     updated_at: Date;

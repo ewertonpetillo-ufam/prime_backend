@@ -99,9 +99,10 @@ __decorate([
     __metadata("design:type", String)
 ], SaveStep1Dto.prototype, "phoneNumberContact", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Email', example: 'maria@email.com' }),
-    (0, class_validator_1.IsEmail)(),
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Email (opcional)', example: 'maria@email.com' }),
     (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.ValidateIf)((o) => o.email !== undefined && o.email !== null && o.email !== ''),
+    (0, class_validator_1.IsEmail)({}, { message: 'Email deve ter um formato válido' }),
     __metadata("design:type", String)
 ], SaveStep1Dto.prototype, "email", void 0);
 __decorate([
@@ -164,4 +165,10 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], SaveStep1Dto.prototype, "gagueja", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Existing questionnaire ID (if editing)', example: 'uuid' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], SaveStep1Dto.prototype, "questionnaireId", void 0);
 //# sourceMappingURL=save-step1.dto.js.map

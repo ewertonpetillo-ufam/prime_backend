@@ -503,26 +503,45 @@ let QuestionnairesService = class QuestionnairesService {
                 stuttering: dto.gagueja === 'Sim',
             });
         }
-        let questionnaire = await this.questionnairesRepository.findOne({
-            where: {
-                patient_id: patient.id,
-                evaluator_id: evaluatorId,
-                status: (0, typeorm_2.In)(['draft', 'in_progress']),
-            },
-            order: { created_at: 'DESC' },
-        });
+        let questionnaire = null;
+        if (dto.questionnaireId) {
+            questionnaire = await this.questionnairesRepository.findOne({
+                where: { id: dto.questionnaireId },
+            });
+            if (questionnaire && questionnaire.patient_id === patient.id) {
+                questionnaire.collection_date = new Date(dto.dataColeta);
+                questionnaire.status = 'in_progress';
+                questionnaire.last_step = 1;
+                questionnaire.evaluator_id = evaluatorId;
+                questionnaire = await this.questionnairesRepository.save(questionnaire);
+            }
+            else {
+                questionnaire = null;
+            }
+        }
+        if (!questionnaire) {
+            questionnaire = await this.questionnairesRepository.findOne({
+                where: {
+                    patient_id: patient.id,
+                },
+                order: { created_at: 'DESC' },
+            });
+        }
         if (!questionnaire) {
             questionnaire = this.questionnairesRepository.create({
                 patient_id: patient.id,
                 evaluator_id: evaluatorId,
                 collection_date: new Date(dto.dataColeta),
                 status: 'in_progress',
+                last_step: 1,
             });
             questionnaire = await this.questionnairesRepository.save(questionnaire);
         }
-        else {
+        else if (!dto.questionnaireId) {
             questionnaire.collection_date = new Date(dto.dataColeta);
             questionnaire.status = 'in_progress';
+            questionnaire.last_step = 1;
+            questionnaire.evaluator_id = evaluatorId;
             questionnaire = await this.questionnairesRepository.save(questionnaire);
         }
         return {
@@ -557,6 +576,8 @@ let QuestionnairesService = class QuestionnairesService {
             anthropometricData.hip_circumference_cm = dto.hipSize ? parseFloat(String(dto.hipSize)) : anthropometricData.hip_circumference_cm;
             anthropometricData.abdominal_circumference_cm = dto.abdominal ? parseFloat(String(dto.abdominal)) : anthropometricData.abdominal_circumference_cm;
         }
+        questionnaire.last_step = 2;
+        await this.questionnairesRepository.save(questionnaire);
         return await this.anthropometricDataRepository.save(anthropometricData);
     }
     async saveStep3(dto) {
@@ -692,6 +713,8 @@ let QuestionnairesService = class QuestionnairesService {
                 }
             }
         }
+        questionnaire.last_step = 3;
+        await this.questionnairesRepository.save(questionnaire);
         return savedClinicalAssessment;
     }
     async saveUpdrs3Scores(dto) {
@@ -711,6 +734,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(updrsScore, dto, UPDRS_SCORE_FIELDS);
         const saved = await this.updrs3Repository.save(updrsScore);
+        questionnaire.last_step = 4;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             totalScore: saved.total_score ?? null,
@@ -733,6 +758,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(meemScore, dto, MEEM_SCORE_FIELDS);
         const saved = await this.meemRepository.save(meemScore);
+        questionnaire.last_step = 4;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             totalScore: saved.total_score ?? null,
@@ -755,6 +782,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(udysrsScore, dto, UDYSRS_SCORE_FIELDS);
         const saved = await this.udysrsRepository.save(udysrsScore);
+        questionnaire.last_step = 4;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             historicalSubscore: saved.historical_subscore ?? null,
@@ -779,6 +808,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(stopbangScore, dto, STOPBANG_SCORE_FIELDS);
         const saved = await this.stopbangRepository.save(stopbangScore);
+        questionnaire.last_step = 6;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             totalScore: saved.total_score ?? null,
@@ -801,6 +832,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(epworthScore, dto, EPWORTH_SCORE_FIELDS);
         const saved = await this.epworthRepository.save(epworthScore);
+        questionnaire.last_step = 6;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             totalScore: saved.total_score ?? null,
@@ -823,6 +856,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(pdssScore, dto, PDSS2_SCORE_FIELDS);
         const saved = await this.pdss2Repository.save(pdssScore);
+        questionnaire.last_step = 6;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             totalScore: saved.total_score ?? null,
@@ -845,6 +880,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(rbdsqScore, dto, RBDSQ_SCORE_FIELDS);
         const saved = await this.rbdsqRepository.save(rbdsqScore);
+        questionnaire.last_step = 6;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             totalScore: saved.total_score ?? null,
@@ -867,6 +904,8 @@ let QuestionnairesService = class QuestionnairesService {
         }
         this.assignScoreFields(fogqScore, dto, FOGQ_SCORE_FIELDS);
         const saved = await this.fogqRepository.save(fogqScore);
+        questionnaire.last_step = 7;
+        await this.questionnairesRepository.save(questionnaire);
         return {
             questionnaireId: saved.questionnaire_id,
             totalScore: saved.total_score ?? null,
@@ -941,6 +980,7 @@ let QuestionnairesService = class QuestionnairesService {
             id: q.id,
             fullName: q.patient?.full_name || '',
             cpf: q.patient?.cpf || '',
+            cpfHash: q.patient?.cpf_hash || '',
             createdAt: q.created_at,
             updatedAt: q.updated_at,
             completedAt: q.completed_at,
@@ -1378,7 +1418,9 @@ let QuestionnairesService = class QuestionnairesService {
             id: questionnaire.id,
             fullName: patient.full_name,
             cpf: patient.cpf || '',
+            cpfHash: patient.cpf_hash || '',
             status: questionnaire.status,
+            lastStep: questionnaire.last_step || 1,
             createdAt: questionnaire.created_at.toISOString().split('T')[0],
             updatedAt: questionnaire.updated_at.toISOString().split('T')[0],
             completedAt: questionnaire.completed_at
@@ -1402,8 +1444,12 @@ let QuestionnairesService = class QuestionnairesService {
         if (!questionnaire) {
             throw new common_1.NotFoundException(`Questionnaire with ID ${id} not found`);
         }
+        if (questionnaire.status === 'completed') {
+            return questionnaire;
+        }
         questionnaire.status = 'completed';
         questionnaire.completed_at = new Date();
+        questionnaire.last_step = 8;
         return this.questionnairesRepository.save(questionnaire);
     }
     objectToCsvRow(obj) {
@@ -1423,7 +1469,7 @@ let QuestionnairesService = class QuestionnairesService {
         const headers = [
             'questionnaire_id',
             'patient_name',
-            'cpf',
+            'cpf_hash',
             'data_coleta',
             'nome_avaliador',
             'birthday',
@@ -1483,7 +1529,7 @@ let QuestionnairesService = class QuestionnairesService {
         const values = [
             data.id || '',
             data.data?.fullName || '',
-            data.data?.cpf || '',
+            data.cpfHash || '',
             data.data?.dataColeta || '',
             data.data?.nomeAvaliador || '',
             data.data?.birthday || '',
@@ -1547,7 +1593,7 @@ let QuestionnairesService = class QuestionnairesService {
         const headers = [
             'questionnaire_id',
             'patient_name',
-            'cpf',
+            'cpf_hash',
             'updrs3_total_score',
             'updrs3_speech',
             'updrs3_facial_expression',
@@ -1654,7 +1700,7 @@ let QuestionnairesService = class QuestionnairesService {
         const values = [
             data.id || '',
             data.data?.fullName || '',
-            data.data?.cpf || '',
+            data.cpfHash || '',
             data.data?.scoreUPDRS3 || '',
             updrs3.speech || '',
             updrs3.facial_expression || '',
@@ -1762,7 +1808,7 @@ let QuestionnairesService = class QuestionnairesService {
         const headers = [
             'questionnaire_id',
             'patient_name',
-            'cpf',
+            'cpf_hash',
             'nmf_total_score',
             'nmf_q1',
             'nmf_q2',
@@ -1788,7 +1834,7 @@ let QuestionnairesService = class QuestionnairesService {
         const values = [
             data.id || '',
             data.data?.fullName || '',
-            data.data?.cpf || '',
+            data.cpfHash || '',
             data.data?.scoreNMF || '',
             nmf.q1 || '',
             nmf.q2 || '',
@@ -1817,7 +1863,7 @@ let QuestionnairesService = class QuestionnairesService {
         const headers = [
             'questionnaire_id',
             'patient_name',
-            'cpf',
+            'cpf_hash',
             'stopbang_total_score',
             'stopbang_snore',
             'stopbang_tired',
@@ -1867,7 +1913,7 @@ let QuestionnairesService = class QuestionnairesService {
         const values = [
             data.id || '',
             data.data?.fullName || '',
-            data.data?.cpf || '',
+            data.cpfHash || '',
             data.data?.scoreStopBang || '',
             data.data?.stopbang_snore || '',
             data.data?.stopbang_tired || '',
@@ -1921,7 +1967,7 @@ let QuestionnairesService = class QuestionnairesService {
         const headers = [
             'questionnaire_id',
             'patient_name',
-            'cpf',
+            'cpf_hash',
             'fogq_total_score',
             'fogq_gait_worst_state',
             'fogq_impact_daily_activities',
@@ -1934,7 +1980,7 @@ let QuestionnairesService = class QuestionnairesService {
         const values = [
             data.id || '',
             data.data?.fullName || '',
-            data.data?.cpf || '',
+            data.cpfHash || '',
             data.data?.scoreFOGQ || '',
             fogq.gait_worst_state || '',
             fogq.impact_daily_activities || '',
