@@ -9,6 +9,7 @@ import {
   IsBoolean,
   MaxLength,
   Matches,
+  ValidateIf,
 } from 'class-validator';
 
 export class SaveStep1Dto {
@@ -82,9 +83,10 @@ export class SaveStep1Dto {
   @IsOptional()
   phoneNumberContact?: string;
 
-  @ApiPropertyOptional({ description: 'Email', example: 'maria@email.com' })
-  @IsEmail()
+  @ApiPropertyOptional({ description: 'Email (opcional)', example: 'maria@email.com' })
   @IsOptional()
+  @ValidateIf((o) => o.email !== undefined && o.email !== null && o.email !== '')
+  @IsEmail({}, { message: 'Email deve ter um formato válido' })
   email?: string;
 
   @ApiPropertyOptional({ description: 'Is current smoker', example: 'Sim' })
@@ -136,5 +138,10 @@ export class SaveStep1Dto {
   @IsString()
   @IsOptional()
   gagueja?: string;
+
+  @ApiPropertyOptional({ description: 'Existing questionnaire ID (if editing)', example: 'uuid' })
+  @IsString()
+  @IsOptional()
+  questionnaireId?: string;
 }
 

@@ -31,14 +31,6 @@ let UsersService = class UsersService {
                 throw new common_1.ConflictException('Email already registered');
             }
         }
-        if (createUserDto.registration_number) {
-            const existing = await this.usersRepository.findOne({
-                where: { registration_number: createUserDto.registration_number },
-            });
-            if (existing) {
-                throw new common_1.ConflictException('Registration number already registered');
-            }
-        }
         let passwordHash = createUserDto.password_hash;
         if (!passwordHash) {
             const defaultPassword = 'Prime2025';
@@ -83,15 +75,6 @@ let UsersService = class UsersService {
             });
             if (existing) {
                 throw new common_1.ConflictException('Email already registered');
-            }
-        }
-        if (updateUserDto.registration_number &&
-            updateUserDto.registration_number !== user.registration_number) {
-            const existing = await this.usersRepository.findOne({
-                where: { registration_number: updateUserDto.registration_number },
-            });
-            if (existing) {
-                throw new common_1.ConflictException('Registration number already registered');
             }
         }
         Object.assign(user, updateUserDto);
