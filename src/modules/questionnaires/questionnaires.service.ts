@@ -616,30 +616,59 @@ export class QuestionnairesService {
       });
     }
 
-    // Find or create questionnaire for this patient and evaluator
-    // Look for any non-completed questionnaire (draft or in_progress)
-    let questionnaire = await this.questionnairesRepository.findOne({
-      where: {
-        patient_id: patient.id,
-        evaluator_id: evaluatorId,
-        status: In(['draft', 'in_progress']),
-      },
-      order: { created_at: 'DESC' },
-    });
+    // Find or create questionnaire for this patient
+    // REGRA: Um paciente pode ter apenas UM questionário (independente do avaliador)
+    let questionnaire: Questionnaire | null = null;
+
+    // If questionnaireId is provided, try to find that specific questionnaire first
+    if (dto.questionnaireId) {
+      questionnaire = await this.questionnairesRepository.findOne({
+        where: { id: dto.questionnaireId },
+      });
+
+      // Verify that the questionnaire belongs to this patient
+      if (questionnaire && questionnaire.patient_id === patient.id) {
+        // Update existing questionnaire (even if it's completed, we're editing it)
+        questionnaire.collection_date = new Date(dto.dataColeta);
+        questionnaire.status = 'in_progress';
+        questionnaire.last_step = 1;
+        // Atualizar avaliador caso tenha mudado
+        questionnaire.evaluator_id = evaluatorId;
+        questionnaire = await this.questionnairesRepository.save(questionnaire);
+      } else {
+        // Invalid questionnaireId or doesn't belong to this patient
+        questionnaire = null;
+      }
+    }
+
+    // If no questionnaire found by ID, look for ANY questionnaire for this patient
+    // (independente do status ou avaliador - apenas um questionário por paciente)
+    if (!questionnaire) {
+      questionnaire = await this.questionnairesRepository.findOne({
+        where: {
+          patient_id: patient.id,
+        },
+        order: { created_at: 'DESC' },
+      });
+    }
 
     if (!questionnaire) {
-      // Create new questionnaire
+      // Create new questionnaire (primeiro questionário do paciente)
       questionnaire = this.questionnairesRepository.create({
         patient_id: patient.id,
         evaluator_id: evaluatorId,
         collection_date: new Date(dto.dataColeta),
         status: 'in_progress',
+        last_step: 1,
       });
       questionnaire = await this.questionnairesRepository.save(questionnaire);
-    } else {
-      // Update existing questionnaire
+    } else if (!dto.questionnaireId) {
+      // Update existing questionnaire (only if we didn't already update it above)
       questionnaire.collection_date = new Date(dto.dataColeta);
       questionnaire.status = 'in_progress';
+      questionnaire.last_step = 1;
+      // Atualizar avaliador caso tenha mudado
+      questionnaire.evaluator_id = evaluatorId;
       questionnaire = await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -682,6 +711,10 @@ export class QuestionnairesService {
       anthropometricData.hip_circumference_cm = dto.hipSize ? parseFloat(String(dto.hipSize)) : anthropometricData.hip_circumference_cm;
       anthropometricData.abdominal_circumference_cm = dto.abdominal ? parseFloat(String(dto.abdominal)) : anthropometricData.abdominal_circumference_cm;
     }
+
+    // Update questionnaire last_step to 2
+    questionnaire.last_step = 2;
+    await this.questionnairesRepository.save(questionnaire);
 
     return await this.anthropometricDataRepository.save(anthropometricData);
   }
@@ -857,6 +890,10 @@ export class QuestionnairesService {
       }
     }
 
+    // Update questionnaire last_step to 3
+    questionnaire.last_step = 3;
+    await this.questionnairesRepository.save(questionnaire);
+
     return savedClinicalAssessment;
   }
 
@@ -885,6 +922,10 @@ export class QuestionnairesService {
     this.assignScoreFields(updrsScore, dto, UPDRS_SCORE_FIELDS);
 
     const saved = await this.updrs3Repository.save(updrsScore);
+
+    // Update questionnaire last_step to 4
+    questionnaire.last_step = 4;
+    await this.questionnairesRepository.save(questionnaire);
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -918,6 +959,10 @@ export class QuestionnairesService {
 
     const saved = await this.meemRepository.save(meemScore);
 
+    // Update questionnaire last_step to 4 (Avaliação Neurológica)
+    questionnaire.last_step = 4;
+    await this.questionnairesRepository.save(questionnaire);
+
     return {
       questionnaireId: saved.questionnaire_id,
       totalScore: saved.total_score ?? null,
@@ -949,6 +994,10 @@ export class QuestionnairesService {
     this.assignScoreFields(udysrsScore, dto, UDYSRS_SCORE_FIELDS);
 
     const saved = await this.udysrsRepository.save(udysrsScore);
+
+    // Update questionnaire last_step to 4 (Avaliação Neurológica)
+    questionnaire.last_step = 4;
+    await this.questionnairesRepository.save(questionnaire);
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -984,6 +1033,10 @@ export class QuestionnairesService {
 
     const saved = await this.stopbangRepository.save(stopbangScore);
 
+    // Update questionnaire last_step to 6 (Avaliação do Sono)
+    questionnaire.last_step = 6;
+    await this.questionnairesRepository.save(questionnaire);
+
     return {
       questionnaireId: saved.questionnaire_id,
       totalScore: saved.total_score ?? null,
@@ -1015,6 +1068,10 @@ export class QuestionnairesService {
     this.assignScoreFields(epworthScore, dto, EPWORTH_SCORE_FIELDS);
 
     const saved = await this.epworthRepository.save(epworthScore);
+
+    // Update questionnaire last_step to 6 (Avaliação do Sono)
+    questionnaire.last_step = 6;
+    await this.questionnairesRepository.save(questionnaire);
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1048,6 +1105,10 @@ export class QuestionnairesService {
 
     const saved = await this.pdss2Repository.save(pdssScore);
 
+    // Update questionnaire last_step to 6 (Avaliação do Sono)
+    questionnaire.last_step = 6;
+    await this.questionnairesRepository.save(questionnaire);
+
     return {
       questionnaireId: saved.questionnaire_id,
       totalScore: saved.total_score ?? null,
@@ -1080,6 +1141,10 @@ export class QuestionnairesService {
 
     const saved = await this.rbdsqRepository.save(rbdsqScore);
 
+    // Update questionnaire last_step to 6 (Avaliação do Sono)
+    questionnaire.last_step = 6;
+    await this.questionnairesRepository.save(questionnaire);
+
     return {
       questionnaireId: saved.questionnaire_id,
       totalScore: saved.total_score ?? null,
@@ -1111,6 +1176,10 @@ export class QuestionnairesService {
     this.assignScoreFields(fogqScore, dto, FOGQ_SCORE_FIELDS);
 
     const saved = await this.fogqRepository.save(fogqScore);
+
+    // Update questionnaire last_step to 7 (Avaliação Fisioterápica)
+    questionnaire.last_step = 7;
+    await this.questionnairesRepository.save(questionnaire);
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1204,7 +1273,8 @@ export class QuestionnairesService {
     return questionnaires.map(q => ({
       id: q.id,
       fullName: q.patient?.full_name || '',
-      cpf: q.patient?.cpf || '',
+      cpf: q.patient?.cpf || '', // CPF em texto para exibição nas telas
+      cpfHash: q.patient?.cpf_hash || '', // Hash do CPF para exportações
       createdAt: q.created_at,
       updatedAt: q.updated_at,
       completedAt: q.completed_at,
@@ -1747,8 +1817,10 @@ export class QuestionnairesService {
     return {
       id: questionnaire.id,
       fullName: patient.full_name,
-      cpf: patient.cpf || '', // CPF armazenado em texto plano
+      cpf: patient.cpf || '', // CPF em texto para exibição nas telas
+      cpfHash: patient.cpf_hash || '', // Hash do CPF para exportações
       status: questionnaire.status,
+      lastStep: questionnaire.last_step || 1, // Último passo salvo
       createdAt: questionnaire.created_at.toISOString().split('T')[0],
       updatedAt: questionnaire.updated_at.toISOString().split('T')[0],
       completedAt: questionnaire.completed_at
@@ -1776,8 +1848,14 @@ export class QuestionnairesService {
       throw new NotFoundException(`Questionnaire with ID ${id} not found`);
     }
 
+    // Se já está finalizado, retornar sem fazer nada (evita duplicação)
+    if (questionnaire.status === 'completed') {
+      return questionnaire;
+    }
+
     questionnaire.status = 'completed';
     questionnaire.completed_at = new Date();
+    questionnaire.last_step = 8; // Passo final
 
     return this.questionnairesRepository.save(questionnaire);
   }
@@ -1808,7 +1886,7 @@ export class QuestionnairesService {
     const headers = [
       'questionnaire_id',
       'patient_name',
-      'cpf',
+      'cpf_hash',
       'data_coleta',
       'nome_avaliador',
       'birthday',
@@ -1870,7 +1948,7 @@ export class QuestionnairesService {
     const values = [
       data.id || '',
       data.data?.fullName || '',
-      data.data?.cpf || '',
+      data.cpfHash || '', // Apenas hash do CPF
       data.data?.dataColeta || '',
       data.data?.nomeAvaliador || '',
       data.data?.birthday || '',
@@ -1941,7 +2019,7 @@ export class QuestionnairesService {
     const headers = [
       'questionnaire_id',
       'patient_name',
-      'cpf',
+      'cpf_hash',
       'updrs3_total_score',
       'updrs3_speech',
       'updrs3_facial_expression',
@@ -2051,7 +2129,7 @@ export class QuestionnairesService {
     const values = [
       data.id || '',
       data.data?.fullName || '',
-      data.data?.cpf || '',
+      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreUPDRS3 || '',
       updrs3.speech || '',
       updrs3.facial_expression || '',
@@ -2166,7 +2244,7 @@ export class QuestionnairesService {
     const headers = [
       'questionnaire_id',
       'patient_name',
-      'cpf',
+      'cpf_hash',
       'nmf_total_score',
       'nmf_q1',
       'nmf_q2',
@@ -2194,7 +2272,7 @@ export class QuestionnairesService {
     const values = [
       data.id || '',
       data.data?.fullName || '',
-      data.data?.cpf || '',
+      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreNMF || '',
       nmf.q1 || '',
       nmf.q2 || '',
@@ -2230,7 +2308,7 @@ export class QuestionnairesService {
     const headers = [
       'questionnaire_id',
       'patient_name',
-      'cpf',
+      'cpf_hash',
       'stopbang_total_score',
       'stopbang_snore',
       'stopbang_tired',
@@ -2282,7 +2360,7 @@ export class QuestionnairesService {
     const values = [
       data.id || '',
       data.data?.fullName || '',
-      data.data?.cpf || '',
+      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreStopBang || '',
       data.data?.stopbang_snore || '',
       data.data?.stopbang_tired || '',
@@ -2343,7 +2421,7 @@ export class QuestionnairesService {
     const headers = [
       'questionnaire_id',
       'patient_name',
-      'cpf',
+      'cpf_hash',
       'fogq_total_score',
       'fogq_gait_worst_state',
       'fogq_impact_daily_activities',
@@ -2358,7 +2436,7 @@ export class QuestionnairesService {
     const values = [
       data.id || '',
       data.data?.fullName || '',
-      data.data?.cpf || '',
+      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreFOGQ || '',
       fogq.gait_worst_state || '',
       fogq.impact_daily_activities || '',

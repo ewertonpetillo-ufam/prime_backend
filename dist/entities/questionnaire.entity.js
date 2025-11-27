@@ -62,6 +62,10 @@ __decorate([
     __metadata("design:type", String)
 ], Questionnaire.prototype, "assessment_version", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'integer', nullable: true, default: 1 }),
+    __metadata("design:type", Number)
+], Questionnaire.prototype, "last_step", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
     __metadata("design:type", Date)
 ], Questionnaire.prototype, "completed_at", void 0);

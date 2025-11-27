@@ -95,6 +95,7 @@ export declare class QuestionnairesController {
         id: string;
         fullName: string;
         cpf: string;
+        cpfHash: string;
         createdAt: Date;
         updatedAt: Date;
         completedAt: Date;
@@ -105,7 +106,9 @@ export declare class QuestionnairesController {
         id: string;
         fullName: string;
         cpf: string;
+        cpfHash: string;
         status: string;
+        lastStep: number;
         createdAt: string;
         updatedAt: string;
         completedAt: string;
@@ -132,7 +135,9 @@ export declare class QuestionnairesController {
             id: string;
             fullName: string;
             cpf: string;
+            cpfHash: string;
             status: string;
+            lastStep: number;
             createdAt: string;
             updatedAt: string;
             completedAt: string;
@@ -195,7 +200,9 @@ export declare class QuestionnairesController {
             id: string;
             fullName: string;
             cpf: string;
+            cpfHash: string;
             status: string;
+            lastStep: number;
             createdAt: string;
             updatedAt: string;
             completedAt: string;
@@ -258,7 +265,9 @@ export declare class QuestionnairesController {
             id: string;
             fullName: string;
             cpf: string;
+            cpfHash: string;
             status: string;
+            lastStep: number;
             createdAt: string;
             updatedAt: string;
             completedAt: string;
