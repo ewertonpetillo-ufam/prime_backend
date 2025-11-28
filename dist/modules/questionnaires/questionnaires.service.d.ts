@@ -171,6 +171,16 @@ export declare class QuestionnairesService {
         updatedAt: string;
         completedAt: string;
         data: any;
+        _debug_binaryCollections: {
+            id: string;
+            task_id: number;
+            repetitions_count: number;
+            collected_at: Date;
+            active_task: {
+                task_code: string;
+                task_name: string;
+            };
+        }[];
         sleepProtocols: {
             stopbang: StopbangScore;
             epworth: EpworthScore;
@@ -207,6 +217,16 @@ export declare class QuestionnairesService {
             updatedAt: string;
             completedAt: string;
             data: any;
+            _debug_binaryCollections: {
+                id: string;
+                task_id: number;
+                repetitions_count: number;
+                collected_at: Date;
+                active_task: {
+                    task_code: string;
+                    task_name: string;
+                };
+            }[];
             sleepProtocols: {
                 stopbang: StopbangScore;
                 epworth: EpworthScore;
@@ -272,6 +292,16 @@ export declare class QuestionnairesService {
             updatedAt: string;
             completedAt: string;
             data: any;
+            _debug_binaryCollections: {
+                id: string;
+                task_id: number;
+                repetitions_count: number;
+                collected_at: Date;
+                active_task: {
+                    task_code: string;
+                    task_name: string;
+                };
+            }[];
             sleepProtocols: {
                 stopbang: StopbangScore;
                 epworth: EpworthScore;
@@ -337,6 +367,16 @@ export declare class QuestionnairesService {
             updatedAt: string;
             completedAt: string;
             data: any;
+            _debug_binaryCollections: {
+                id: string;
+                task_id: number;
+                repetitions_count: number;
+                collected_at: Date;
+                active_task: {
+                    task_code: string;
+                    task_name: string;
+                };
+            }[];
             sleepProtocols: {
                 stopbang: StopbangScore;
                 epworth: EpworthScore;
@@ -390,4 +430,53 @@ export declare class QuestionnairesService {
             csv_data: string;
         }[];
     }[]>;
+    debugBinaryCollections(questionnaireId: string): Promise<{
+        questionnaire: {
+            id: string;
+            patient_id: string;
+        };
+        patient: {
+            id: string;
+            cpf: string;
+            cpf_hash: string;
+            alternative_hash: string;
+            hash_match: boolean;
+        };
+        binaryCollections: {
+            byCpfHash: {
+                count: number;
+                hashes: string[];
+                collections: {
+                    id: string;
+                    patient_cpf_hash: string;
+                    questionnaire_id: string;
+                    task_id: number;
+                    task_code: string;
+                    collected_at: Date;
+                }[];
+            };
+            byQuestionnaireId: {
+                count: number;
+                collections: {
+                    id: string;
+                    patient_cpf_hash: string;
+                    questionnaire_id: string;
+                    task_id: number;
+                    task_code: string;
+                    collected_at: Date;
+                }[];
+            };
+            allInDatabase: {
+                total: number;
+                uniqueHashes: string[];
+            };
+        };
+        comparison: {
+            patientHash: string;
+            alternativeHash: string;
+            foundByPatientHash: number;
+            foundByQuestionnaireId: number;
+            foundByAlternativeHash: number;
+        };
+    }>;
 }

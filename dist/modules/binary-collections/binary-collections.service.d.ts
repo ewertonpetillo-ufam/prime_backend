@@ -16,4 +16,5 @@ export declare class BinaryCollectionsService {
         buffer: Buffer;
         filename: string;
     }>;
+    countByQuestionnaireId(questionnaireId: string): Promise<number>;
 }

@@ -74,6 +74,9 @@ let QuestionnairesController = class QuestionnairesController {
     async getQuestionnaireById(id) {
         return this.questionnairesService.getQuestionnaireById(id);
     }
+    async debugBinaryCollections(id) {
+        return this.questionnairesService.debugBinaryCollections(id);
+    }
     async finalizeQuestionnaire(id) {
         return this.questionnairesService.finalizeQuestionnaire(id);
     }
@@ -360,6 +363,26 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], QuestionnairesController.prototype, "getQuestionnaireById", null);
+__decorate([
+    (0, common_1.Get)(':id/debug/binary-collections'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'DEBUG: Get binary collections debug info',
+        description: 'Returns debug information about binary collections for a questionnaire',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Debug info returned successfully',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 404,
+        description: 'Questionnaire not found',
+    }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], QuestionnairesController.prototype, "debugBinaryCollections", null);
 __decorate([
     (0, common_1.Patch)(':id/complete'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
