@@ -1010,13 +1010,17 @@ let QuestionnairesService = class QuestionnairesService {
             .leftJoinAndSelect('q.updrs3_score', 'updrs3_score')
             .leftJoinAndSelect('q.meem_score', 'meem_score')
             .leftJoinAndSelect('q.udysrs_score', 'udysrs_score')
-            .leftJoinAndSelect('q.binary_collections', 'binary_collections')
-            .leftJoinAndSelect('binary_collections.active_task', 'active_task')
             .where('q.id = :id', { id })
             .getOne();
         if (!questionnaire) {
             throw new common_1.NotFoundException(`Questionnaire with ID ${id} not found`);
         }
+        console.log('🔍 Questionnaire loaded:', {
+            id: questionnaire.id,
+            hasPatient: !!questionnaire.patient,
+            patientId: questionnaire.patient_id,
+            patientCpfHash: questionnaire.patient?.cpf_hash ? questionnaire.patient.cpf_hash.substring(0, 8) + '...' : 'N/A',
+        });
         try {
             const medications = await this.patientMedicationRepository
                 .createQueryBuilder('pm')
@@ -1024,29 +1028,59 @@ let QuestionnairesService = class QuestionnairesService {
                 .getMany();
             questionnaire.medications = medications || [];
             console.log('✅ Medications loaded for questionnaire:', id, 'Count:', medications.length);
-            if (medications.length > 0) {
-                console.log('✅ All medications:', JSON.stringify(medications, null, 2));
-                console.log('✅ Sample medication:', {
-                    id: medications[0].id,
-                    questionnaire_id: medications[0].questionnaire_id,
-                    medication_id: medications[0].medication_id,
-                    dose_mg: medications[0].dose_mg,
-                    doses_per_day: medications[0].doses_per_day,
-                    led_conversion_factor: medications[0].led_conversion_factor,
-                });
-            }
-            else {
-                console.log('⚠️ No medications found for questionnaire:', id);
-                const count = await this.patientMedicationRepository
-                    .createQueryBuilder('pm')
-                    .where('pm.questionnaire_id = :questionnaireId', { questionnaireId: id })
-                    .getCount();
-                console.log('⚠️ Direct query count:', count);
-            }
         }
         catch (error) {
             console.error('❌ Error loading medications:', error);
             questionnaire.medications = [];
+        }
+        questionnaire.binary_collections = [];
+        try {
+            let patientCpfHash = questionnaire.patient?.cpf_hash;
+            let patientCpf = questionnaire.patient?.cpf;
+            if (!patientCpfHash && questionnaire.patient_id) {
+                try {
+                    const patient = await this.patientsService.findOne(questionnaire.patient_id);
+                    patientCpfHash = patient?.cpf_hash;
+                    patientCpf = patient?.cpf || patientCpf;
+                }
+                catch (error) {
+                }
+            }
+            if (!patientCpfHash && patientCpf) {
+                try {
+                    patientCpfHash = crypto_util_1.CryptoUtil.hashCpf(patientCpf);
+                }
+                catch (error) {
+                }
+            }
+            if (patientCpfHash) {
+                const byQuestionnaireFind = await this.binaryCollectionRepository.find({
+                    where: { questionnaire_id: id },
+                    relations: ['active_task'],
+                    order: { collected_at: 'DESC' },
+                });
+                const byQuestionnaireQuery = this.binaryCollectionRepository
+                    .createQueryBuilder('bc')
+                    .leftJoinAndSelect('bc.active_task', 'active_task')
+                    .where('bc.questionnaire_id = :questionnaireId', { questionnaireId: id })
+                    .orderBy('bc.collected_at', 'DESC');
+                const byQuestionnaireQueryResult = await byQuestionnaireQuery.getMany();
+                const byQuestionnaire = byQuestionnaireFind.length >= byQuestionnaireQueryResult.length
+                    ? byQuestionnaireFind
+                    : byQuestionnaireQueryResult;
+                const byCpfHashQuery = this.binaryCollectionRepository
+                    .createQueryBuilder('bc')
+                    .leftJoinAndSelect('bc.active_task', 'active_task')
+                    .where('bc.patient_cpf_hash = :patientCpfHash', { patientCpfHash })
+                    .orderBy('bc.collected_at', 'DESC');
+                const byCpfHash = await byCpfHashQuery.getMany();
+                const allBinaryCollections = Array.from(new Map([...byQuestionnaire, ...byCpfHash].map(bc => [bc.id, bc])).values());
+                questionnaire.binary_collections = allBinaryCollections.length > 0 ? allBinaryCollections : [];
+            }
+        }
+        catch (error) {
+            console.error('Error loading binary collections:', error);
+            questionnaire.binary_collections = [];
         }
         return await this.formatQuestionnaireForFrontend(questionnaire);
     }
@@ -1414,6 +1448,18 @@ let QuestionnairesService = class QuestionnairesService {
             formData.delsysPdfReportId = '';
             formData.delsysPdfFileName = '';
         }
+        const binaryCollections = Array.isArray(questionnaire.binary_collections)
+            ? questionnaire.binary_collections.map((bc) => ({
+                id: bc.id,
+                task_id: bc.task_id,
+                repetitions_count: bc.repetitions_count,
+                collected_at: bc.collected_at,
+                active_task: bc.active_task ? {
+                    task_code: bc.active_task.task_code,
+                    task_name: bc.active_task.task_name,
+                } : null,
+            }))
+            : [];
         return {
             id: questionnaire.id,
             fullName: patient.full_name,
@@ -1426,7 +1472,11 @@ let QuestionnairesService = class QuestionnairesService {
             completedAt: questionnaire.completed_at
                 ? questionnaire.completed_at.toISOString().split('T')[0]
                 : null,
-            data: formData,
+            data: {
+                ...formData,
+                binaryCollections,
+            },
+            _debug_binaryCollections: binaryCollections,
             sleepProtocols: {
                 stopbang: questionnaire.stopbang_score || null,
                 epworth: questionnaire.epworth_score || null,
@@ -2075,6 +2125,97 @@ let QuestionnairesService = class QuestionnairesService {
             return await this.exportQuestionnaireData(q.id);
         }));
         return exportData;
+    }
+    async debugBinaryCollections(questionnaireId) {
+        const questionnaire = await this.questionnairesRepository.findOne({
+            where: { id: questionnaireId },
+            relations: ['patient'],
+        });
+        if (!questionnaire) {
+            throw new common_1.NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+        }
+        const patient = questionnaire.patient;
+        const patientCpfHash = patient?.cpf_hash;
+        const patientCpf = patient?.cpf;
+        const byCpfHash = patientCpfHash
+            ? await this.binaryCollectionRepository.find({
+                where: { patient_cpf_hash: patientCpfHash },
+                relations: ['active_task'],
+                order: { collected_at: 'DESC' },
+            })
+            : [];
+        const byQuestionnaireId = await this.binaryCollectionRepository.find({
+            where: { questionnaire_id: questionnaireId },
+            relations: ['active_task'],
+            order: { collected_at: 'DESC' },
+        });
+        const allCollections = await this.binaryCollectionRepository
+            .createQueryBuilder('bc')
+            .leftJoinAndSelect('bc.active_task', 'active_task')
+            .orderBy('bc.collected_at', 'DESC')
+            .limit(100)
+            .getMany();
+        let alternativeHash = null;
+        if (patientCpf) {
+            try {
+                alternativeHash = crypto_util_1.CryptoUtil.hashCpf(patientCpf);
+            }
+            catch (e) {
+            }
+        }
+        return {
+            questionnaire: {
+                id: questionnaire.id,
+                patient_id: questionnaire.patient_id,
+            },
+            patient: {
+                id: patient?.id,
+                cpf: patientCpf ? patientCpf.replace(/\d(?=\d{4})/g, '*') : null,
+                cpf_hash: patientCpfHash ? patientCpfHash.substring(0, 16) + '...' : null,
+                alternative_hash: alternativeHash ? alternativeHash.substring(0, 16) + '...' : null,
+                hash_match: patientCpfHash === alternativeHash,
+            },
+            binaryCollections: {
+                byCpfHash: {
+                    count: byCpfHash.length,
+                    hashes: Array.from(new Set(byCpfHash.map(bc => bc.patient_cpf_hash?.substring(0, 16) + '...'))),
+                    collections: byCpfHash.slice(0, 5).map(bc => ({
+                        id: bc.id,
+                        patient_cpf_hash: bc.patient_cpf_hash?.substring(0, 16) + '...',
+                        questionnaire_id: bc.questionnaire_id,
+                        task_id: bc.task_id,
+                        task_code: bc.active_task?.task_code,
+                        collected_at: bc.collected_at,
+                    })),
+                },
+                byQuestionnaireId: {
+                    count: byQuestionnaireId.length,
+                    collections: byQuestionnaireId.slice(0, 5).map(bc => ({
+                        id: bc.id,
+                        patient_cpf_hash: bc.patient_cpf_hash?.substring(0, 16) + '...',
+                        questionnaire_id: bc.questionnaire_id,
+                        task_id: bc.task_id,
+                        task_code: bc.active_task?.task_code,
+                        collected_at: bc.collected_at,
+                    })),
+                },
+                allInDatabase: {
+                    total: allCollections.length,
+                    uniqueHashes: Array.from(new Set(allCollections.map(bc => bc.patient_cpf_hash?.substring(0, 16) + '...'))).slice(0, 10),
+                },
+            },
+            comparison: {
+                patientHash: patientCpfHash ? patientCpfHash.substring(0, 16) + '...' : null,
+                alternativeHash: alternativeHash ? alternativeHash.substring(0, 16) + '...' : null,
+                foundByPatientHash: byCpfHash.length,
+                foundByQuestionnaireId: byQuestionnaireId.length,
+                foundByAlternativeHash: alternativeHash
+                    ? (await this.binaryCollectionRepository.count({
+                        where: { patient_cpf_hash: alternativeHash },
+                    }))
+                    : 0,
+            },
+        };
     }
 };
 exports.QuestionnairesService = QuestionnairesService;

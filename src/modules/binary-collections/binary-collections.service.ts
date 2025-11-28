@@ -200,4 +200,17 @@ export class BinaryCollectionsService {
       filename,
     };
   }
+
+  /**
+   * Count binary collections by questionnaire ID
+   * @param questionnaireId - Questionnaire UUID
+   * @returns Count of binary collections
+   */
+  async countByQuestionnaireId(questionnaireId: string): Promise<number> {
+    const count = await this.binaryCollectionsRepository.count({
+      where: { questionnaire_id: questionnaireId },
+    });
+
+    return count;
+  }
 }
