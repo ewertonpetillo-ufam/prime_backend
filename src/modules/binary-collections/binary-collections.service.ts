@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { BinaryCollection, ProcessingStatus } from '../../entities/binary-collection.entity';
 import { Patient } from '../../entities/patient.entity';
 import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
+import { Questionnaire } from '../../entities/questionnaire.entity';
 import { CryptoUtil } from '../../utils/crypto.util';
 
 @Injectable()
@@ -19,6 +20,8 @@ export class BinaryCollectionsService {
     private patientsRepository: Repository<Patient>,
     @InjectRepository(ActiveTaskDefinition)
     private activeTaskRepository: Repository<ActiveTaskDefinition>,
+    @InjectRepository(Questionnaire)
+    private questionnairesRepository: Repository<Questionnaire>,
   ) {}
 
   /**
@@ -203,14 +206,46 @@ export class BinaryCollectionsService {
 
   /**
    * Count binary collections by questionnaire ID
+   * This counts collections that are either:
+   * - Directly linked to the questionnaire (questionnaire_id)
+   * - Linked to the patient via CPF hash (patient_cpf_hash)
+   * This matches the logic used in getQuestionnaireById
    * @param questionnaireId - Questionnaire UUID
    * @returns Count of binary collections
    */
   async countByQuestionnaireId(questionnaireId: string): Promise<number> {
-    const count = await this.binaryCollectionsRepository.count({
-      where: { questionnaire_id: questionnaireId },
-    });
+    // First, get the questionnaire to find the patient's CPF hash
+    const questionnaire = await this.questionnairesRepository
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.patient', 'patient')
+      .where('q.id = :id', { id: questionnaireId })
+      .getOne();
 
-    return count;
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+    }
+
+    const patientCpfHash = questionnaire.patient?.cpf_hash;
+
+    // Count binary collections by questionnaire_id OR patient_cpf_hash
+    // This matches the query logic in questionnaires.service.ts getQuestionnaireById
+    if (patientCpfHash) {
+      const count = await this.binaryCollectionsRepository
+        .createQueryBuilder('bc')
+        .where('bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash', {
+          questionnaireId,
+          patientCpfHash,
+        })
+        .getCount();
+
+      return count;
+    } else {
+      // If no patient CPF hash, only count by questionnaire_id
+      const count = await this.binaryCollectionsRepository.count({
+        where: { questionnaire_id: questionnaireId },
+      });
+
+      return count;
+    }
   }
 }
