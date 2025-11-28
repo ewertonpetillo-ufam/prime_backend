@@ -9,4 +9,7 @@ export declare class BinaryCollectionsController {
     downloadCsv(id: string): Promise<StreamableFile>;
     findOne(id: string): Promise<import("../../entities/binary-collection.entity").BinaryCollection>;
     remove(id: string): Promise<void>;
+    countByQuestionnaireId(questionnaireId: string): Promise<{
+        count: number;
+    }>;
 }

@@ -282,6 +282,24 @@ export class QuestionnairesController {
     return this.questionnairesService.getQuestionnaireById(id);
   }
 
+  @Get(':id/debug/binary-collections')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'DEBUG: Get binary collections debug info',
+    description: 'Returns debug information about binary collections for a questionnaire',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Debug info returned successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionnaire not found',
+  })
+  async debugBinaryCollections(@Param('id') id: string) {
+    return this.questionnairesService.debugBinaryCollections(id);
+  }
+
   @Patch(':id/complete')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
