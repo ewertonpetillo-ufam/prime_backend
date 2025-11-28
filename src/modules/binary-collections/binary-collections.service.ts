@@ -66,23 +66,43 @@ export class BinaryCollectionsService {
       throw new BadRequestException('File is required');
     }
 
+    // Find the most recent questionnaire for this patient
+    // Prefer questionnaires with status 'in_progress' or 'completed'
+    let questionnaire = await this.questionnairesRepository
+      .createQueryBuilder('q')
+      .where('q.patient_id = :patientId', { patientId: patient.id })
+      .andWhere('q.status IN (:...statuses)', { statuses: ['in_progress', 'completed'] })
+      .orderBy('q.created_at', 'DESC')
+      .getOne();
+
+    // If no in_progress or completed questionnaire, get the most recent one
+    if (!questionnaire) {
+      questionnaire = await this.questionnairesRepository
+        .createQueryBuilder('q')
+        .where('q.patient_id = :patientId', { patientId: patient.id })
+        .orderBy('q.created_at', 'DESC')
+        .getOne();
+    }
+
     // Create binary collection record
     const binaryCollection = this.binaryCollectionsRepository.create({
       patient_cpf_hash: cpf_hash,
       task_id: activeTask.id,
+      questionnaire_id: questionnaire?.id || null,
       csv_data: file.buffer,
       file_size_bytes: file.size,
       repetitions_count: 1, // Default, can be updated later
       collection_type: activeTask.task_category ? (activeTask.task_category as any) : null,
       collected_at: new Date(),
       uploaded_at: new Date(),
-      processing_status: ProcessingStatus.PENDING,
+      processing_status: ProcessingStatus.COMPLETED, // Set as completed after upload
       metadata: {
         uploaded_at: new Date().toISOString(),
         patient_id: patient.id,
         task_code: task_code,
         file_name: file.originalname,
         file_format: file.mimetype,
+        questionnaire_id: questionnaire?.id || null,
       },
     });
 
