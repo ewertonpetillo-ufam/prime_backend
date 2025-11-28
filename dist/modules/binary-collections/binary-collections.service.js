@@ -149,6 +149,12 @@ let BinaryCollectionsService = class BinaryCollectionsService {
             filename,
         };
     }
+    async countByQuestionnaireId(questionnaireId) {
+        const count = await this.binaryCollectionsRepository.count({
+            where: { questionnaire_id: questionnaireId },
+        });
+        return count;
+    }
 };
 exports.BinaryCollectionsService = BinaryCollectionsService;
 exports.BinaryCollectionsService = BinaryCollectionsService = __decorate([

@@ -49,6 +49,10 @@ let BinaryCollectionsController = class BinaryCollectionsController {
     remove(id) {
         return this.binaryCollectionsService.remove(id);
     }
+    async countByQuestionnaireId(questionnaireId) {
+        const count = await this.binaryCollectionsService.countByQuestionnaireId(questionnaireId);
+        return { count };
+    }
 };
 exports.BinaryCollectionsController = BinaryCollectionsController;
 __decorate([
@@ -239,6 +243,32 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], BinaryCollectionsController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)('count/by-questionnaire/:questionnaireId'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Count binary collections by questionnaire ID',
+        description: 'Returns the count of binary collections associated with a questionnaire',
+    }),
+    (0, swagger_1.ApiParam)({
+        name: 'questionnaireId',
+        description: 'Questionnaire UUID',
+        type: String,
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Count of binary collections',
+        schema: {
+            type: 'object',
+            properties: {
+                count: { type: 'number', example: 5 },
+            },
+        },
+    }),
+    __param(0, (0, common_1.Param)('questionnaireId', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], BinaryCollectionsController.prototype, "countByQuestionnaireId", null);
 exports.BinaryCollectionsController = BinaryCollectionsController = __decorate([
     (0, swagger_1.ApiTags)('Binary Collections'),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),

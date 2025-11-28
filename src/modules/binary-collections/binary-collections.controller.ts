@@ -227,4 +227,29 @@ export class BinaryCollectionsController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.binaryCollectionsService.remove(id);
   }
+
+  @Get('count/by-questionnaire/:questionnaireId')
+  @ApiOperation({
+    summary: 'Count binary collections by questionnaire ID',
+    description: 'Returns the count of binary collections associated with a questionnaire',
+  })
+  @ApiParam({
+    name: 'questionnaireId',
+    description: 'Questionnaire UUID',
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Count of binary collections',
+    schema: {
+      type: 'object',
+      properties: {
+        count: { type: 'number', example: 5 },
+      },
+    },
+  })
+  async countByQuestionnaireId(@Param('questionnaireId', ParseUUIDPipe) questionnaireId: string) {
+    const count = await this.binaryCollectionsService.countByQuestionnaireId(questionnaireId);
+    return { count };
+  }
 }
