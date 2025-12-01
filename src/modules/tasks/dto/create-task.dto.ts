@@ -52,17 +52,17 @@ export class CreateTaskDto {
   collection_form_type_id?: number;
 
   @ApiPropertyOptional({
-    description: 'Stage number (1-3)',
+    description: 'Group number (1-5)',
     example: 1,
     type: Number,
     minimum: 1,
-    maximum: 3,
+    maximum: 5,
   })
   @IsInt()
   @Min(1)
-  @Max(3)
+  @Max(5)
   @IsOptional()
-  stage?: number;
+  group?: number;
 
   @ApiPropertyOptional({
     description: 'Task description',
