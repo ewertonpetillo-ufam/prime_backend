@@ -36,9 +36,15 @@ export class ActiveTaskDefinition {
   @Column({ type: 'int', nullable: true })
   collection_form_type_id: number;
 
-  @ApiPropertyOptional({ description: 'Stage number (1-3)', example: 1, type: Number, minimum: 1, maximum: 3 })
-  @Column({ type: 'int', nullable: true })
-  stage: number;
+  @ApiPropertyOptional({
+    description: 'Group number (1-5)',
+    example: 1,
+    type: Number,
+    minimum: 1,
+    maximum: 5,
+  })
+  @Column({ name: 'group', type: 'int', nullable: true })
+  group: number;
 
   @ApiPropertyOptional({ description: 'Task description', example: 'Avaliação de tremor de repouso nas mãos...' })
   @Column({ type: 'text', nullable: true })
