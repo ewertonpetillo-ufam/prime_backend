@@ -54,10 +54,16 @@ __decorate([
     __metadata("design:type", Number)
 ], ActiveTaskDefinition.prototype, "collection_form_type_id", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ description: 'Stage number (1-3)', example: 1, type: Number, minimum: 1, maximum: 3 }),
-    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Group number (1-5)',
+        example: 1,
+        type: Number,
+        minimum: 1,
+        maximum: 5,
+    }),
+    (0, typeorm_1.Column)({ name: 'group', type: 'int', nullable: true }),
     __metadata("design:type", Number)
-], ActiveTaskDefinition.prototype, "stage", void 0);
+], ActiveTaskDefinition.prototype, "group", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ description: 'Task description', example: 'Avaliação de tremor de repouso nas mãos...' }),
     (0, typeorm_1.Column)({ type: 'text', nullable: true }),

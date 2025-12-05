@@ -60,18 +60,18 @@ __decorate([
 ], CreateTaskDto.prototype, "collection_form_type_id", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
-        description: 'Stage number (1-3)',
+        description: 'Group number (1-5)',
         example: 1,
         type: Number,
         minimum: 1,
-        maximum: 3,
+        maximum: 5,
     }),
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
-    (0, class_validator_1.Max)(3),
+    (0, class_validator_1.Max)(5),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Number)
-], CreateTaskDto.prototype, "stage", void 0);
+], CreateTaskDto.prototype, "group", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Task description',

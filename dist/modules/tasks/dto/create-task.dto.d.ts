@@ -4,7 +4,7 @@ export declare class CreateTaskDto {
     task_name: string;
     task_category?: TaskCategory;
     collection_form_type_id?: number;
-    stage?: number;
+    group?: number;
     description?: string;
     instructions?: string;
     active?: boolean;
