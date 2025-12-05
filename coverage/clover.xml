@@ -1,0 +1,2877 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1764960011882" clover="3.2.0">
+  <project timestamp="1764960011882" name="All files">
+    <metrics statements="2511" coveredstatements="699" conditionals="1411" coveredconditionals="41" methods="411" coveredmethods="37" elements="4333" coveredelements="777" complexity="0" loc="2511" ncloc="2511" packages="24" files="96" classes="96"/>
+    <package name="src">
+      <metrics statements="106" coveredstatements="9" conditionals="54" coveredconditionals="0" methods="8" coveredmethods="3"/>
+      <file name="app.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/app.controller.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="2"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="6" count="1" type="stmt"/>
+        <line num="9" count="1" type="stmt"/>
+        <line num="10" count="1" type="stmt"/>
+      </file>
+      <file name="app.module.ts" path="/home/ewerton/Projetos/prime/backend/src/app.module.ts">
+        <metrics statements="20" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="61" count="0" type="stmt"/>
+      </file>
+      <file name="app.service.ts" path="/home/ewerton/Projetos/prime/backend/src/app.service.ts">
+        <metrics statements="3" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="6" count="1" type="stmt"/>
+      </file>
+      <file name="main.ts" path="/home/ewerton/Projetos/prime/backend/src/main.ts">
+        <metrics statements="77" coveredstatements="0" conditionals="54" coveredconditionals="0" methods="4" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="14" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="27" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="31" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="39" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="40" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="46" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="49" count="0" type="stmt"/>
+        <line num="53" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="54" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="55" count="0" type="stmt"/>
+        <line num="57" count="0" type="stmt"/>
+        <line num="61" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="62" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="63" count="0" type="stmt"/>
+        <line num="65" count="0" type="stmt"/>
+        <line num="69" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="70" count="0" type="stmt"/>
+        <line num="72" count="0" type="stmt"/>
+        <line num="74" count="0" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="95" count="0" type="stmt"/>
+        <line num="134" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="135" count="0" type="stmt"/>
+        <line num="136" count="0" type="stmt"/>
+        <line num="138" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="140" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="141" count="0" type="stmt"/>
+        <line num="145" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="146" count="0" type="stmt"/>
+        <line num="148" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="149" count="0" type="stmt"/>
+        <line num="151" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="152" count="0" type="stmt"/>
+        <line num="153" count="0" type="stmt"/>
+        <line num="161" count="0" type="stmt"/>
+        <line num="162" count="0" type="stmt"/>
+        <line num="163" count="0" type="stmt"/>
+        <line num="166" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="167" count="0" type="stmt"/>
+        <line num="171" count="0" type="stmt"/>
+        <line num="172" count="0" type="stmt"/>
+        <line num="179" count="0" type="stmt"/>
+        <line num="183" count="0" type="stmt"/>
+        <line num="184" count="0" type="stmt"/>
+        <line num="189" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="190" count="0" type="stmt"/>
+        <line num="194" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="195" count="0" type="stmt"/>
+        <line num="198" count="0" type="stmt"/>
+        <line num="199" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="201" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="202" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="203" count="0" type="stmt"/>
+        <line num="205" count="0" type="stmt"/>
+        <line num="209" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="210" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="211" count="0" type="stmt"/>
+        <line num="213" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="214" count="0" type="stmt"/>
+        <line num="218" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.common.decorators">
+      <metrics statements="11" coveredstatements="5" conditionals="0" coveredconditionals="0" methods="3" coveredmethods="1"/>
+      <file name="client.decorator.ts" path="/home/ewerton/Projetos/prime/backend/src/common/decorators/client.decorator.ts">
+        <metrics statements="4" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+      </file>
+      <file name="public.decorator.ts" path="/home/ewerton/Projetos/prime/backend/src/common/decorators/public.decorator.ts">
+        <metrics statements="3" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="4" count="2" type="stmt"/>
+      </file>
+      <file name="user.decorator.ts" path="/home/ewerton/Projetos/prime/backend/src/common/decorators/user.decorator.ts">
+        <metrics statements="4" coveredstatements="2" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="0"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="3" count="1" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.common.filters">
+      <metrics statements="50" coveredstatements="0" conditionals="37" coveredconditionals="0" methods="6" coveredmethods="0"/>
+      <file name="http-exception.filter.ts" path="/home/ewerton/Projetos/prime/backend/src/common/filters/http-exception.filter.ts">
+        <metrics statements="50" coveredstatements="0" conditionals="37" coveredconditionals="0" methods="6" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="24" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="25" count="0" type="stmt"/>
+        <line num="26" count="0" type="stmt"/>
+        <line num="28" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="31" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="33" count="0" type="stmt"/>
+        <line num="35" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="39" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="40" count="0" type="stmt"/>
+        <line num="41" count="0" type="stmt"/>
+        <line num="46" count="0" type="stmt"/>
+        <line num="48" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="49" count="0" type="stmt"/>
+        <line num="56" count="0" type="stmt"/>
+        <line num="65" count="0" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="71" count="0" type="cond" truecount="0" falsecount="7"/>
+        <line num="73" count="0" type="stmt"/>
+        <line num="75" count="0" type="stmt"/>
+        <line num="77" count="0" type="stmt"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="81" count="0" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="85" count="0" type="stmt"/>
+        <line num="90" count="0" type="stmt"/>
+        <line num="92" count="0" type="cond" truecount="0" falsecount="7"/>
+        <line num="94" count="0" type="stmt"/>
+        <line num="96" count="0" type="stmt"/>
+        <line num="98" count="0" type="stmt"/>
+        <line num="100" count="0" type="stmt"/>
+        <line num="102" count="0" type="stmt"/>
+        <line num="104" count="0" type="stmt"/>
+        <line num="106" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="112" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="113" count="0" type="stmt"/>
+        <line num="117" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="118" count="0" type="stmt"/>
+        <line num="134" count="0" type="stmt"/>
+        <line num="137" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.common.guards">
+      <metrics statements="14" coveredstatements="0" conditionals="9" coveredconditionals="0" methods="2" coveredmethods="0"/>
+      <file name="jwt-auth.guard.ts" path="/home/ewerton/Projetos/prime/backend/src/common/guards/jwt-auth.guard.ts">
+        <metrics statements="14" coveredstatements="0" conditionals="9" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="19" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="37" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="41" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.entities">
+      <metrics statements="631" coveredstatements="512" conditionals="8" coveredconditionals="8" methods="111" coveredmethods="4"/>
+      <file name="active-task-definition.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/active-task-definition.entity.ts">
+        <metrics statements="23" coveredstatements="21" conditionals="2" coveredconditionals="2" methods="5" coveredmethods="1"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="3" count="4" type="stmt"/>
+        <line num="4" count="4" type="stmt"/>
+        <line num="6" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="8" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="33" count="4" type="stmt"/>
+        <line num="37" count="4" type="stmt"/>
+        <line num="47" count="4" type="stmt"/>
+        <line num="51" count="4" type="stmt"/>
+        <line num="55" count="4" type="stmt"/>
+        <line num="59" count="4" type="stmt"/>
+        <line num="61" count="0" type="stmt"/>
+        <line num="62" count="4" type="stmt"/>
+        <line num="64" count="0" type="stmt"/>
+        <line num="65" count="4" type="stmt"/>
+      </file>
+      <file name="anthropometric-data.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/anthropometric-data.entity.ts">
+        <metrics statements="15" coveredstatements="14" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
+        <line num="35" count="4" type="stmt"/>
+        <line num="38" count="4" type="stmt"/>
+        <line num="41" count="4" type="stmt"/>
+        <line num="52" count="4" type="stmt"/>
+        <line num="55" count="4" type="stmt"/>
+        <line num="58" count="4" type="stmt"/>
+        <line num="61" count="0" type="stmt"/>
+        <line num="65" count="4" type="stmt"/>
+      </file>
+      <file name="binary-collection.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/binary-collection.entity.ts">
+        <metrics statements="39" coveredstatements="35" conditionals="4" coveredconditionals="4" methods="7" coveredmethods="2"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="8" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="11" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="19" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="27" count="4" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="32" count="4" type="stmt"/>
+        <line num="35" count="4" type="stmt"/>
+        <line num="38" count="4" type="stmt"/>
+        <line num="41" count="4" type="stmt"/>
+        <line num="44" count="4" type="stmt"/>
+        <line num="47" count="4" type="stmt"/>
+        <line num="50" count="4" type="stmt"/>
+        <line num="57" count="4" type="stmt"/>
+        <line num="60" count="4" type="stmt"/>
+        <line num="63" count="4" type="stmt"/>
+        <line num="66" count="4" type="stmt"/>
+        <line num="68" count="0" type="stmt"/>
+        <line num="69" count="4" type="stmt"/>
+        <line num="71" count="0" type="stmt"/>
+        <line num="72" count="4" type="stmt"/>
+        <line num="75" count="4" type="stmt"/>
+        <line num="82" count="4" type="stmt"/>
+        <line num="85" count="4" type="stmt"/>
+        <line num="88" count="4" type="stmt"/>
+        <line num="91" count="0" type="stmt"/>
+        <line num="95" count="4" type="stmt"/>
+        <line num="97" count="0" type="stmt"/>
+        <line num="99" count="4" type="stmt"/>
+      </file>
+      <file name="clinical-assessment.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/clinical-assessment.entity.ts">
+        <metrics statements="37" coveredstatements="34" conditionals="0" coveredconditionals="0" methods="4" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="31" count="4" type="stmt"/>
+        <line num="35" count="4" type="stmt"/>
+        <line num="38" count="4" type="stmt"/>
+        <line num="41" count="4" type="stmt"/>
+        <line num="45" count="4" type="stmt"/>
+        <line num="48" count="4" type="stmt"/>
+        <line num="52" count="4" type="stmt"/>
+        <line num="55" count="4" type="stmt"/>
+        <line num="58" count="4" type="stmt"/>
+        <line num="61" count="4" type="stmt"/>
+        <line num="64" count="4" type="stmt"/>
+        <line num="67" count="4" type="stmt"/>
+        <line num="70" count="4" type="stmt"/>
+        <line num="73" count="4" type="stmt"/>
+        <line num="77" count="4" type="stmt"/>
+        <line num="81" count="4" type="stmt"/>
+        <line num="84" count="4" type="stmt"/>
+        <line num="87" count="4" type="stmt"/>
+        <line num="90" count="4" type="stmt"/>
+        <line num="94" count="4" type="stmt"/>
+        <line num="97" count="4" type="stmt"/>
+        <line num="100" count="4" type="stmt"/>
+        <line num="103" count="4" type="stmt"/>
+        <line num="105" count="0" type="stmt"/>
+        <line num="106" count="4" type="stmt"/>
+        <line num="108" count="0" type="stmt"/>
+        <line num="109" count="4" type="stmt"/>
+        <line num="111" count="0" type="stmt"/>
+        <line num="115" count="4" type="stmt"/>
+      </file>
+      <file name="clinical-impression.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/clinical-impression.entity.ts">
+        <metrics statements="8" coveredstatements="7" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+      </file>
+      <file name="collection-form-type.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/collection-form-type.entity.ts">
+        <metrics statements="5" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+      </file>
+      <file name="dyskinesia-type.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/dyskinesia-type.entity.ts">
+        <metrics statements="5" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+      </file>
+      <file name="education-level.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/education-level.entity.ts">
+        <metrics statements="7" coveredstatements="7" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="4" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+      </file>
+      <file name="epworth-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/epworth-score.entity.ts">
+        <metrics statements="16" coveredstatements="15" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="31" count="4" type="stmt"/>
+        <line num="34" count="4" type="stmt"/>
+        <line num="37" count="4" type="stmt"/>
+        <line num="39" count="0" type="stmt"/>
+        <line num="41" count="4" type="stmt"/>
+      </file>
+      <file name="ethnicity-type.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/ethnicity-type.entity.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="4" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+      </file>
+      <file name="evaluator.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/evaluator.entity.ts">
+        <metrics statements="18" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="4" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="25" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="37" count="0" type="stmt"/>
+        <line num="40" count="0" type="stmt"/>
+        <line num="42" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="45" count="0" type="stmt"/>
+        <line num="46" count="0" type="stmt"/>
+        <line num="49" count="0" type="stmt"/>
+        <line num="50" count="0" type="stmt"/>
+      </file>
+      <file name="fogq-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/fogq-score.entity.ts">
+        <metrics statements="14" coveredstatements="13" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="31" count="4" type="stmt"/>
+        <line num="33" count="0" type="stmt"/>
+        <line num="35" count="4" type="stmt"/>
+      </file>
+      <file name="gender-type.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/gender-type.entity.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="4" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+      </file>
+      <file name="hoehn-yahr-scale.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/hoehn-yahr-scale.entity.ts">
+        <metrics statements="5" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+      </file>
+      <file name="income-range.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/income-range.entity.ts">
+        <metrics statements="8" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="4" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+      </file>
+      <file name="marital-status-type.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/marital-status-type.entity.ts">
+        <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="4" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+      </file>
+      <file name="medication-reference.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/medication-reference.entity.ts">
+        <metrics statements="9" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+      </file>
+      <file name="meem-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/meem-score.entity.ts">
+        <metrics statements="38" coveredstatements="37" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="26" count="4" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="32" count="4" type="stmt"/>
+        <line num="35" count="4" type="stmt"/>
+        <line num="38" count="4" type="stmt"/>
+        <line num="41" count="4" type="stmt"/>
+        <line num="45" count="4" type="stmt"/>
+        <line num="48" count="4" type="stmt"/>
+        <line num="51" count="4" type="stmt"/>
+        <line num="55" count="4" type="stmt"/>
+        <line num="58" count="4" type="stmt"/>
+        <line num="61" count="4" type="stmt"/>
+        <line num="64" count="4" type="stmt"/>
+        <line num="67" count="4" type="stmt"/>
+        <line num="71" count="4" type="stmt"/>
+        <line num="74" count="4" type="stmt"/>
+        <line num="77" count="4" type="stmt"/>
+        <line num="81" count="4" type="stmt"/>
+        <line num="84" count="4" type="stmt"/>
+        <line num="87" count="4" type="stmt"/>
+        <line num="90" count="4" type="stmt"/>
+        <line num="93" count="4" type="stmt"/>
+        <line num="96" count="4" type="stmt"/>
+        <line num="99" count="4" type="stmt"/>
+        <line num="102" count="4" type="stmt"/>
+        <line num="105" count="4" type="stmt"/>
+        <line num="108" count="4" type="stmt"/>
+        <line num="110" count="0" type="stmt"/>
+        <line num="112" count="4" type="stmt"/>
+      </file>
+      <file name="nmf-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/nmf-score.entity.ts">
+        <metrics statements="8" coveredstatements="7" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+      </file>
+      <file name="nms-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/nms-score.entity.ts">
+        <metrics statements="8" coveredstatements="7" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+      </file>
+      <file name="parkinson-phenotype.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/parkinson-phenotype.entity.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+      </file>
+      <file name="patient-medication.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/patient-medication.entity.ts">
+        <metrics statements="13" coveredstatements="11" conditionals="0" coveredconditionals="0" methods="3" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="8" count="4" type="stmt"/>
+        <line num="11" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="30" count="4" type="stmt"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="34" count="4" type="stmt"/>
+      </file>
+      <file name="patient-task-collection.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/patient-task-collection.entity.ts">
+        <metrics statements="17" coveredstatements="14" conditionals="0" coveredconditionals="0" methods="5" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="3" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="8" count="4" type="stmt"/>
+        <line num="11" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="26" count="4" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="33" count="4" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="37" count="4" type="stmt"/>
+      </file>
+      <file name="patient.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/patient.entity.ts">
+        <metrics statements="48" coveredstatements="40" conditionals="0" coveredconditionals="0" methods="9" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="11" count="4" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
+        <line num="27" count="4" type="stmt"/>
+        <line num="30" count="4" type="stmt"/>
+        <line num="33" count="4" type="stmt"/>
+        <line num="36" count="4" type="stmt"/>
+        <line num="39" count="4" type="stmt"/>
+        <line num="42" count="4" type="stmt"/>
+        <line num="45" count="4" type="stmt"/>
+        <line num="48" count="4" type="stmt"/>
+        <line num="51" count="4" type="stmt"/>
+        <line num="54" count="4" type="stmt"/>
+        <line num="57" count="4" type="stmt"/>
+        <line num="60" count="4" type="stmt"/>
+        <line num="63" count="4" type="stmt"/>
+        <line num="66" count="4" type="stmt"/>
+        <line num="69" count="4" type="stmt"/>
+        <line num="72" count="4" type="stmt"/>
+        <line num="75" count="4" type="stmt"/>
+        <line num="78" count="4" type="stmt"/>
+        <line num="81" count="4" type="stmt"/>
+        <line num="84" count="4" type="stmt"/>
+        <line num="87" count="4" type="stmt"/>
+        <line num="90" count="4" type="stmt"/>
+        <line num="92" count="0" type="stmt"/>
+        <line num="93" count="4" type="stmt"/>
+        <line num="95" count="0" type="stmt"/>
+        <line num="96" count="4" type="stmt"/>
+        <line num="99" count="0" type="stmt"/>
+        <line num="101" count="4" type="stmt"/>
+        <line num="103" count="0" type="stmt"/>
+        <line num="105" count="4" type="stmt"/>
+        <line num="107" count="0" type="stmt"/>
+        <line num="109" count="4" type="stmt"/>
+        <line num="111" count="0" type="stmt"/>
+        <line num="113" count="4" type="stmt"/>
+        <line num="115" count="0" type="stmt"/>
+        <line num="117" count="4" type="stmt"/>
+        <line num="119" count="0" type="stmt"/>
+        <line num="120" count="4" type="stmt"/>
+      </file>
+      <file name="pdf-report.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/pdf-report.entity.ts">
+        <metrics statements="17" coveredstatements="15" conditionals="0" coveredconditionals="0" methods="3" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="31" count="4" type="stmt"/>
+        <line num="34" count="4" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="37" count="4" type="stmt"/>
+        <line num="40" count="4" type="stmt"/>
+        <line num="42" count="0" type="stmt"/>
+        <line num="44" count="4" type="stmt"/>
+      </file>
+      <file name="pdss2-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/pdss2-score.entity.ts">
+        <metrics statements="23" coveredstatements="22" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="31" count="4" type="stmt"/>
+        <line num="34" count="4" type="stmt"/>
+        <line num="37" count="4" type="stmt"/>
+        <line num="40" count="4" type="stmt"/>
+        <line num="43" count="4" type="stmt"/>
+        <line num="46" count="4" type="stmt"/>
+        <line num="49" count="4" type="stmt"/>
+        <line num="52" count="4" type="stmt"/>
+        <line num="55" count="4" type="stmt"/>
+        <line num="58" count="4" type="stmt"/>
+        <line num="60" count="0" type="stmt"/>
+        <line num="62" count="4" type="stmt"/>
+      </file>
+      <file name="questionnaire.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/questionnaire.entity.ts">
+        <metrics statements="75" coveredstatements="50" conditionals="0" coveredconditionals="0" methods="40" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="26" count="4" type="stmt"/>
+        <line num="27" count="4" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="30" count="4" type="stmt"/>
+        <line num="35" count="4" type="stmt"/>
+        <line num="37" count="4" type="stmt"/>
+        <line num="40" count="4" type="stmt"/>
+        <line num="43" count="4" type="stmt"/>
+        <line num="46" count="4" type="stmt"/>
+        <line num="53" count="4" type="stmt"/>
+        <line num="56" count="4" type="stmt"/>
+        <line num="59" count="4" type="stmt"/>
+        <line num="62" count="4" type="stmt"/>
+        <line num="64" count="0" type="stmt"/>
+        <line num="65" count="4" type="stmt"/>
+        <line num="67" count="0" type="stmt"/>
+        <line num="68" count="4" type="stmt"/>
+        <line num="71" count="0" type="stmt"/>
+        <line num="75" count="4" type="stmt"/>
+        <line num="77" count="0" type="stmt"/>
+        <line num="81" count="4" type="stmt"/>
+        <line num="84" count="0" type="stmt"/>
+        <line num="85" count="0" type="stmt"/>
+        <line num="88" count="4" type="stmt"/>
+        <line num="91" count="0" type="stmt"/>
+        <line num="92" count="0" type="stmt"/>
+        <line num="95" count="4" type="stmt"/>
+        <line num="98" count="0" type="stmt"/>
+        <line num="99" count="0" type="stmt"/>
+        <line num="102" count="4" type="stmt"/>
+        <line num="104" count="0" type="stmt"/>
+        <line num="107" count="4" type="stmt"/>
+        <line num="109" count="0" type="stmt"/>
+        <line num="110" count="4" type="stmt"/>
+        <line num="112" count="0" type="stmt"/>
+        <line num="115" count="4" type="stmt"/>
+        <line num="117" count="0" type="stmt"/>
+        <line num="118" count="4" type="stmt"/>
+        <line num="120" count="0" type="stmt"/>
+        <line num="121" count="4" type="stmt"/>
+        <line num="123" count="0" type="stmt"/>
+        <line num="124" count="4" type="stmt"/>
+        <line num="126" count="0" type="stmt"/>
+        <line num="129" count="4" type="stmt"/>
+        <line num="131" count="0" type="stmt"/>
+        <line num="134" count="4" type="stmt"/>
+        <line num="136" count="0" type="stmt"/>
+        <line num="139" count="4" type="stmt"/>
+        <line num="141" count="0" type="stmt"/>
+        <line num="144" count="4" type="stmt"/>
+        <line num="146" count="0" type="stmt"/>
+        <line num="149" count="4" type="stmt"/>
+        <line num="151" count="0" type="stmt"/>
+        <line num="152" count="4" type="stmt"/>
+        <line num="155" count="0" type="stmt"/>
+        <line num="156" count="0" type="stmt"/>
+        <line num="159" count="4" type="stmt"/>
+        <line num="161" count="0" type="stmt"/>
+        <line num="164" count="4" type="stmt"/>
+      </file>
+      <file name="rbdsq-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/rbdsq-score.entity.ts">
+        <metrics statements="18" coveredstatements="17" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="16" count="4" type="stmt"/>
+        <line num="19" count="4" type="stmt"/>
+        <line num="22" count="4" type="stmt"/>
+        <line num="25" count="4" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="31" count="4" type="stmt"/>
+        <line num="34" count="4" type="stmt"/>
+        <line num="38" count="4" type="stmt"/>
+        <line num="41" count="4" type="stmt"/>
+        <line num="44" count="4" type="stmt"/>
+        <line num="46" count="0" type="stmt"/>
+        <line num="48" count="4" type="stmt"/>
+      </file>
+      <file name="stopbang-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/stopbang-score.entity.ts">
+        <metrics statements="16" coveredstatements="15" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="27" count="4" type="stmt"/>
+        <line num="30" count="4" type="stmt"/>
+        <line num="33" count="4" type="stmt"/>
+        <line num="36" count="4" type="stmt"/>
+        <line num="39" count="4" type="stmt"/>
+        <line num="41" count="0" type="stmt"/>
+        <line num="43" count="4" type="stmt"/>
+      </file>
+      <file name="surgery-type.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/surgery-type.entity.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+      </file>
+      <file name="task-checklist-item.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/task-checklist-item.entity.ts">
+        <metrics statements="9" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="6" count="4" type="stmt"/>
+        <line num="8" count="4" type="stmt"/>
+        <line num="11" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+      </file>
+      <file name="udysrs-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/udysrs-score.entity.ts">
+        <metrics statements="36" coveredstatements="35" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
+        <line num="27" count="4" type="stmt"/>
+        <line num="30" count="4" type="stmt"/>
+        <line num="33" count="4" type="stmt"/>
+        <line num="36" count="4" type="stmt"/>
+        <line num="39" count="4" type="stmt"/>
+        <line num="42" count="4" type="stmt"/>
+        <line num="45" count="4" type="stmt"/>
+        <line num="49" count="4" type="stmt"/>
+        <line num="53" count="4" type="stmt"/>
+        <line num="56" count="4" type="stmt"/>
+        <line num="59" count="4" type="stmt"/>
+        <line num="63" count="4" type="stmt"/>
+        <line num="66" count="4" type="stmt"/>
+        <line num="69" count="4" type="stmt"/>
+        <line num="72" count="4" type="stmt"/>
+        <line num="75" count="4" type="stmt"/>
+        <line num="78" count="4" type="stmt"/>
+        <line num="81" count="4" type="stmt"/>
+        <line num="85" count="4" type="stmt"/>
+        <line num="88" count="4" type="stmt"/>
+        <line num="91" count="4" type="stmt"/>
+        <line num="94" count="4" type="stmt"/>
+        <line num="97" count="4" type="stmt"/>
+        <line num="100" count="4" type="stmt"/>
+        <line num="103" count="4" type="stmt"/>
+        <line num="105" count="0" type="stmt"/>
+        <line num="107" count="4" type="stmt"/>
+      </file>
+      <file name="updrs3-score.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/updrs3-score.entity.ts">
+        <metrics statements="43" coveredstatements="42" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="2" count="4" type="stmt"/>
+        <line num="5" count="4" type="stmt"/>
+        <line num="7" count="4" type="stmt"/>
+        <line num="10" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="26" count="4" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="32" count="4" type="stmt"/>
+        <line num="35" count="4" type="stmt"/>
+        <line num="38" count="4" type="stmt"/>
+        <line num="42" count="4" type="stmt"/>
+        <line num="45" count="4" type="stmt"/>
+        <line num="48" count="4" type="stmt"/>
+        <line num="51" count="4" type="stmt"/>
+        <line num="54" count="4" type="stmt"/>
+        <line num="58" count="4" type="stmt"/>
+        <line num="61" count="4" type="stmt"/>
+        <line num="64" count="4" type="stmt"/>
+        <line num="67" count="4" type="stmt"/>
+        <line num="70" count="4" type="stmt"/>
+        <line num="73" count="4" type="stmt"/>
+        <line num="76" count="4" type="stmt"/>
+        <line num="79" count="4" type="stmt"/>
+        <line num="82" count="4" type="stmt"/>
+        <line num="85" count="4" type="stmt"/>
+        <line num="88" count="4" type="stmt"/>
+        <line num="91" count="4" type="stmt"/>
+        <line num="94" count="4" type="stmt"/>
+        <line num="97" count="4" type="stmt"/>
+        <line num="101" count="4" type="stmt"/>
+        <line num="104" count="4" type="stmt"/>
+        <line num="107" count="4" type="stmt"/>
+        <line num="110" count="4" type="stmt"/>
+        <line num="113" count="4" type="stmt"/>
+        <line num="117" count="4" type="stmt"/>
+        <line num="120" count="4" type="stmt"/>
+        <line num="123" count="4" type="stmt"/>
+        <line num="125" count="0" type="stmt"/>
+        <line num="127" count="4" type="stmt"/>
+      </file>
+      <file name="user.entity.ts" path="/home/ewerton/Projetos/prime/backend/src/entities/user.entity.ts">
+        <metrics statements="23" coveredstatements="20" conditionals="2" coveredconditionals="2" methods="5" coveredmethods="1"/>
+        <line num="1" count="4" type="stmt"/>
+        <line num="9" count="4" type="stmt"/>
+        <line num="11" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="12" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
+        <line num="14" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+        <line num="20" count="4" type="stmt"/>
+        <line num="23" count="4" type="stmt"/>
+        <line num="26" count="4" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="36" count="4" type="stmt"/>
+        <line num="39" count="4" type="stmt"/>
+        <line num="42" count="4" type="stmt"/>
+        <line num="45" count="4" type="stmt"/>
+        <line num="48" count="4" type="stmt"/>
+        <line num="51" count="4" type="stmt"/>
+        <line num="53" count="0" type="stmt"/>
+        <line num="54" count="4" type="stmt"/>
+        <line num="56" count="0" type="stmt"/>
+        <line num="57" count="4" type="stmt"/>
+        <line num="60" count="0" type="stmt"/>
+        <line num="61" count="4" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.auth">
+      <metrics statements="84" coveredstatements="67" conditionals="15" coveredconditionals="10" methods="11" coveredmethods="10"/>
+      <file name="auth.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/auth/auth.controller.ts">
+        <metrics statements="16" coveredstatements="16" conditionals="0" coveredconditionals="0" methods="4" coveredmethods="4"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="12" count="1" type="stmt"/>
+        <line num="13" count="1" type="stmt"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="15" count="1" type="stmt"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="21" count="3" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="52" count="1" type="stmt"/>
+        <line num="88" count="1" type="stmt"/>
+        <line num="89" count="1" type="stmt"/>
+        <line num="116" count="1" type="stmt"/>
+        <line num="120" count="1" type="stmt"/>
+      </file>
+      <file name="auth.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/auth/auth.module.ts">
+        <metrics statements="13" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="1" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="18" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="26" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+      </file>
+      <file name="auth.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/auth/auth.service.ts">
+        <metrics statements="55" coveredstatements="51" conditionals="13" coveredconditionals="10" methods="6" coveredmethods="6"/>
+        <line num="1" count="2" type="stmt"/>
+        <line num="2" count="2" type="stmt"/>
+        <line num="3" count="2" type="stmt"/>
+        <line num="4" count="2" type="stmt"/>
+        <line num="8" count="2" type="stmt"/>
+        <line num="11" count="2" type="stmt"/>
+        <line num="13" count="14" type="stmt"/>
+        <line num="14" count="14" type="stmt"/>
+        <line num="15" count="14" type="stmt"/>
+        <line num="19" count="6" type="stmt"/>
+        <line num="22" count="6" type="stmt"/>
+        <line num="24" count="6" type="cond" truecount="1" falsecount="0"/>
+        <line num="25" count="2" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="30" count="4" type="stmt"/>
+        <line num="32" count="4" type="stmt"/>
+        <line num="44" count="6" type="stmt"/>
+        <line num="49" count="6" type="stmt"/>
+        <line num="53" count="7" type="stmt"/>
+        <line num="56" count="7" type="stmt"/>
+        <line num="58" count="7" type="cond" truecount="1" falsecount="0"/>
+        <line num="59" count="2" type="stmt"/>
+        <line num="63" count="5" type="cond" truecount="1" falsecount="0"/>
+        <line num="64" count="2" type="stmt"/>
+        <line num="69" count="3" type="stmt"/>
+        <line num="70" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="72" count="1" type="stmt"/>
+        <line num="75" count="3" type="stmt"/>
+        <line num="77" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="78" count="1" type="stmt"/>
+        <line num="82" count="2" type="stmt"/>
+        <line num="89" count="2" type="stmt"/>
+        <line num="91" count="2" type="stmt"/>
+        <line num="106" count="4" type="stmt"/>
+        <line num="109" count="4" type="stmt"/>
+        <line num="111" count="4" type="cond" truecount="1" falsecount="0"/>
+        <line num="112" count="1" type="stmt"/>
+        <line num="116" count="3" type="stmt"/>
+        <line num="117" count="3" type="cond" truecount="0" falsecount="1"/>
+        <line num="119" count="0" type="stmt"/>
+        <line num="122" count="3" type="stmt"/>
+        <line num="124" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="125" count="2" type="stmt"/>
+        <line num="129" count="1" type="stmt"/>
+        <line num="130" count="1" type="stmt"/>
+        <line num="133" count="1" type="stmt"/>
+        <line num="135" count="1" type="stmt"/>
+        <line num="142" count="6" type="stmt"/>
+        <line num="145" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="146" count="5" type="stmt"/>
+        <line num="147" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="148" count="1" type="stmt"/>
+        <line num="149" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="150" count="0" type="stmt"/>
+        <line num="154" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.auth.dto">
+      <metrics statements="15" coveredstatements="15" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="change-password.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/auth/dto/change-password.dto.ts">
+        <metrics statements="5" coveredstatements="5" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="12" count="1" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+      </file>
+      <file name="login.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/auth/dto/login.dto.ts">
+        <metrics statements="5" coveredstatements="5" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="13" count="1" type="stmt"/>
+        <line num="21" count="1" type="stmt"/>
+      </file>
+      <file name="user-login.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/auth/dto/user-login.dto.ts">
+        <metrics statements="5" coveredstatements="5" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="2" count="1" type="stmt"/>
+        <line num="4" count="1" type="stmt"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.auth.strategies">
+      <metrics statements="12" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="2" coveredmethods="0"/>
+      <file name="jwt.strategy.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/auth/strategies/jwt.strategy.ts">
+        <metrics statements="12" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="27" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="37" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.binary-collections">
+      <metrics statements="91" coveredstatements="0" conditionals="19" coveredconditionals="0" methods="16" coveredmethods="0"/>
+      <file name="binary-collections.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/binary-collections/binary-collections.controller.ts">
+        <metrics statements="26" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="8" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="33" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="88" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="89" count="0" type="stmt"/>
+        <line num="92" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="93" count="0" type="stmt"/>
+        <line num="96" count="0" type="stmt"/>
+        <line num="108" count="0" type="stmt"/>
+        <line num="109" count="0" type="stmt"/>
+        <line num="162" count="0" type="stmt"/>
+        <line num="163" count="0" type="stmt"/>
+        <line num="189" count="0" type="stmt"/>
+        <line num="190" count="0" type="stmt"/>
+        <line num="191" count="0" type="stmt"/>
+        <line num="211" count="0" type="stmt"/>
+        <line num="212" count="0" type="stmt"/>
+        <line num="227" count="0" type="stmt"/>
+        <line num="228" count="0" type="stmt"/>
+        <line num="251" count="0" type="stmt"/>
+        <line num="252" count="0" type="stmt"/>
+        <line num="253" count="0" type="stmt"/>
+      </file>
+      <file name="binary-collections.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/binary-collections/binary-collections.module.ts">
+        <metrics statements="9" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+      </file>
+      <file name="binary-collections.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/binary-collections/binary-collections.service.ts">
+        <metrics statements="56" coveredstatements="0" conditionals="17" coveredconditionals="0" methods="8" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="39" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="40" count="0" type="stmt"/>
+        <line num="44" count="0" type="stmt"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="51" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="52" count="0" type="stmt"/>
+        <line num="56" count="0" type="stmt"/>
+        <line num="60" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="61" count="0" type="stmt"/>
+        <line num="65" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="66" count="0" type="stmt"/>
+        <line num="70" count="0" type="stmt"/>
+        <line num="89" count="0" type="stmt"/>
+        <line num="92" count="0" type="stmt"/>
+        <line num="94" count="0" type="stmt"/>
+        <line num="98" count="0" type="stmt"/>
+        <line num="120" count="0" type="stmt"/>
+        <line num="124" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="125" count="0" type="stmt"/>
+        <line num="128" count="0" type="stmt"/>
+        <line num="138" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="139" count="0" type="stmt"/>
+        <line num="143" count="0" type="stmt"/>
+        <line num="146" count="0" type="stmt"/>
+        <line num="169" count="0" type="stmt"/>
+        <line num="173" count="0" type="stmt"/>
+        <line num="174" count="0" type="stmt"/>
+        <line num="183" count="0" type="stmt"/>
+        <line num="188" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="189" count="0" type="stmt"/>
+        <line num="192" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="193" count="0" type="stmt"/>
+        <line num="198" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="201" count="0" type="stmt"/>
+        <line num="218" count="0" type="stmt"/>
+        <line num="224" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="225" count="0" type="stmt"/>
+        <line num="228" count="0" type="stmt"/>
+        <line num="232" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="233" count="0" type="stmt"/>
+        <line num="241" count="0" type="stmt"/>
+        <line num="244" count="0" type="stmt"/>
+        <line num="248" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.binary-collections.dto">
+      <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="upload-binary.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/binary-collections/dto/upload-binary.dto.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.evaluators">
+      <metrics statements="49" coveredstatements="0" conditionals="7" coveredconditionals="0" methods="12" coveredmethods="0"/>
+      <file name="evaluators.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/evaluators/evaluators.controller.ts">
+        <metrics statements="17" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="6" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="37" count="0" type="stmt"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="48" count="0" type="stmt"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="60" count="0" type="stmt"/>
+        <line num="72" count="0" type="stmt"/>
+        <line num="76" count="0" type="stmt"/>
+        <line num="88" count="0" type="stmt"/>
+        <line num="89" count="0" type="stmt"/>
+      </file>
+      <file name="evaluators.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/evaluators/evaluators.module.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+      </file>
+      <file name="evaluators.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/evaluators/evaluators.service.ts">
+        <metrics statements="26" coveredstatements="0" conditionals="7" coveredconditionals="0" methods="6" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="21" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="26" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="40" count="0" type="stmt"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="51" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="52" count="0" type="stmt"/>
+        <line num="55" count="0" type="stmt"/>
+        <line num="62" count="0" type="stmt"/>
+        <line num="65" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="73" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="74" count="0" type="stmt"/>
+        <line num="78" count="0" type="stmt"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="84" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.evaluators.dto">
+      <metrics statements="12" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="create-evaluator.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/evaluators/dto/create-evaluator.dto.ts">
+        <metrics statements="9" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="42" count="0" type="stmt"/>
+        <line num="53" count="0" type="stmt"/>
+        <line num="64" count="0" type="stmt"/>
+        <line num="75" count="0" type="stmt"/>
+      </file>
+      <file name="update-evaluator.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/evaluators/dto/update-evaluator.dto.ts">
+        <metrics statements="3" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.patients">
+      <metrics statements="65" coveredstatements="40" conditionals="8" coveredconditionals="8" methods="14" coveredmethods="7"/>
+      <file name="patients.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/patients/patients.controller.ts">
+        <metrics statements="19" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="7" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="50" count="0" type="stmt"/>
+        <line num="51" count="0" type="stmt"/>
+        <line num="60" count="0" type="stmt"/>
+        <line num="61" count="0" type="stmt"/>
+        <line num="87" count="0" type="stmt"/>
+        <line num="88" count="0" type="stmt"/>
+        <line num="102" count="0" type="stmt"/>
+        <line num="103" count="0" type="stmt"/>
+        <line num="120" count="0" type="stmt"/>
+        <line num="124" count="0" type="stmt"/>
+        <line num="139" count="0" type="stmt"/>
+        <line num="140" count="0" type="stmt"/>
+      </file>
+      <file name="patients.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/patients/patients.module.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+      </file>
+      <file name="patients.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/patients/patients.service.ts">
+        <metrics statements="40" coveredstatements="40" conditionals="8" coveredconditionals="8" methods="7" coveredmethods="7"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="7" count="1" type="stmt"/>
+        <line num="8" count="1" type="stmt"/>
+        <line num="9" count="1" type="stmt"/>
+        <line num="12" count="1" type="stmt"/>
+        <line num="15" count="1" type="stmt"/>
+        <line num="18" count="15" type="stmt"/>
+        <line num="23" count="6" type="cond" truecount="1" falsecount="0"/>
+        <line num="24" count="2" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="31" count="4" type="stmt"/>
+        <line num="35" count="4" type="cond" truecount="1" falsecount="0"/>
+        <line num="36" count="2" type="stmt"/>
+        <line num="40" count="2" type="stmt"/>
+        <line num="41" count="2" type="stmt"/>
+        <line num="47" count="2" type="stmt"/>
+        <line num="51" count="1" type="stmt"/>
+        <line num="57" count="5" type="stmt"/>
+        <line num="63" count="5" type="cond" truecount="1" falsecount="0"/>
+        <line num="64" count="3" type="stmt"/>
+        <line num="67" count="2" type="stmt"/>
+        <line num="74" count="4" type="cond" truecount="1" falsecount="0"/>
+        <line num="75" count="1" type="stmt"/>
+        <line num="78" count="3" type="stmt"/>
+        <line num="80" count="3" type="stmt"/>
+        <line num="84" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="85" count="2" type="stmt"/>
+        <line num="88" count="1" type="stmt"/>
+        <line num="93" count="3" type="stmt"/>
+        <line num="94" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="95" count="1" type="stmt"/>
+        <line num="102" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="103" count="1" type="stmt"/>
+        <line num="108" count="3" type="stmt"/>
+        <line num="111" count="3" type="stmt"/>
+        <line num="116" count="3" type="cond" truecount="1" falsecount="0"/>
+        <line num="117" count="1" type="stmt"/>
+        <line num="120" count="2" type="stmt"/>
+        <line num="124" count="2" type="stmt"/>
+        <line num="125" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.patients.dto">
+      <metrics statements="31" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="create-patient.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/patients/dto/create-patient.dto.ts">
+        <metrics statements="25" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="44" count="0" type="stmt"/>
+        <line num="54" count="0" type="stmt"/>
+        <line num="62" count="0" type="stmt"/>
+        <line num="72" count="0" type="stmt"/>
+        <line num="82" count="0" type="stmt"/>
+        <line num="92" count="0" type="stmt"/>
+        <line num="102" count="0" type="stmt"/>
+        <line num="112" count="0" type="stmt"/>
+        <line num="124" count="0" type="stmt"/>
+        <line num="135" count="0" type="stmt"/>
+        <line num="146" count="0" type="stmt"/>
+        <line num="156" count="0" type="stmt"/>
+        <line num="166" count="0" type="stmt"/>
+        <line num="176" count="0" type="stmt"/>
+        <line num="187" count="0" type="stmt"/>
+        <line num="198" count="0" type="stmt"/>
+        <line num="209" count="0" type="stmt"/>
+        <line num="220" count="0" type="stmt"/>
+        <line num="231" count="0" type="stmt"/>
+        <line num="242" count="0" type="stmt"/>
+        <line num="253" count="0" type="stmt"/>
+        <line num="264" count="0" type="stmt"/>
+      </file>
+      <file name="update-patient.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/patients/dto/update-patient.dto.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.pdf-reports">
+      <metrics statements="44" coveredstatements="0" conditionals="16" coveredconditionals="0" methods="6" coveredmethods="0"/>
+      <file name="pdf-reports.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/pdf-reports/pdf-reports.controller.ts">
+        <metrics statements="18" coveredstatements="0" conditionals="7" coveredconditionals="0" methods="3" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="61" count="0" type="stmt"/>
+        <line num="66" count="0" type="stmt"/>
+        <line num="77" count="0" type="stmt"/>
+        <line num="78" count="0" type="stmt"/>
+        <line num="79" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="80" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="82" count="0" type="stmt"/>
+        <line num="87" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="88" count="0" type="stmt"/>
+        <line num="91" count="0" type="cond" truecount="0" falsecount="2"/>
+      </file>
+      <file name="pdf-reports.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/pdf-reports/pdf-reports.module.ts">
+        <metrics statements="7" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+      </file>
+      <file name="pdf-reports.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/pdf-reports/pdf-reports.service.ts">
+        <metrics statements="19" coveredstatements="0" conditionals="9" coveredconditionals="0" methods="3" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="22" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="26" count="0" type="stmt"/>
+        <line num="30" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="45" count="0" type="stmt"/>
+        <line num="49" count="0" type="stmt"/>
+        <line num="55" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="56" count="0" type="stmt"/>
+        <line num="59" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.pdf-reports.dto">
+      <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="upload-pdf-report.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/pdf-reports/dto/upload-pdf-report.dto.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.questionnaires">
+      <metrics statements="748" coveredstatements="0" conditionals="1206" coveredconditionals="0" methods="91" coveredmethods="0"/>
+      <file name="questionnaires.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/questionnaires.controller.ts">
+        <metrics statements="55" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="20" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="25" count="0" type="stmt"/>
+        <line num="26" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="52" count="0" type="stmt"/>
+        <line num="56" count="0" type="stmt"/>
+        <line num="73" count="0" type="stmt"/>
+        <line num="74" count="0" type="stmt"/>
+        <line num="91" count="0" type="stmt"/>
+        <line num="92" count="0" type="stmt"/>
+        <line num="109" count="0" type="stmt"/>
+        <line num="110" count="0" type="stmt"/>
+        <line num="127" count="0" type="stmt"/>
+        <line num="128" count="0" type="stmt"/>
+        <line num="145" count="0" type="stmt"/>
+        <line num="146" count="0" type="stmt"/>
+        <line num="163" count="0" type="stmt"/>
+        <line num="164" count="0" type="stmt"/>
+        <line num="181" count="0" type="stmt"/>
+        <line num="182" count="0" type="stmt"/>
+        <line num="199" count="0" type="stmt"/>
+        <line num="200" count="0" type="stmt"/>
+        <line num="217" count="0" type="stmt"/>
+        <line num="218" count="0" type="stmt"/>
+        <line num="235" count="0" type="stmt"/>
+        <line num="236" count="0" type="stmt"/>
+        <line num="249" count="0" type="stmt"/>
+        <line num="250" count="0" type="stmt"/>
+        <line num="263" count="0" type="stmt"/>
+        <line num="264" count="0" type="stmt"/>
+        <line num="281" count="0" type="stmt"/>
+        <line num="282" count="0" type="stmt"/>
+        <line num="299" count="0" type="stmt"/>
+        <line num="300" count="0" type="stmt"/>
+        <line num="311" count="0" type="stmt"/>
+        <line num="312" count="0" type="stmt"/>
+        <line num="329" count="0" type="stmt"/>
+        <line num="330" count="0" type="stmt"/>
+        <line num="343" count="0" type="stmt"/>
+        <line num="344" count="0" type="stmt"/>
+        <line num="357" count="0" type="stmt"/>
+        <line num="358" count="0" type="stmt"/>
+      </file>
+      <file name="questionnaires.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/questionnaires.module.ts">
+        <metrics statements="30" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="25" count="0" type="stmt"/>
+        <line num="26" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="65" count="0" type="stmt"/>
+      </file>
+      <file name="questionnaires.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/questionnaires.service.ts">
+        <metrics statements="663" coveredstatements="0" conditionals="1206" coveredconditionals="0" methods="71" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="33" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="37" count="0" type="stmt"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="85" count="0" type="stmt"/>
+        <line num="118" count="0" type="stmt"/>
+        <line num="147" count="0" type="stmt"/>
+        <line num="158" count="0" type="stmt"/>
+        <line num="169" count="0" type="stmt"/>
+        <line num="187" count="0" type="stmt"/>
+        <line num="200" count="0" type="stmt"/>
+        <line num="210" count="0" type="stmt"/>
+        <line num="213" count="0" type="stmt"/>
+        <line num="215" count="0" type="stmt"/>
+        <line num="217" count="0" type="stmt"/>
+        <line num="219" count="0" type="stmt"/>
+        <line num="221" count="0" type="stmt"/>
+        <line num="223" count="0" type="stmt"/>
+        <line num="225" count="0" type="stmt"/>
+        <line num="227" count="0" type="stmt"/>
+        <line num="229" count="0" type="stmt"/>
+        <line num="231" count="0" type="stmt"/>
+        <line num="233" count="0" type="stmt"/>
+        <line num="235" count="0" type="stmt"/>
+        <line num="237" count="0" type="stmt"/>
+        <line num="239" count="0" type="stmt"/>
+        <line num="241" count="0" type="stmt"/>
+        <line num="243" count="0" type="stmt"/>
+        <line num="245" count="0" type="stmt"/>
+        <line num="247" count="0" type="stmt"/>
+        <line num="249" count="0" type="stmt"/>
+        <line num="251" count="0" type="stmt"/>
+        <line num="253" count="0" type="stmt"/>
+        <line num="255" count="0" type="stmt"/>
+        <line num="257" count="0" type="stmt"/>
+        <line num="259" count="0" type="stmt"/>
+        <line num="260" count="0" type="stmt"/>
+        <line num="268" count="0" type="stmt"/>
+        <line num="269" count="0" type="stmt"/>
+        <line num="270" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="271" count="0" type="stmt"/>
+        <line num="281" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="282" count="0" type="stmt"/>
+        <line num="285" count="0" type="stmt"/>
+        <line num="287" count="0" type="stmt"/>
+        <line num="288" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="291" count="0" type="stmt"/>
+        <line num="292" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="293" count="0" type="stmt"/>
+        <line num="297" count="0" type="stmt"/>
+        <line num="304" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="305" count="0" type="stmt"/>
+        <line num="312" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="313" count="0" type="stmt"/>
+        <line num="316" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="323" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="324" count="0" type="stmt"/>
+        <line num="332" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="333" count="0" type="stmt"/>
+        <line num="336" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="343" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="344" count="0" type="stmt"/>
+        <line num="355" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="356" count="0" type="stmt"/>
+        <line num="359" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="366" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="367" count="0" type="stmt"/>
+        <line num="373" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="374" count="0" type="stmt"/>
+        <line num="377" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="384" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="385" count="0" type="stmt"/>
+        <line num="390" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="391" count="0" type="stmt"/>
+        <line num="394" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="401" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="402" count="0" type="stmt"/>
+        <line num="403" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="410" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="411" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="412" count="0" type="stmt"/>
+        <line num="413" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="414" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="415" count="0" type="stmt"/>
+        <line num="423" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="425" count="0" type="stmt"/>
+        <line num="426" count="0" type="stmt"/>
+        <line num="429" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="430" count="0" type="stmt"/>
+        <line num="432" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="433" count="0" type="stmt"/>
+        <line num="435" count="0" type="cond" truecount="0" falsecount="5"/>
+        <line num="436" count="0" type="stmt"/>
+        <line num="438" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="448" count="0" type="stmt"/>
+        <line num="452" count="0" type="stmt"/>
+        <line num="453" count="0" type="stmt"/>
+        <line num="454" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="455" count="0" type="stmt"/>
+        <line num="459" count="0" type="stmt"/>
+        <line num="467" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="468" count="0" type="stmt"/>
+        <line num="472" count="0" type="stmt"/>
+        <line num="476" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="477" count="0" type="stmt"/>
+        <line num="481" count="0" type="stmt"/>
+        <line num="511" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="514" count="0" type="stmt"/>
+        <line num="520" count="0" type="stmt"/>
+        <line num="528" count="0" type="stmt"/>
+        <line num="532" count="0" type="stmt"/>
+        <line num="533" count="0" type="stmt"/>
+        <line num="536" count="0" type="stmt"/>
+        <line num="540" count="0" type="stmt"/>
+        <line num="541" count="0" type="stmt"/>
+        <line num="542" count="0" type="stmt"/>
+        <line num="543" count="0" type="stmt"/>
+        <line num="544" count="0" type="stmt"/>
+        <line num="547" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="548" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="551" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="554" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="559" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="561" count="0" type="stmt"/>
+        <line num="585" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="586" count="0" type="stmt"/>
+        <line num="589" count="0" type="stmt"/>
+        <line num="591" count="0" type="stmt"/>
+        <line num="594" count="0" type="stmt"/>
+        <line num="621" count="0" type="stmt"/>
+        <line num="624" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="625" count="0" type="stmt"/>
+        <line num="630" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="632" count="0" type="stmt"/>
+        <line num="633" count="0" type="stmt"/>
+        <line num="634" count="0" type="stmt"/>
+        <line num="636" count="0" type="stmt"/>
+        <line num="637" count="0" type="stmt"/>
+        <line num="640" count="0" type="stmt"/>
+        <line num="646" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="647" count="0" type="stmt"/>
+        <line num="655" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="657" count="0" type="stmt"/>
+        <line num="664" count="0" type="stmt"/>
+        <line num="665" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="667" count="0" type="stmt"/>
+        <line num="668" count="0" type="stmt"/>
+        <line num="669" count="0" type="stmt"/>
+        <line num="671" count="0" type="stmt"/>
+        <line num="672" count="0" type="stmt"/>
+        <line num="675" count="0" type="stmt"/>
+        <line num="685" count="0" type="stmt"/>
+        <line num="689" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="690" count="0" type="stmt"/>
+        <line num="694" count="0" type="stmt"/>
+        <line num="698" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="699" count="0" type="stmt"/>
+        <line num="708" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="709" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="710" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="711" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="712" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="716" count="0" type="stmt"/>
+        <line num="717" count="0" type="stmt"/>
+        <line num="719" count="0" type="stmt"/>
+        <line num="726" count="0" type="stmt"/>
+        <line num="730" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="731" count="0" type="stmt"/>
+        <line num="735" count="0" type="stmt"/>
+        <line num="740" count="0" type="stmt"/>
+        <line num="741" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="742" count="0" type="stmt"/>
+        <line num="743" count="0" type="stmt"/>
+        <line num="746" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="750" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="753" count="0" type="stmt"/>
+        <line num="756" count="0" type="stmt"/>
+        <line num="757" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="758" count="0" type="stmt"/>
+        <line num="761" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="765" count="0" type="stmt"/>
+        <line num="766" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="767" count="0" type="stmt"/>
+        <line num="770" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="774" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="779" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="784" count="0" type="stmt"/>
+        <line num="787" count="0" type="stmt"/>
+        <line num="788" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="789" count="0" type="stmt"/>
+        <line num="790" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="791" count="0" type="stmt"/>
+        <line num="794" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="797" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="798" count="0" type="stmt"/>
+        <line num="827" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="828" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="829" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="830" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="831" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="832" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="833" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="834" count="0" type="stmt"/>
+        <line num="835" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="836" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="837" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="838" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="839" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="840" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="841" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="842" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="843" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="844" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="845" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="846" count="0" type="stmt"/>
+        <line num="847" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="848" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="849" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="850" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="851" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="854" count="0" type="stmt"/>
+        <line num="857" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="859" count="0" type="stmt"/>
+        <line num="864" count="0" type="stmt"/>
+        <line num="865" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="866" count="0" type="stmt"/>
+        <line num="869" count="0" type="stmt"/>
+        <line num="871" count="0" type="stmt"/>
+        <line num="874" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="877" count="0" type="stmt"/>
+        <line num="885" count="0" type="stmt"/>
+        <line num="887" count="0" type="stmt"/>
+        <line num="894" count="0" type="stmt"/>
+        <line num="895" count="0" type="stmt"/>
+        <line num="897" count="0" type="stmt"/>
+        <line num="904" count="0" type="stmt"/>
+        <line num="908" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="909" count="0" type="stmt"/>
+        <line num="912" count="0" type="stmt"/>
+        <line num="916" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="917" count="0" type="stmt"/>
+        <line num="922" count="0" type="stmt"/>
+        <line num="924" count="0" type="stmt"/>
+        <line num="927" count="0" type="stmt"/>
+        <line num="928" count="0" type="stmt"/>
+        <line num="930" count="0" type="stmt"/>
+        <line num="940" count="0" type="stmt"/>
+        <line num="944" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="945" count="0" type="stmt"/>
+        <line num="948" count="0" type="stmt"/>
+        <line num="952" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="953" count="0" type="stmt"/>
+        <line num="958" count="0" type="stmt"/>
+        <line num="960" count="0" type="stmt"/>
+        <line num="963" count="0" type="stmt"/>
+        <line num="964" count="0" type="stmt"/>
+        <line num="966" count="0" type="stmt"/>
+        <line num="976" count="0" type="stmt"/>
+        <line num="980" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="981" count="0" type="stmt"/>
+        <line num="984" count="0" type="stmt"/>
+        <line num="988" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="989" count="0" type="stmt"/>
+        <line num="994" count="0" type="stmt"/>
+        <line num="996" count="0" type="stmt"/>
+        <line num="999" count="0" type="stmt"/>
+        <line num="1000" count="0" type="stmt"/>
+        <line num="1002" count="0" type="stmt"/>
+        <line num="1014" count="0" type="stmt"/>
+        <line num="1018" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1019" count="0" type="stmt"/>
+        <line num="1022" count="0" type="stmt"/>
+        <line num="1026" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1027" count="0" type="stmt"/>
+        <line num="1032" count="0" type="stmt"/>
+        <line num="1034" count="0" type="stmt"/>
+        <line num="1037" count="0" type="stmt"/>
+        <line num="1038" count="0" type="stmt"/>
+        <line num="1040" count="0" type="stmt"/>
+        <line num="1050" count="0" type="stmt"/>
+        <line num="1054" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1055" count="0" type="stmt"/>
+        <line num="1058" count="0" type="stmt"/>
+        <line num="1062" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1063" count="0" type="stmt"/>
+        <line num="1068" count="0" type="stmt"/>
+        <line num="1070" count="0" type="stmt"/>
+        <line num="1073" count="0" type="stmt"/>
+        <line num="1074" count="0" type="stmt"/>
+        <line num="1076" count="0" type="stmt"/>
+        <line num="1086" count="0" type="stmt"/>
+        <line num="1090" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1091" count="0" type="stmt"/>
+        <line num="1094" count="0" type="stmt"/>
+        <line num="1098" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1099" count="0" type="stmt"/>
+        <line num="1104" count="0" type="stmt"/>
+        <line num="1106" count="0" type="stmt"/>
+        <line num="1109" count="0" type="stmt"/>
+        <line num="1110" count="0" type="stmt"/>
+        <line num="1112" count="0" type="stmt"/>
+        <line num="1122" count="0" type="stmt"/>
+        <line num="1126" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1127" count="0" type="stmt"/>
+        <line num="1130" count="0" type="stmt"/>
+        <line num="1134" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1135" count="0" type="stmt"/>
+        <line num="1140" count="0" type="stmt"/>
+        <line num="1142" count="0" type="stmt"/>
+        <line num="1145" count="0" type="stmt"/>
+        <line num="1146" count="0" type="stmt"/>
+        <line num="1148" count="0" type="stmt"/>
+        <line num="1158" count="0" type="stmt"/>
+        <line num="1162" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1163" count="0" type="stmt"/>
+        <line num="1166" count="0" type="stmt"/>
+        <line num="1170" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1171" count="0" type="stmt"/>
+        <line num="1176" count="0" type="stmt"/>
+        <line num="1178" count="0" type="stmt"/>
+        <line num="1181" count="0" type="stmt"/>
+        <line num="1182" count="0" type="stmt"/>
+        <line num="1184" count="0" type="stmt"/>
+        <line num="1194" count="0" type="stmt"/>
+        <line num="1204" count="0" type="stmt"/>
+        <line num="1205" count="0" type="stmt"/>
+        <line num="1206" count="0" type="stmt"/>
+        <line num="1207" count="0" type="stmt"/>
+        <line num="1208" count="0" type="stmt"/>
+        <line num="1209" count="0" type="stmt"/>
+        <line num="1210" count="0" type="stmt"/>
+        <line num="1211" count="0" type="stmt"/>
+        <line num="1226" count="0" type="stmt"/>
+        <line num="1244" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="1245" count="0" type="stmt"/>
+        <line num="1246" count="0" type="stmt"/>
+        <line num="1249" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1250" count="0" type="stmt"/>
+        <line num="1251" count="0" type="stmt"/>
+        <line num="1252" count="0" type="stmt"/>
+        <line num="1258" count="0" type="stmt"/>
+        <line num="1264" count="0" type="stmt"/>
+        <line num="1270" count="0" type="stmt"/>
+        <line num="1273" count="0" type="stmt"/>
+        <line num="1290" count="0" type="stmt"/>
+        <line num="1317" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1318" count="0" type="stmt"/>
+        <line num="1322" count="0" type="stmt"/>
+        <line num="1330" count="0" type="stmt"/>
+        <line num="1336" count="0" type="stmt"/>
+        <line num="1341" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1344" count="0" type="stmt"/>
+        <line num="1346" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1347" count="0" type="stmt"/>
+        <line num="1350" count="0" type="stmt"/>
+        <line num="1384" count="0" type="stmt"/>
+        <line num="1385" count="0" type="stmt"/>
+        <line num="1388" count="0" type="stmt"/>
+        <line num="1390" count="0" type="stmt"/>
+        <line num="1391" count="0" type="stmt"/>
+        <line num="1395" count="0" type="stmt"/>
+        <line num="1403" count="0" type="stmt"/>
+        <line num="1405" count="0" type="stmt"/>
+        <line num="1406" count="0" type="stmt"/>
+        <line num="1409" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1411" count="0" type="stmt"/>
+        <line num="1412" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1413" count="0" type="stmt"/>
+        <line num="1423" count="0" type="stmt"/>
+        <line num="1427" count="0" type="stmt"/>
+        <line num="1490" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1491" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1494" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1497" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1498" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1501" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1504" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1510" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1511" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1512" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1515" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1522" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1524" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1525" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1526" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1529" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1530" count="0" type="stmt"/>
+        <line num="1533" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1535" count="0" type="stmt"/>
+        <line num="1538" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1539" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1540" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1543" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1544" count="0" type="stmt"/>
+        <line num="1547" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1549" count="0" type="stmt"/>
+        <line num="1552" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1553" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1556" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1557" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1562" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1563" count="0" type="stmt"/>
+        <line num="1566" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1568" count="0" type="stmt"/>
+        <line num="1571" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1574" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1575" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1578" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1579" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1582" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1583" count="0" type="stmt"/>
+        <line num="1586" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1588" count="0" type="stmt"/>
+        <line num="1591" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1592" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1593" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1594" count="0" type="stmt"/>
+        <line num="1598" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1599" count="0" type="stmt"/>
+        <line num="1602" count="0" type="stmt"/>
+        <line num="1603" count="0" type="stmt"/>
+        <line num="1604" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1606" count="0" type="stmt"/>
+        <line num="1609" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1615" count="0" type="stmt"/>
+        <line num="1616" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1617" count="0" type="stmt"/>
+        <line num="1624" count="0" type="stmt"/>
+        <line num="1627" count="0" type="stmt"/>
+        <line num="1628" count="0" type="stmt"/>
+        <line num="1630" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1633" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1636" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1641" count="0" type="stmt"/>
+        <line num="1643" count="0" type="stmt"/>
+        <line num="1652" count="0" type="stmt"/>
+        <line num="1657" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1660" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1663" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1666" count="0" type="stmt"/>
+        <line num="1674" count="0" type="stmt"/>
+        <line num="1675" count="0" type="stmt"/>
+        <line num="1679" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1680" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="1681" count="0" type="stmt"/>
+        <line num="1685" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1686" count="0" type="stmt"/>
+        <line num="1687" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1688" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1689" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1690" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1691" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1692" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1693" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1694" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1698" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1699" count="0" type="stmt"/>
+        <line num="1700" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1701" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1702" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1703" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1704" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1705" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1706" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1707" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1708" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1712" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1713" count="0" type="stmt"/>
+        <line num="1714" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1715" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1716" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1717" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1718" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1719" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1720" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1721" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1722" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1723" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1724" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1725" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1726" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1727" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1728" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1729" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1733" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1734" count="0" type="stmt"/>
+        <line num="1735" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1736" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1737" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1738" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1739" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1740" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1741" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1742" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1743" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1744" count="0" type="cond" truecount="0" falsecount="6"/>
+        <line num="1745" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1749" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1750" count="0" type="stmt"/>
+        <line num="1753" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1756" count="0" type="stmt"/>
+        <line num="1761" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1762" count="0" type="stmt"/>
+        <line num="1763" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="1764" count="0" type="stmt"/>
+        <line num="1768" count="0" type="stmt"/>
+        <line num="1773" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1774" count="0" type="stmt"/>
+        <line num="1775" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="1776" count="0" type="stmt"/>
+        <line num="1780" count="0" type="stmt"/>
+        <line num="1785" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1786" count="0" type="stmt"/>
+        <line num="1787" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="1788" count="0" type="stmt"/>
+        <line num="1792" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1793" count="0" type="stmt"/>
+        <line num="1803" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1804" count="0" type="stmt"/>
+        <line num="1805" count="0" type="stmt"/>
+        <line num="1807" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1808" count="0" type="stmt"/>
+        <line num="1809" count="0" type="stmt"/>
+        <line num="1811" count="0" type="stmt"/>
+        <line num="1812" count="0" type="stmt"/>
+        <line num="1815" count="0" type="stmt"/>
+        <line num="1816" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1817" count="0" type="stmt"/>
+        <line num="1818" count="0" type="stmt"/>
+        <line num="1820" count="0" type="stmt"/>
+        <line num="1821" count="0" type="stmt"/>
+        <line num="1824" count="0" type="stmt"/>
+        <line num="1825" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1826" count="0" type="stmt"/>
+        <line num="1827" count="0" type="stmt"/>
+        <line num="1829" count="0" type="stmt"/>
+        <line num="1830" count="0" type="stmt"/>
+        <line num="1833" count="0" type="stmt"/>
+        <line num="1834" count="0" type="stmt"/>
+        <line num="1835" count="0" type="stmt"/>
+        <line num="1836" count="0" type="stmt"/>
+        <line num="1837" count="0" type="stmt"/>
+        <line num="1838" count="0" type="stmt"/>
+        <line num="1842" count="0" type="stmt"/>
+        <line num="1851" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="1852" count="0" type="stmt"/>
+        <line num="1864" count="0" type="stmt"/>
+        <line num="1869" count="0" type="stmt"/>
+        <line num="1900" count="0" type="stmt"/>
+        <line num="1904" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1905" count="0" type="stmt"/>
+        <line num="1909" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="1910" count="0" type="stmt"/>
+        <line num="1913" count="0" type="stmt"/>
+        <line num="1914" count="0" type="stmt"/>
+        <line num="1915" count="0" type="stmt"/>
+        <line num="1917" count="0" type="stmt"/>
+        <line num="1924" count="0" type="stmt"/>
+        <line num="1925" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="1926" count="0" type="stmt"/>
+        <line num="1928" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="1929" count="0" type="stmt"/>
+        <line num="1931" count="0" type="stmt"/>
+        <line num="1933" count="0" type="stmt"/>
+        <line num="1940" count="0" type="stmt"/>
+        <line num="1943" count="0" type="stmt"/>
+        <line num="2002" count="0" type="stmt"/>
+        <line num="2005" count="0" type="stmt"/>
+        <line num="2064" count="0" type="stmt"/>
+        <line num="2066" count="0" type="stmt"/>
+        <line num="2073" count="0" type="stmt"/>
+        <line num="2076" count="0" type="stmt"/>
+        <line num="2179" count="0" type="stmt"/>
+        <line num="2182" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="2183" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="2184" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="2186" count="0" type="stmt"/>
+        <line num="2289" count="0" type="stmt"/>
+        <line num="2291" count="0" type="stmt"/>
+        <line num="2298" count="0" type="stmt"/>
+        <line num="2301" count="0" type="stmt"/>
+        <line num="2325" count="0" type="stmt"/>
+        <line num="2328" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="2329" count="0" type="stmt"/>
+        <line num="2353" count="0" type="stmt"/>
+        <line num="2355" count="0" type="stmt"/>
+        <line num="2362" count="0" type="stmt"/>
+        <line num="2365" count="0" type="stmt"/>
+        <line num="2414" count="0" type="stmt"/>
+        <line num="2417" count="0" type="stmt"/>
+        <line num="2466" count="0" type="stmt"/>
+        <line num="2468" count="0" type="stmt"/>
+        <line num="2475" count="0" type="stmt"/>
+        <line num="2478" count="0" type="stmt"/>
+        <line num="2489" count="0" type="stmt"/>
+        <line num="2492" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="2493" count="0" type="stmt"/>
+        <line num="2504" count="0" type="stmt"/>
+        <line num="2506" count="0" type="stmt"/>
+        <line num="2513" count="0" type="stmt"/>
+        <line num="2516" count="0" type="stmt"/>
+        <line num="2525" count="0" type="stmt"/>
+        <line num="2531" count="0" type="stmt"/>
+        <line num="2545" count="0" type="stmt"/>
+        <line num="2550" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="2554" count="0" type="stmt"/>
+        <line num="2560" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="2561" count="0" type="stmt"/>
+        <line num="2564" count="0" type="stmt"/>
+        <line num="2569" count="0" type="stmt"/>
+        <line num="2589" count="0" type="stmt"/>
+        <line num="2601" count="0" type="stmt"/>
+        <line num="2606" count="0" type="stmt"/>
+        <line num="2608" count="0" type="stmt"/>
+        <line num="2612" count="0" type="stmt"/>
+        <line num="2619" count="0" type="stmt"/>
+        <line num="2623" count="0" type="stmt"/>
+        <line num="2625" count="0" type="stmt"/>
+        <line num="2629" count="0" type="stmt"/>
+        <line num="2636" count="0" type="stmt"/>
+        <line num="2641" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="2642" count="0" type="stmt"/>
+        <line num="2645" count="0" type="stmt"/>
+        <line num="2646" count="0" type="stmt"/>
+        <line num="2647" count="0" type="stmt"/>
+        <line num="2650" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="2658" count="0" type="stmt"/>
+        <line num="2665" count="0" type="stmt"/>
+        <line num="2673" count="0" type="stmt"/>
+        <line num="2674" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="2675" count="0" type="stmt"/>
+        <line num="2676" count="0" type="stmt"/>
+        <line num="2682" count="0" type="stmt"/>
+        <line num="2697" count="0" type="stmt"/>
+        <line num="2698" count="0" type="stmt"/>
+        <line num="2709" count="0" type="stmt"/>
+        <line num="2720" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.questionnaires.dto">
+      <metrics statements="350" coveredstatements="0" conditionals="3" coveredconditionals="0" methods="91" coveredmethods="0"/>
+      <file name="save-epworth.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-epworth.dto.ts">
+        <metrics statements="12" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="45" count="0" type="stmt"/>
+        <line num="52" count="0" type="stmt"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="66" count="0" type="stmt"/>
+      </file>
+      <file name="save-fogq.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-fogq.dto.ts">
+        <metrics statements="12" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="41" count="0" type="stmt"/>
+        <line num="48" count="0" type="stmt"/>
+        <line num="55" count="0" type="stmt"/>
+      </file>
+      <file name="save-meem.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-meem.dto.ts">
+        <metrics statements="67" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="30" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="39" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="51" count="0" type="stmt"/>
+        <line num="55" count="0" type="stmt"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="63" count="0" type="stmt"/>
+        <line num="67" count="0" type="stmt"/>
+        <line num="71" count="0" type="stmt"/>
+        <line num="75" count="0" type="stmt"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="87" count="0" type="stmt"/>
+        <line num="91" count="0" type="stmt"/>
+        <line num="95" count="0" type="stmt"/>
+        <line num="100" count="0" type="stmt"/>
+        <line num="104" count="0" type="stmt"/>
+        <line num="108" count="0" type="stmt"/>
+        <line num="112" count="0" type="stmt"/>
+        <line num="116" count="0" type="stmt"/>
+        <line num="120" count="0" type="stmt"/>
+        <line num="125" count="0" type="stmt"/>
+        <line num="129" count="0" type="stmt"/>
+        <line num="133" count="0" type="stmt"/>
+        <line num="137" count="0" type="stmt"/>
+        <line num="141" count="0" type="stmt"/>
+        <line num="145" count="0" type="stmt"/>
+        <line num="149" count="0" type="stmt"/>
+        <line num="153" count="0" type="stmt"/>
+        <line num="157" count="0" type="stmt"/>
+        <line num="161" count="0" type="stmt"/>
+        <line num="166" count="0" type="stmt"/>
+        <line num="170" count="0" type="stmt"/>
+        <line num="174" count="0" type="stmt"/>
+        <line num="178" count="0" type="stmt"/>
+        <line num="182" count="0" type="stmt"/>
+        <line num="186" count="0" type="stmt"/>
+        <line num="191" count="0" type="stmt"/>
+        <line num="195" count="0" type="stmt"/>
+        <line num="199" count="0" type="stmt"/>
+        <line num="203" count="0" type="stmt"/>
+        <line num="207" count="0" type="stmt"/>
+        <line num="211" count="0" type="stmt"/>
+        <line num="215" count="0" type="stmt"/>
+        <line num="219" count="0" type="stmt"/>
+        <line num="223" count="0" type="stmt"/>
+        <line num="227" count="0" type="stmt"/>
+        <line num="231" count="0" type="stmt"/>
+        <line num="235" count="0" type="stmt"/>
+        <line num="239" count="0" type="stmt"/>
+        <line num="243" count="0" type="stmt"/>
+        <line num="247" count="0" type="stmt"/>
+        <line num="251" count="0" type="stmt"/>
+        <line num="255" count="0" type="stmt"/>
+        <line num="259" count="0" type="stmt"/>
+      </file>
+      <file name="save-pdss2.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-pdss2.dto.ts">
+        <metrics statements="21" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="41" count="0" type="stmt"/>
+        <line num="48" count="0" type="stmt"/>
+        <line num="55" count="0" type="stmt"/>
+        <line num="62" count="0" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="76" count="0" type="stmt"/>
+        <line num="83" count="0" type="stmt"/>
+        <line num="90" count="0" type="stmt"/>
+        <line num="97" count="0" type="stmt"/>
+        <line num="104" count="0" type="stmt"/>
+        <line num="111" count="0" type="stmt"/>
+        <line num="118" count="0" type="stmt"/>
+      </file>
+      <file name="save-rbdsq.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-rbdsq.dto.ts">
+        <metrics statements="14" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="25" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="40" count="0" type="stmt"/>
+        <line num="45" count="0" type="stmt"/>
+        <line num="50" count="0" type="stmt"/>
+        <line num="55" count="0" type="stmt"/>
+        <line num="60" count="0" type="stmt"/>
+      </file>
+      <file name="save-step1.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-step1.dto.ts">
+        <metrics statements="29" coveredstatements="0" conditionals="3" coveredconditionals="0" methods="1" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="39" count="0" type="stmt"/>
+        <line num="44" count="0" type="stmt"/>
+        <line num="49" count="0" type="stmt"/>
+        <line num="54" count="0" type="stmt"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="64" count="0" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="74" count="0" type="stmt"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="84" count="0" type="stmt"/>
+        <line num="88" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="90" count="0" type="stmt"/>
+        <line num="95" count="0" type="stmt"/>
+        <line num="100" count="0" type="stmt"/>
+        <line num="105" count="0" type="stmt"/>
+        <line num="110" count="0" type="stmt"/>
+        <line num="115" count="0" type="stmt"/>
+        <line num="120" count="0" type="stmt"/>
+        <line num="125" count="0" type="stmt"/>
+        <line num="130" count="0" type="stmt"/>
+        <line num="135" count="0" type="stmt"/>
+        <line num="140" count="0" type="stmt"/>
+        <line num="145" count="0" type="stmt"/>
+      </file>
+      <file name="save-step2.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-step2.dto.ts">
+        <metrics statements="9" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="42" count="0" type="stmt"/>
+        <line num="48" count="0" type="stmt"/>
+      </file>
+      <file name="save-step3.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-step3.dto.ts">
+        <metrics statements="40" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="37" count="0" type="stmt"/>
+        <line num="44" count="0" type="stmt"/>
+        <line num="49" count="0" type="stmt"/>
+        <line num="54" count="0" type="stmt"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="64" count="0" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="74" count="0" type="stmt"/>
+        <line num="79" count="0" type="stmt"/>
+        <line num="84" count="0" type="stmt"/>
+        <line num="89" count="0" type="stmt"/>
+        <line num="95" count="0" type="stmt"/>
+        <line num="96" count="0" type="stmt"/>
+        <line num="101" count="0" type="stmt"/>
+        <line num="106" count="0" type="stmt"/>
+        <line num="111" count="0" type="stmt"/>
+        <line num="116" count="0" type="stmt"/>
+        <line num="121" count="0" type="stmt"/>
+        <line num="126" count="0" type="stmt"/>
+        <line num="131" count="0" type="stmt"/>
+        <line num="136" count="0" type="stmt"/>
+        <line num="141" count="0" type="stmt"/>
+        <line num="146" count="0" type="stmt"/>
+        <line num="151" count="0" type="stmt"/>
+        <line num="156" count="0" type="stmt"/>
+        <line num="161" count="0" type="stmt"/>
+        <line num="166" count="0" type="stmt"/>
+        <line num="171" count="0" type="stmt"/>
+        <line num="176" count="0" type="stmt"/>
+        <line num="181" count="0" type="stmt"/>
+        <line num="186" count="0" type="stmt"/>
+        <line num="191" count="0" type="stmt"/>
+      </file>
+      <file name="save-stopbang.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-stopbang.dto.ts">
+        <metrics statements="12" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="25" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="40" count="0" type="stmt"/>
+        <line num="45" count="0" type="stmt"/>
+        <line num="50" count="0" type="stmt"/>
+      </file>
+      <file name="save-udysrs.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-udysrs.dto.ts">
+        <metrics statements="59" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="26" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="36" count="0" type="stmt"/>
+        <line num="40" count="0" type="stmt"/>
+        <line num="44" count="0" type="stmt"/>
+        <line num="48" count="0" type="stmt"/>
+        <line num="52" count="0" type="stmt"/>
+        <line num="56" count="0" type="stmt"/>
+        <line num="60" count="0" type="stmt"/>
+        <line num="64" count="0" type="stmt"/>
+        <line num="68" count="0" type="stmt"/>
+        <line num="72" count="0" type="stmt"/>
+        <line num="76" count="0" type="stmt"/>
+        <line num="80" count="0" type="stmt"/>
+        <line num="84" count="0" type="stmt"/>
+        <line num="88" count="0" type="stmt"/>
+        <line num="92" count="0" type="stmt"/>
+        <line num="96" count="0" type="stmt"/>
+        <line num="100" count="0" type="stmt"/>
+        <line num="104" count="0" type="stmt"/>
+        <line num="109" count="0" type="stmt"/>
+        <line num="113" count="0" type="stmt"/>
+        <line num="118" count="0" type="stmt"/>
+        <line num="122" count="0" type="stmt"/>
+        <line num="126" count="0" type="stmt"/>
+        <line num="130" count="0" type="stmt"/>
+        <line num="134" count="0" type="stmt"/>
+        <line num="138" count="0" type="stmt"/>
+        <line num="143" count="0" type="stmt"/>
+        <line num="147" count="0" type="stmt"/>
+        <line num="151" count="0" type="stmt"/>
+        <line num="155" count="0" type="stmt"/>
+        <line num="159" count="0" type="stmt"/>
+        <line num="163" count="0" type="stmt"/>
+        <line num="167" count="0" type="stmt"/>
+        <line num="171" count="0" type="stmt"/>
+        <line num="175" count="0" type="stmt"/>
+        <line num="179" count="0" type="stmt"/>
+        <line num="183" count="0" type="stmt"/>
+        <line num="187" count="0" type="stmt"/>
+        <line num="191" count="0" type="stmt"/>
+        <line num="195" count="0" type="stmt"/>
+        <line num="200" count="0" type="stmt"/>
+        <line num="204" count="0" type="stmt"/>
+        <line num="208" count="0" type="stmt"/>
+        <line num="212" count="0" type="stmt"/>
+        <line num="216" count="0" type="stmt"/>
+        <line num="220" count="0" type="stmt"/>
+        <line num="224" count="0" type="stmt"/>
+        <line num="228" count="0" type="stmt"/>
+      </file>
+      <file name="save-updrs3.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/questionnaires/dto/save-updrs3.dto.ts">
+        <metrics statements="75" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="33" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="26" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="38" count="0" type="stmt"/>
+        <line num="42" count="0" type="stmt"/>
+        <line num="46" count="0" type="stmt"/>
+        <line num="50" count="0" type="stmt"/>
+        <line num="54" count="0" type="stmt"/>
+        <line num="58" count="0" type="stmt"/>
+        <line num="62" count="0" type="stmt"/>
+        <line num="66" count="0" type="stmt"/>
+        <line num="70" count="0" type="stmt"/>
+        <line num="74" count="0" type="stmt"/>
+        <line num="78" count="0" type="stmt"/>
+        <line num="82" count="0" type="stmt"/>
+        <line num="86" count="0" type="stmt"/>
+        <line num="90" count="0" type="stmt"/>
+        <line num="94" count="0" type="stmt"/>
+        <line num="98" count="0" type="stmt"/>
+        <line num="102" count="0" type="stmt"/>
+        <line num="106" count="0" type="stmt"/>
+        <line num="110" count="0" type="stmt"/>
+        <line num="114" count="0" type="stmt"/>
+        <line num="118" count="0" type="stmt"/>
+        <line num="122" count="0" type="stmt"/>
+        <line num="126" count="0" type="stmt"/>
+        <line num="130" count="0" type="stmt"/>
+        <line num="134" count="0" type="stmt"/>
+        <line num="138" count="0" type="stmt"/>
+        <line num="142" count="0" type="stmt"/>
+        <line num="146" count="0" type="stmt"/>
+        <line num="150" count="0" type="stmt"/>
+        <line num="154" count="0" type="stmt"/>
+        <line num="158" count="0" type="stmt"/>
+        <line num="162" count="0" type="stmt"/>
+        <line num="166" count="0" type="stmt"/>
+        <line num="170" count="0" type="stmt"/>
+        <line num="174" count="0" type="stmt"/>
+        <line num="178" count="0" type="stmt"/>
+        <line num="182" count="0" type="stmt"/>
+        <line num="186" count="0" type="stmt"/>
+        <line num="190" count="0" type="stmt"/>
+        <line num="194" count="0" type="stmt"/>
+        <line num="198" count="0" type="stmt"/>
+        <line num="202" count="0" type="stmt"/>
+        <line num="206" count="0" type="stmt"/>
+        <line num="210" count="0" type="stmt"/>
+        <line num="214" count="0" type="stmt"/>
+        <line num="218" count="0" type="stmt"/>
+        <line num="222" count="0" type="stmt"/>
+        <line num="226" count="0" type="stmt"/>
+        <line num="230" count="0" type="stmt"/>
+        <line num="234" count="0" type="stmt"/>
+        <line num="238" count="0" type="stmt"/>
+        <line num="242" count="0" type="stmt"/>
+        <line num="246" count="0" type="stmt"/>
+        <line num="250" count="0" type="stmt"/>
+        <line num="254" count="0" type="stmt"/>
+        <line num="258" count="0" type="stmt"/>
+        <line num="262" count="0" type="stmt"/>
+        <line num="266" count="0" type="stmt"/>
+        <line num="270" count="0" type="stmt"/>
+        <line num="274" count="0" type="stmt"/>
+        <line num="278" count="0" type="stmt"/>
+        <line num="283" count="0" type="stmt"/>
+        <line num="288" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.system">
+      <metrics statements="22" coveredstatements="0" conditionals="4" coveredconditionals="0" methods="3" coveredmethods="0"/>
+      <file name="system.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/system/system.controller.ts">
+        <metrics statements="8" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+      </file>
+      <file name="system.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/system/system.module.ts">
+        <metrics statements="4" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+      </file>
+      <file name="system.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/system/system.service.ts">
+        <metrics statements="10" coveredstatements="0" conditionals="4" coveredconditionals="0" methods="1" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="8" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="10" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.tasks">
+      <metrics statements="48" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="14" coveredmethods="0"/>
+      <file name="tasks.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/tasks/tasks.controller.ts">
+        <metrics statements="20" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="7" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="20" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="28" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="42" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="50" count="0" type="stmt"/>
+        <line num="51" count="0" type="stmt"/>
+        <line num="58" count="0" type="stmt"/>
+        <line num="62" count="0" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+        <line num="70" count="0" type="stmt"/>
+      </file>
+      <file name="tasks.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/tasks/tasks.module.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+      </file>
+      <file name="tasks.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/tasks/tasks.service.ts">
+        <metrics statements="22" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="7" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="9" count="0" type="stmt"/>
+        <line num="12" count="0" type="stmt"/>
+        <line num="16" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="31" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="35" count="0" type="stmt"/>
+        <line num="39" count="0" type="stmt"/>
+        <line num="43" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="44" count="0" type="stmt"/>
+        <line num="47" count="0" type="stmt"/>
+        <line num="51" count="0" type="stmt"/>
+        <line num="52" count="0" type="stmt"/>
+        <line num="53" count="0" type="stmt"/>
+        <line num="57" count="0" type="stmt"/>
+        <line num="58" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.tasks.dto">
+      <metrics statements="15" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="create-task.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/tasks/dto/create-task.dto.ts">
+        <metrics statements="12" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="15" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="34" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="52" count="0" type="stmt"/>
+        <line num="65" count="0" type="stmt"/>
+        <line num="73" count="0" type="stmt"/>
+        <line num="81" count="0" type="stmt"/>
+        <line num="91" count="0" type="stmt"/>
+      </file>
+      <file name="update-task.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/tasks/dto/update-task.dto.ts">
+        <metrics statements="3" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.users">
+      <metrics statements="71" coveredstatements="39" conditionals="17" coveredconditionals="13" methods="18" coveredmethods="9"/>
+      <file name="users.controller.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/users/users.controller.ts">
+        <metrics statements="26" coveredstatements="0" conditionals="2" coveredconditionals="0" methods="9" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="14" count="0" type="stmt"/>
+        <line num="23" count="0" type="stmt"/>
+        <line num="24" count="0" type="stmt"/>
+        <line num="25" count="0" type="stmt"/>
+        <line num="26" count="0" type="stmt"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="33" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="44" count="0" type="stmt"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="60" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="61" count="0" type="stmt"/>
+        <line num="62" count="0" type="stmt"/>
+        <line num="63" count="0" type="stmt"/>
+        <line num="65" count="0" type="stmt"/>
+        <line num="67" count="0" type="stmt"/>
+        <line num="77" count="0" type="stmt"/>
+        <line num="78" count="0" type="stmt"/>
+        <line num="89" count="0" type="stmt"/>
+        <line num="90" count="0" type="stmt"/>
+        <line num="103" count="0" type="stmt"/>
+        <line num="107" count="0" type="stmt"/>
+        <line num="119" count="0" type="stmt"/>
+        <line num="120" count="0" type="stmt"/>
+      </file>
+      <file name="users.module.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/users/users.module.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+      </file>
+      <file name="users.service.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/users/users.service.ts">
+        <metrics statements="39" coveredstatements="39" conditionals="15" coveredconditionals="13" methods="9" coveredmethods="9"/>
+        <line num="1" count="3" type="stmt"/>
+        <line num="6" count="3" type="stmt"/>
+        <line num="7" count="3" type="stmt"/>
+        <line num="8" count="3" type="stmt"/>
+        <line num="9" count="3" type="stmt"/>
+        <line num="14" count="3" type="stmt"/>
+        <line num="17" count="17" type="stmt"/>
+        <line num="22" count="6" type="cond" truecount="1" falsecount="0"/>
+        <line num="23" count="6" type="stmt"/>
+        <line num="27" count="6" type="cond" truecount="1" falsecount="0"/>
+        <line num="28" count="2" type="stmt"/>
+        <line num="33" count="4" type="stmt"/>
+        <line num="34" count="4" type="cond" truecount="1" falsecount="0"/>
+        <line num="35" count="3" type="stmt"/>
+        <line num="36" count="3" type="stmt"/>
+        <line num="37" count="3" type="stmt"/>
+        <line num="40" count="4" type="stmt"/>
+        <line num="47" count="4" type="stmt"/>
+        <line num="51" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="52" count="2" type="stmt"/>
+        <line num="59" count="8" type="stmt"/>
+        <line num="63" count="8" type="cond" truecount="1" falsecount="0"/>
+        <line num="64" count="2" type="stmt"/>
+        <line num="67" count="6" type="stmt"/>
+        <line num="71" count="2" type="stmt"/>
+        <line num="77" count="3" type="stmt"/>
+        <line num="80" count="3" type="cond" truecount="3" falsecount="0"/>
+        <line num="81" count="1" type="stmt"/>
+        <line num="85" count="1" type="cond" truecount="1" falsecount="0"/>
+        <line num="86" count="1" type="stmt"/>
+        <line num="90" count="2" type="stmt"/>
+        <line num="91" count="2" type="stmt"/>
+        <line num="95" count="1" type="stmt"/>
+        <line num="96" count="1" type="stmt"/>
+        <line num="100" count="1" type="stmt"/>
+        <line num="107" count="1" type="stmt"/>
+        <line num="108" count="1" type="stmt"/>
+        <line num="109" count="1" type="stmt"/>
+        <line num="110" count="1" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.users.dto">
+      <metrics statements="16" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="create-user.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/users/dto/create-user.dto.ts">
+        <metrics statements="13" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="53" count="0" type="stmt"/>
+        <line num="64" count="0" type="stmt"/>
+        <line num="75" count="0" type="stmt"/>
+        <line num="86" count="0" type="stmt"/>
+        <line num="96" count="0" type="stmt"/>
+        <line num="106" count="0" type="stmt"/>
+      </file>
+      <file name="update-user.dto.ts" path="/home/ewerton/Projetos/prime/backend/src/modules/users/dto/update-user.dto.ts">
+        <metrics statements="3" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.utils">
+      <metrics statements="14" coveredstatements="12" conditionals="4" coveredconditionals="2" methods="3" coveredmethods="3"/>
+      <file name="crypto.util.ts" path="/home/ewerton/Projetos/prime/backend/src/utils/crypto.util.ts">
+        <metrics statements="14" coveredstatements="12" conditionals="4" coveredconditionals="2" methods="3" coveredmethods="3"/>
+        <line num="1" count="1" type="stmt"/>
+        <line num="8" count="1" type="stmt"/>
+        <line num="12" count="15" type="stmt"/>
+        <line num="21" count="12" type="cond" truecount="0" falsecount="1"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="25" count="12" type="stmt"/>
+        <line num="26" count="12" type="cond" truecount="0" falsecount="1"/>
+        <line num="27" count="0" type="stmt"/>
+        <line num="31" count="12" type="stmt"/>
+        <line num="34" count="12" type="stmt"/>
+        <line num="35" count="12" type="stmt"/>
+        <line num="37" count="12" type="stmt"/>
+        <line num="46" count="10" type="stmt"/>
+        <line num="47" count="10" type="cond" truecount="2" falsecount="0"/>
+      </file>
+    </package>
+  </project>
+</coverage>

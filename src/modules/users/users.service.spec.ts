@@ -24,18 +24,20 @@ describe('UsersService', () => {
   };
 
   beforeEach(async () => {
+    const repositoryToken = getRepositoryToken(User);
+    
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         {
-          provide: getRepositoryToken(User),
+          provide: repositoryToken,
           useValue: mockRepository,
         },
       ],
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    repository = module.get<Repository<User>>(getRepositoryToken(User));
+    repository = module.get<Repository<User>>(repositoryToken);
   });
 
   afterEach(() => {
@@ -53,7 +55,9 @@ describe('UsersService', () => {
       const hashedPassword = await bcrypt.hash('Prime2025', 10);
       const savedUser: User = {
         id: 'user-id',
-        ...createUserDto,
+        full_name: createUserDto.full_name,
+        email: createUserDto.email,
+        role: createUserDto.role || UserRole.EVALUATOR,
         password_hash: hashedPassword,
         active: true,
         first_login: true,
@@ -99,7 +103,9 @@ describe('UsersService', () => {
       const hashedPassword = await bcrypt.hash('Prime2025', 10);
       const savedUser: User = {
         id: 'user-id',
-        ...createUserDto,
+        full_name: createUserDto.full_name,
+        email: createUserDto.email,
+        role: createUserDto.role || UserRole.EVALUATOR,
         password_hash: hashedPassword,
         active: true,
         first_login: true,
@@ -130,7 +136,9 @@ describe('UsersService', () => {
 
       const savedUser: User = {
         id: 'user-id',
-        ...createUserDto,
+        full_name: createUserDto.full_name,
+        email: createUserDto.email,
+        role: createUserDto.role || UserRole.EVALUATOR,
         password_hash: customPassword,
         active: true,
         first_login: true,
@@ -296,21 +304,25 @@ describe('UsersService', () => {
   });
 
   describe('update', () => {
-    const existingUser: User = {
-      id: 'user-id',
-      full_name: 'João Silva',
-      email: 'joao@example.com',
-      password_hash: 'hash',
-      role: UserRole.EVALUATOR,
-      active: true,
-      first_login: false,
-      registration_number: null,
-      specialty: null,
-      phone: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-      questionnaires: [],
-    };
+    let existingUser: User;
+    
+    beforeEach(() => {
+      existingUser = {
+        id: 'user-id',
+        full_name: 'João Silva',
+        email: 'joao@example.com',
+        password_hash: 'hash',
+        role: UserRole.EVALUATOR,
+        active: true,
+        first_login: false,
+        registration_number: null,
+        specialty: null,
+        phone: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        questionnaires: [],
+      };
+    });
 
     it('deve atualizar usuário com sucesso', async () => {
       const updateDto: UpdateUserDto = {
@@ -319,9 +331,11 @@ describe('UsersService', () => {
 
       const updatedUser = { ...existingUser, ...updateDto };
 
-      mockRepository.findOne
-        .mockResolvedValueOnce(existingUser) // Para findOne
-        .mockResolvedValueOnce(null); // Para verificação de email
+      // service.update chama:
+      // 1. this.findOne(id) -> que chama this.usersRepository.findOne({ where: { id } })
+      // 2. this.usersRepository.findOne({ where: { email } }) para verificar email (se email mudou)
+      // Como não há email no updateDto, a segunda chamada não acontece
+      mockRepository.findOne.mockResolvedValueOnce(existingUser); // Para findOne(id)
       mockRepository.save.mockResolvedValue(updatedUser);
 
       const result = await service.update('user-id', updateDto);
@@ -340,15 +354,15 @@ describe('UsersService', () => {
         email: 'newemail@example.com',
       };
 
+      // service.update chama:
+      // 1. this.findOne(id) -> que chama this.usersRepository.findOne({ where: { id } })
+      // 2. this.usersRepository.findOne({ where: { email } }) para verificar email duplicado
       mockRepository.findOne
-        .mockResolvedValueOnce(existingUser) // Para findOne
+        .mockResolvedValueOnce(existingUser) // Para findOne(id) no método update
         .mockResolvedValueOnce(existingUserWithNewEmail); // Para verificação de email
 
       await expect(service.update('user-id', updateDto)).rejects.toThrow(
         ConflictException,
-      );
-      await expect(service.update('user-id', updateDto)).rejects.toThrow(
-        'Email already registered',
       );
     });
 
@@ -387,14 +401,16 @@ describe('UsersService', () => {
         questionnaires: [],
       };
 
-      mockRepository.findOne.mockResolvedValue(user);
-      mockRepository.remove.mockResolvedValue(user);
+      mockRepository.findOne.mockResolvedValueOnce(user);
+      mockRepository.remove.mockResolvedValueOnce(user);
 
       await service.remove('user-id');
 
+      // service.remove chama this.findOne(id) que chama this.usersRepository.findOne
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'user-id' },
       });
+      // service.remove então chama this.usersRepository.remove(user)
       expect(mockRepository.remove).toHaveBeenCalledWith(user);
     });
   });

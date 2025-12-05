@@ -54,7 +54,7 @@ let AuthService = class AuthService {
         }
         let passwordHash = user.password_hash;
         if (passwordHash.startsWith('$wp$')) {
-            passwordHash = '$' + passwordHash.substring(3);
+            passwordHash = '$' + passwordHash.substring(4);
         }
         const isPasswordValid = await bcrypt.compare(password, passwordHash);
         if (!isPasswordValid) {
@@ -88,7 +88,7 @@ let AuthService = class AuthService {
         }
         let passwordHash = user.password_hash;
         if (passwordHash.startsWith('$wp$')) {
-            passwordHash = '$' + passwordHash.substring(3);
+            passwordHash = '$' + passwordHash.substring(4);
         }
         const isPasswordValid = await bcrypt.compare(currentPassword, passwordHash);
         if (!isPasswordValid) {

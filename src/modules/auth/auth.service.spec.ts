@@ -125,21 +125,25 @@ describe('AuthService', () => {
   });
 
   describe('userLogin', () => {
-    const mockUser: User = {
-      id: 'user-id',
-      email: 'test@example.com',
-      full_name: 'Test User',
-      password_hash: await bcrypt.hash('password123', 10),
-      role: UserRole.EVALUATOR,
-      active: true,
-      first_login: false,
-      registration_number: null,
-      specialty: null,
-      phone: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-      questionnaires: [],
-    };
+    let mockUser: User;
+
+    beforeEach(async () => {
+      mockUser = {
+        id: 'user-id',
+        email: 'test@example.com',
+        full_name: 'Test User',
+        password_hash: await bcrypt.hash('password123', 10),
+        role: UserRole.EVALUATOR,
+        active: true,
+        first_login: false,
+        registration_number: null,
+        specialty: null,
+        phone: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        questionnaires: [],
+      };
+    });
 
     it('deve retornar token JWT para credenciais de usuário válidas', async () => {
       const userLoginDto: UserLoginDto = {
@@ -217,9 +221,13 @@ describe('AuthService', () => {
     });
 
     it('deve lidar com senha com prefixo $wp$', async () => {
+      // Criar hash normal primeiro
+      const normalHash = await bcrypt.hash('password123', 10);
+      // O código remove $wp$ e adiciona $, então precisamos criar o hash como $wp$ + hash sem o primeiro $
+      // Se o hash é $2b$10$..., então $wp$2b$10$... será convertido para $2b$10$...
       const userWithWpPrefix: User = {
         ...mockUser,
-        password_hash: '$wp$' + (await bcrypt.hash('password123', 10)).substring(1),
+        password_hash: '$wp$' + normalHash.substring(1), // Remove o primeiro $ e adiciona $wp$
       };
 
       const userLoginDto: UserLoginDto = {
@@ -234,25 +242,30 @@ describe('AuthService', () => {
       const result = await service.userLogin(userLoginDto);
 
       expect(result).toHaveProperty('access_token');
+      expect(mockJwtService.sign).toHaveBeenCalled();
     });
   });
 
   describe('changePassword', () => {
-    const mockUser: User = {
-      id: 'user-id',
-      email: 'test@example.com',
-      full_name: 'Test User',
-      password_hash: await bcrypt.hash('old-password', 10),
-      role: UserRole.EVALUATOR,
-      active: true,
-      first_login: false,
-      registration_number: null,
-      specialty: null,
-      phone: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-      questionnaires: [],
-    };
+    let mockUser: User;
+
+    beforeEach(async () => {
+      mockUser = {
+        id: 'user-id',
+        email: 'test@example.com',
+        full_name: 'Test User',
+        password_hash: await bcrypt.hash('old-password', 10),
+        role: UserRole.EVALUATOR,
+        active: true,
+        first_login: false,
+        registration_number: null,
+        specialty: null,
+        phone: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        questionnaires: [],
+      };
+    });
 
     it('deve alterar senha com sucesso', async () => {
       const changePasswordDto: ChangePasswordDto = {
