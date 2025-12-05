@@ -68,8 +68,8 @@ export class AuthService {
     // Remove any prefix like $wp$ that might be added by other systems
     let passwordHash = user.password_hash;
     if (passwordHash.startsWith('$wp$')) {
-      // Remove $wp prefix and restore the $ for bcrypt format
-      passwordHash = '$' + passwordHash.substring(3);
+      // Remove $wp$ prefix and restore the $ for bcrypt format
+      passwordHash = '$' + passwordHash.substring(4);
     }
 
     const isPasswordValid = await bcrypt.compare(password, passwordHash);
@@ -115,7 +115,8 @@ export class AuthService {
     // Verify current password
     let passwordHash = user.password_hash;
     if (passwordHash.startsWith('$wp$')) {
-      passwordHash = '$' + passwordHash.substring(3);
+      // Remove $wp$ prefix and restore the $ for bcrypt format
+      passwordHash = '$' + passwordHash.substring(4);
     }
 
     const isPasswordValid = await bcrypt.compare(currentPassword, passwordHash);

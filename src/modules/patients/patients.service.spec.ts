@@ -36,11 +36,13 @@ describe('PatientsService', () => {
     // Inicializar CryptoUtil antes dos testes
     CryptoUtil.setConfigService(mockConfigService as any);
 
+    const repositoryToken = getRepositoryToken(Patient);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PatientsService,
         {
-          provide: getRepositoryToken(Patient),
+          provide: repositoryToken,
           useValue: mockRepository,
         },
         {
@@ -51,7 +53,7 @@ describe('PatientsService', () => {
     }).compile();
 
     service = module.get<PatientsService>(PatientsService);
-    repository = module.get<Repository<Patient>>(getRepositoryToken(Patient));
+    repository = module.get<Repository<Patient>>(repositoryToken);
     configService = module.get<ConfigService>(ConfigService);
   });
 
@@ -63,7 +65,7 @@ describe('PatientsService', () => {
     const createPatientDto: CreatePatientDto = {
       cpf: '12345678900',
       full_name: 'João Silva',
-      date_of_birth: new Date('1990-01-01'),
+      date_of_birth: '1990-01-01',
       email: 'joao@example.com',
       phone_primary: '11999999999',
     };
