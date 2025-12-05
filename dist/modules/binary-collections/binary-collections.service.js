@@ -19,12 +19,14 @@ const typeorm_2 = require("typeorm");
 const binary_collection_entity_1 = require("../../entities/binary-collection.entity");
 const patient_entity_1 = require("../../entities/patient.entity");
 const active_task_definition_entity_1 = require("../../entities/active-task-definition.entity");
+const questionnaire_entity_1 = require("../../entities/questionnaire.entity");
 const crypto_util_1 = require("../../utils/crypto.util");
 let BinaryCollectionsService = class BinaryCollectionsService {
-    constructor(binaryCollectionsRepository, patientsRepository, activeTaskRepository) {
+    constructor(binaryCollectionsRepository, patientsRepository, activeTaskRepository, questionnairesRepository) {
         this.binaryCollectionsRepository = binaryCollectionsRepository;
         this.patientsRepository = patientsRepository;
         this.activeTaskRepository = activeTaskRepository;
+        this.questionnairesRepository = questionnairesRepository;
     }
     async uploadCsv(patient_cpf, task_code, file) {
         if (!crypto_util_1.CryptoUtil.isValidCpfFormat(patient_cpf)) {
@@ -150,10 +152,31 @@ let BinaryCollectionsService = class BinaryCollectionsService {
         };
     }
     async countByQuestionnaireId(questionnaireId) {
-        const count = await this.binaryCollectionsRepository.count({
-            where: { questionnaire_id: questionnaireId },
-        });
-        return count;
+        const questionnaire = await this.questionnairesRepository
+            .createQueryBuilder('q')
+            .leftJoinAndSelect('q.patient', 'patient')
+            .where('q.id = :id', { id: questionnaireId })
+            .getOne();
+        if (!questionnaire) {
+            throw new common_1.NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+        }
+        const patientCpfHash = questionnaire.patient?.cpf_hash;
+        if (patientCpfHash) {
+            const count = await this.binaryCollectionsRepository
+                .createQueryBuilder('bc')
+                .where('bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash', {
+                questionnaireId,
+                patientCpfHash,
+            })
+                .getCount();
+            return count;
+        }
+        else {
+            const count = await this.binaryCollectionsRepository.count({
+                where: { questionnaire_id: questionnaireId },
+            });
+            return count;
+        }
     }
 };
 exports.BinaryCollectionsService = BinaryCollectionsService;
@@ -162,7 +185,9 @@ exports.BinaryCollectionsService = BinaryCollectionsService = __decorate([
     __param(0, (0, typeorm_1.InjectRepository)(binary_collection_entity_1.BinaryCollection)),
     __param(1, (0, typeorm_1.InjectRepository)(patient_entity_1.Patient)),
     __param(2, (0, typeorm_1.InjectRepository)(active_task_definition_entity_1.ActiveTaskDefinition)),
+    __param(3, (0, typeorm_1.InjectRepository)(questionnaire_entity_1.Questionnaire)),
     __metadata("design:paramtypes", [typeorm_2.Repository,
+        typeorm_2.Repository,
         typeorm_2.Repository,
         typeorm_2.Repository])
 ], BinaryCollectionsService);

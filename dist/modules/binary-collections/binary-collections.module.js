@@ -14,12 +14,13 @@ const binary_collections_controller_1 = require("./binary-collections.controller
 const binary_collection_entity_1 = require("../../entities/binary-collection.entity");
 const patient_entity_1 = require("../../entities/patient.entity");
 const active_task_definition_entity_1 = require("../../entities/active-task-definition.entity");
+const questionnaire_entity_1 = require("../../entities/questionnaire.entity");
 let BinaryCollectionsModule = class BinaryCollectionsModule {
 };
 exports.BinaryCollectionsModule = BinaryCollectionsModule;
 exports.BinaryCollectionsModule = BinaryCollectionsModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([binary_collection_entity_1.BinaryCollection, patient_entity_1.Patient, active_task_definition_entity_1.ActiveTaskDefinition])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([binary_collection_entity_1.BinaryCollection, patient_entity_1.Patient, active_task_definition_entity_1.ActiveTaskDefinition, questionnaire_entity_1.Questionnaire])],
         controllers: [binary_collections_controller_1.BinaryCollectionsController],
         providers: [binary_collections_service_1.BinaryCollectionsService],
         exports: [binary_collections_service_1.BinaryCollectionsService],
