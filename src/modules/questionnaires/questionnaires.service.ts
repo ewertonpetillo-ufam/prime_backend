@@ -2630,6 +2630,61 @@ export class QuestionnairesService {
   }
 
   /**
+   * Get questionnaire statistics for the last 30 days
+   * Returns count of questionnaires grouped by date
+   */
+  async getQuestionnaireStatisticsLast30Days() {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    // Get all questionnaires from the last 30 days using TO_CHAR to ensure string format
+    const questionnaires = await this.questionnairesRepository
+      .createQueryBuilder('q')
+      .select([
+        "TO_CHAR(DATE_TRUNC('day', q.created_at), 'YYYY-MM-DD') as date",
+        'COUNT(*)::int as count',
+      ])
+      .where('q.created_at >= :thirtyDaysAgo', { thirtyDaysAgo })
+      .groupBy("DATE_TRUNC('day', q.created_at)")
+      .orderBy("DATE_TRUNC('day', q.created_at)", 'ASC')
+      .getRawMany();
+
+    // Create a map for quick lookup
+    const countMap = new Map<string, number>();
+    console.log('[Statistics] Raw questionnaires data:', JSON.stringify(questionnaires.slice(0, 5)));
+    questionnaires.forEach((q: any) => {
+      const dateStr = String(q.date || '').trim();
+      if (dateStr) {
+        const count = parseInt(q.count) || 0;
+        countMap.set(dateStr, count);
+        console.log(`[Statistics] Mapped: ${dateStr} -> ${count}`);
+      }
+    });
+
+    // Generate all dates in the last 30 days
+    const dates: { date: string; count: number }[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      
+      const dateStr = date.toISOString().split('T')[0];
+      const count = countMap.get(dateStr) || 0;
+      
+      dates.push({
+        date: dateStr,
+        count: count,
+      });
+    }
+
+    return dates;
+  }
+
+  /**
    * DEBUG: Get binary collections debug info for a questionnaire
    */
   async debugBinaryCollections(questionnaireId: string) {
