@@ -357,5 +357,19 @@ export class QuestionnairesController {
   async exportAllQuestionnairesData() {
     return this.questionnairesService.exportAllQuestionnairesData();
   }
+
+  @Get('statistics/last-30-days')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get questionnaire statistics for last 30 days',
+    description: 'Returns count of questionnaires grouped by date for the last 30 days',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
+  async getQuestionnaireStatisticsLast30Days() {
+    return this.questionnairesService.getQuestionnaireStatisticsLast30Days();
+  }
 }
 

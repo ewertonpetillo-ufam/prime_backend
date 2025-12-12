@@ -414,4 +414,8 @@ export declare class QuestionnairesController {
             csv_data: string;
         }[];
     }[]>;
+    getQuestionnaireStatisticsLast30Days(): Promise<{
+        date: string;
+        count: number;
+    }[]>;
 }

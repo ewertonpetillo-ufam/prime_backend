@@ -26,14 +26,24 @@ RUN apk add --no-cache wget
 # Copy package files
 COPY package*.json ./
 
-# Copy patches directory (needed for postinstall)
-COPY patches ./patches
+# Copy patches directory from builder stage if it exists (needed for postinstall)
+# Create patches directory first to ensure it exists
+RUN mkdir -p patches
+# Copy patches from builder stage using BuildKit mount (requires DOCKER_BUILDKIT=1)
+# This approach won't fail if the directory doesn't exist
+RUN --mount=type=bind,from=builder,source=/app/patches,target=/tmp/patches-source,readonly \
+    if [ -d /tmp/patches-source ] && [ -n "$(ls -A /tmp/patches-source 2>/dev/null)" ]; then \
+        cp -r /tmp/patches-source/* ./patches/ && \
+        echo "✓ Patches directory copied from builder stage"; \
+    else \
+        echo "⚠ No patches directory found, patch-package will be skipped during postinstall"; \
+    fi
 
 # Install patch-package globally so postinstall script can run
 RUN npm install -g patch-package
 
 # Install only production dependencies
-# postinstall will automatically run patch-package
+# postinstall will automatically run patch-package if patches exist
 RUN npm ci --only=production --legacy-peer-deps
 
 # Remove patch-package to reduce image size (patches already applied)

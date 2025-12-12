@@ -2114,6 +2114,46 @@ let QuestionnairesService = class QuestionnairesService {
         }));
         return exportData;
     }
+    async getQuestionnaireStatisticsLast30Days() {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        thirtyDaysAgo.setHours(0, 0, 0, 0);
+        const questionnaires = await this.questionnairesRepository
+            .createQueryBuilder('q')
+            .select([
+            "TO_CHAR(DATE_TRUNC('day', q.created_at), 'YYYY-MM-DD') as date",
+            'COUNT(*)::int as count',
+        ])
+            .where('q.created_at >= :thirtyDaysAgo', { thirtyDaysAgo })
+            .groupBy("DATE_TRUNC('day', q.created_at)")
+            .orderBy("DATE_TRUNC('day', q.created_at)", 'ASC')
+            .getRawMany();
+        const countMap = new Map();
+        console.log('[Statistics] Raw questionnaires data:', JSON.stringify(questionnaires.slice(0, 5)));
+        questionnaires.forEach((q) => {
+            const dateStr = String(q.date || '').trim();
+            if (dateStr) {
+                const count = parseInt(q.count) || 0;
+                countMap.set(dateStr, count);
+                console.log(`[Statistics] Mapped: ${dateStr} -> ${count}`);
+            }
+        });
+        const dates = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        for (let i = 29; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            const dateStr = date.toISOString().split('T')[0];
+            const count = countMap.get(dateStr) || 0;
+            dates.push({
+                date: dateStr,
+                count: count,
+            });
+        }
+        return dates;
+    }
     async debugBinaryCollections(questionnaireId) {
         const questionnaire = await this.questionnairesRepository.findOne({
             where: { id: questionnaireId },
