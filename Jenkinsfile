@@ -180,6 +180,9 @@ EOF
             steps {
                 echo '🏗️  Construindo imagem Docker...'
                 sh '''
+                    # Habilitar BuildKit para suportar --mount no Dockerfile
+                    export DOCKER_BUILDKIT=1
+                    export COMPOSE_DOCKER_CLI_BUILD=1
                     docker compose build --no-cache
                 '''
             }
