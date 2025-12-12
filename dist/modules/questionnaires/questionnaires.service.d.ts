@@ -430,6 +430,10 @@ export declare class QuestionnairesService {
             csv_data: string;
         }[];
     }[]>;
+    getQuestionnaireStatisticsLast30Days(): Promise<{
+        date: string;
+        count: number;
+    }[]>;
     debugBinaryCollections(questionnaireId: string): Promise<{
         questionnaire: {
             id: string;

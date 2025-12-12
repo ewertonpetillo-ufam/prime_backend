@@ -89,6 +89,9 @@ let QuestionnairesController = class QuestionnairesController {
     async exportAllQuestionnairesData() {
         return this.questionnairesService.exportAllQuestionnairesData();
     }
+    async getQuestionnaireStatisticsLast30Days() {
+        return this.questionnairesService.getQuestionnaireStatisticsLast30Days();
+    }
 };
 exports.QuestionnairesController = QuestionnairesController;
 __decorate([
@@ -448,6 +451,21 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], QuestionnairesController.prototype, "exportAllQuestionnairesData", null);
+__decorate([
+    (0, common_1.Get)('statistics/last-30-days'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get questionnaire statistics for last 30 days',
+        description: 'Returns count of questionnaires grouped by date for the last 30 days',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Statistics retrieved successfully',
+    }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], QuestionnairesController.prototype, "getQuestionnaireStatisticsLast30Days", null);
 exports.QuestionnairesController = QuestionnairesController = __decorate([
     (0, swagger_1.ApiTags)('Questionnaires'),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),
