@@ -26,9 +26,16 @@ RUN apk add --no-cache wget
 # Copy package files
 COPY package*.json ./
 
+# Install patch-package globally (needed for postinstall script)
+# Even though there are no patches, the postinstall script still tries to run patch-package
+RUN npm install -g patch-package
+
 # Install only production dependencies
 # Note: postinstall script runs patch-package, but it will do nothing if no patches exist
 RUN npm ci --only=production --legacy-peer-deps
+
+# Remove patch-package to reduce image size (not needed after postinstall)
+RUN npm uninstall -g patch-package || true
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
