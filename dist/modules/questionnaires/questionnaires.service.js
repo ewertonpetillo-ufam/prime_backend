@@ -1187,9 +1187,9 @@ let QuestionnairesService = class QuestionnairesService {
             else {
                 formData.mainPhenotype = '';
             }
-            formData.levodopaOn = clinical.assessed_on_levodopa || false;
-            formData.diskinectiaPresence = clinical.has_dyskinesia || false;
-            formData.fog = clinical.has_freezing_of_gait || false;
+            formData.levodopaOn = clinical.assessed_on_levodopa === true ? true : undefined;
+            formData.diskinectiaPresence = undefined;
+            formData.fog = clinical.has_freezing_of_gait === true ? true : undefined;
             if (clinical.dyskinesia_type_id) {
                 const dyskinesiaType = await this.dyskinesiaTypeRepository.findOne({
                     where: { id: clinical.dyskinesia_type_id },
@@ -1199,11 +1199,11 @@ let QuestionnairesService = class QuestionnairesService {
             else {
                 formData.fogClassifcation = '';
             }
-            formData.wearingOff = clinical.has_wearing_off || false;
+            formData.wearingOff = clinical.has_wearing_off === true ? true : undefined;
             formData.durationWearingOff = clinical.average_on_time_hours
                 ? String(clinical.average_on_time_hours)
                 : '';
-            formData.DelayOn = clinical.has_delayed_on || false;
+            formData.DelayOn = clinical.has_delayed_on === true ? true : undefined;
             formData.durationLDopa = clinical.ldopa_onset_time_hours
                 ? String(clinical.ldopa_onset_time_hours)
                 : '';
