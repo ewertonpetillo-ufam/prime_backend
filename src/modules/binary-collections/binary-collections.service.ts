@@ -248,4 +248,52 @@ export class BinaryCollectionsService {
       return count;
     }
   }
+
+  /**
+   * Get binary collections statistics for all time
+   * Returns count of binary collections grouped by collection date (day)
+   */
+  async getBinaryCollectionsStatisticsLast30Days() {
+    const collections = await this.binaryCollectionsRepository
+      .createQueryBuilder('bc')
+      .select([
+        "TO_CHAR(DATE_TRUNC('day', bc.collected_at), 'YYYY-MM-DD') as date",
+        'COUNT(*)::int as count',
+      ])
+      .groupBy("DATE_TRUNC('day', bc.collected_at)")
+      .orderBy("DATE_TRUNC('day', bc.collected_at)", 'ASC')
+      .getRawMany();
+
+    return collections.map((c: any) => ({
+      date: String(c.date || '').trim(),
+      count: parseInt(c.count) || 0,
+    }));
+  }
+
+  /**
+   * Get binary collections statistics grouped by active task
+   * Returns count of binary collections for each task
+   */
+  async getBinaryCollectionsByTask() {
+    const collections = await this.binaryCollectionsRepository
+      .createQueryBuilder('bc')
+      .leftJoinAndSelect('bc.active_task', 'active_task')
+      .select([
+        'active_task.id as task_id',
+        'active_task.task_code as task_code',
+        'active_task.task_name as task_name',
+        'COUNT(*)::int as count',
+      ])
+      .where('bc.task_id IS NOT NULL')
+      .groupBy('active_task.id, active_task.task_code, active_task.task_name')
+      .orderBy('COUNT(*)', 'DESC')
+      .getRawMany();
+
+    return collections.map((c: any) => ({
+      task_id: c.task_id,
+      task_code: c.task_code || 'N/A',
+      task_name: c.task_name || 'Tarefa Desconhecida',
+      count: parseInt(c.count) || 0,
+    }));
+  }
 }

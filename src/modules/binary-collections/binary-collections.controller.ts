@@ -252,4 +252,32 @@ export class BinaryCollectionsController {
     const count = await this.binaryCollectionsService.countByQuestionnaireId(questionnaireId);
     return { count };
   }
+
+  @Get('statistics/last-30-days')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get binary collections statistics for last 30 days',
+    description: 'Returns count of binary collections grouped by date for the last 30 days',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
+  async getBinaryCollectionsStatisticsLast30Days() {
+    return this.binaryCollectionsService.getBinaryCollectionsStatisticsLast30Days();
+  }
+
+  @Get('statistics/by-task')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get binary collections statistics grouped by active task',
+    description: 'Returns count of binary collections for each active task',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Statistics retrieved successfully',
+  })
+  async getBinaryCollectionsByTask() {
+    return this.binaryCollectionsService.getBinaryCollectionsByTask();
+  }
 }

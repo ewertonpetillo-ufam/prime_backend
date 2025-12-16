@@ -463,7 +463,7 @@ export class QuestionnairesService {
    * Get or create medication reference by drug name
    * Uses the same LED conversion factors as the frontend
    */
-  private async getOrCreateMedicationReference(drugName: string): Promise<MedicationReference> {
+  private async getOrCreateMedicationReference(drugName: string, customConversionFactor?: number): Promise<MedicationReference> {
     if (!drugName || drugName.trim() === '') {
       throw new BadRequestException('Drug name is required');
     }
@@ -474,6 +474,11 @@ export class QuestionnairesService {
     });
 
     if (medication) {
+      // Se já existe e tem fator personalizado, atualiza o fator
+      if (customConversionFactor !== undefined && medication.led_conversion_factor !== customConversionFactor) {
+        medication.led_conversion_factor = customConversionFactor;
+        medication = await this.medicationReferenceRepository.save(medication);
+      }
       return medication;
     }
 
@@ -508,7 +513,10 @@ export class QuestionnairesService {
       'Stalevo': 1.33,
     };
 
-    const conversionFactor = LEDD_CONVERSION_FACTORS[drugName.trim()] || 1.0;
+    // Usa o fator personalizado se fornecido, senão busca na tabela ou usa 1.0
+    const conversionFactor = customConversionFactor !== undefined 
+      ? customConversionFactor 
+      : (LEDD_CONVERSION_FACTORS[drugName.trim()] || 1.0);
 
     // Create new medication reference
     medication = this.medicationReferenceRepository.create({
@@ -862,13 +870,23 @@ export class QuestionnairesService {
 
       // Save each medication
       for (const medDto of dto.medications) {
-        if (!medDto.drug || !medDto.doseMg || medDto.doseMg <= 0) {
+        // Para medicações "Outro", usar customDrugName; caso contrário, usar drug
+        const drugName = medDto.drug === 'Outro' && medDto.customDrugName 
+          ? medDto.customDrugName 
+          : medDto.drug;
+        
+        if (!drugName || !medDto.doseMg || medDto.doseMg <= 0) {
           continue; // Skip invalid medications
         }
 
         try {
+          // Para medicações "Outro", usar o fator de conversão personalizado
+          const customFactor = medDto.drug === 'Outro' && medDto.customConversionFactor !== undefined
+            ? medDto.customConversionFactor
+            : undefined;
+
           // Get or create medication reference
-          const medicationRef = await this.getOrCreateMedicationReference(medDto.drug);
+          const medicationRef = await this.getOrCreateMedicationReference(drugName, customFactor);
 
           // Calculate doses_per_day (default to 1 if not provided)
           const dosesPerDay = medDto.qtDose && medDto.qtDose > 0 ? medDto.qtDose : 1;
@@ -884,7 +902,7 @@ export class QuestionnairesService {
 
           await this.patientMedicationRepository.save(patientMedication);
         } catch (error) {
-          console.error(`Error saving medication ${medDto.drug}:`, error);
+          console.error(`Error saving medication ${drugName}:`, error);
           // Continue with other medications even if one fails
         }
       }
@@ -1628,9 +1646,42 @@ export class QuestionnairesService {
       // Criar mapa para acesso rápido
       const medicationMap = new Map(medicationRefs.map(ref => [ref.id, ref]));
       
+      // Lista de medicações padrão (mesma do frontend)
+      const STANDARD_DRUGS = [
+        'Amantadine',
+        'Apomorphine',
+        'Azilect',
+        'Bromocriptine',
+        'Cabergoline',
+        'Duodopa',
+        'Levodopa',
+        'Levodopa CR',
+        'Levodopa with Entacapone',
+        'Levodopa with Tolcapone',
+        'Lisuride',
+        'Madopar',
+        'Mirapex',
+        'Pergolide',
+        'Pramipexole',
+        'Rasagiline',
+        'Requip',
+        'RequipXL',
+        'Ropinirole',
+        'RopiniroleCR',
+        'Rotigotine',
+        'Rytary',
+        'Selegiline Oral',
+        'Selegiline Sublingual',
+        'Sinemet',
+        'Sinemet CR',
+        'Stalevo',
+      ];
+
       // Mapear medicamentos para o formato esperado pelo frontend
       formData.medications = medications.map(med => {
         const medRef = medicationMap.get(med.medication_id);
+        const drugName = medRef?.drug_name || '';
+        
         // Converter valores decimais (podem vir como string do banco)
         const doseMg = typeof med.dose_mg === 'string' 
           ? parseFloat(med.dose_mg) 
@@ -1645,11 +1696,16 @@ export class QuestionnairesService {
         // Calcular LED: dose_mg × led_conversion_factor × doses_per_day
         const ledValue = doseMg * conversionFactor * dosesPerDay;
         
+        // Verificar se é uma medicação personalizada (não está na lista padrão)
+        const isCustomDrug = drugName && !STANDARD_DRUGS.includes(drugName);
+        
         return {
-          drug: medRef?.drug_name || '',
+          drug: isCustomDrug ? 'Outro' : drugName,
           doseMg: doseMg > 0 ? String(doseMg) : '',
           qtDose: dosesPerDay > 0 ? String(dosesPerDay) : '1',
           led: ledValue > 0 ? String(Math.round(ledValue)) : '0',
+          customDrugName: isCustomDrug ? drugName : '',
+          customConversionFactor: isCustomDrug ? String(conversionFactor) : '',
         };
       });
 
@@ -2635,58 +2691,47 @@ export class QuestionnairesService {
   }
 
   /**
-   * Get questionnaire statistics for the last 30 days
-   * Returns count of questionnaires grouped by date
+   * Get questionnaire statistics for all time
+   * Returns count of questionnaires grouped by creation date (day)
    */
   async getQuestionnaireStatisticsLast30Days() {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
-
-    // Get all questionnaires from the last 30 days using TO_CHAR to ensure string format
+    // Apesar do nome do método/rota, aqui buscamos todo o histórico agrupado por dia.
     const questionnaires = await this.questionnairesRepository
       .createQueryBuilder('q')
       .select([
         "TO_CHAR(DATE_TRUNC('day', q.created_at), 'YYYY-MM-DD') as date",
         'COUNT(*)::int as count',
       ])
-      .where('q.created_at >= :thirtyDaysAgo', { thirtyDaysAgo })
       .groupBy("DATE_TRUNC('day', q.created_at)")
       .orderBy("DATE_TRUNC('day', q.created_at)", 'ASC')
       .getRawMany();
 
-    // Create a map for quick lookup
-    const countMap = new Map<string, number>();
-    console.log('[Statistics] Raw questionnaires data:', JSON.stringify(questionnaires.slice(0, 5)));
-    questionnaires.forEach((q: any) => {
-      const dateStr = String(q.date || '').trim();
-      if (dateStr) {
-        const count = parseInt(q.count) || 0;
-        countMap.set(dateStr, count);
-        console.log(`[Statistics] Mapped: ${dateStr} -> ${count}`);
-      }
-    });
+    return questionnaires.map((q: any) => ({
+      date: String(q.date || '').trim(),
+      count: parseInt(q.count) || 0,
+    }));
+  }
 
-    // Generate all dates in the last 30 days
-    const dates: { date: string; count: number }[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
-      
-      const dateStr = date.toISOString().split('T')[0];
-      const count = countMap.get(dateStr) || 0;
-      
-      dates.push({
-        date: dateStr,
-        count: count,
-      });
-    }
+  /**
+   * Get completed questionnaires statistics for all time
+   * Returns count of completed questionnaires grouped by completion date (day)
+   */
+  async getCompletedQuestionnairesStatisticsLast30Days() {
+    const questionnaires = await this.questionnairesRepository
+      .createQueryBuilder('q')
+      .select([
+        "TO_CHAR(DATE_TRUNC('day', q.completed_at), 'YYYY-MM-DD') as date",
+        'COUNT(*)::int as count',
+      ])
+      .where('q.completed_at IS NOT NULL')
+      .groupBy("DATE_TRUNC('day', q.completed_at)")
+      .orderBy("DATE_TRUNC('day', q.completed_at)", 'ASC')
+      .getRawMany();
 
-    return dates;
+    return questionnaires.map((q: any) => ({
+      date: String(q.date || '').trim(),
+      count: parseInt(q.count) || 0,
+    }));
   }
 
   /**
