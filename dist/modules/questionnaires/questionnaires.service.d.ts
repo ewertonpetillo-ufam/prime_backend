@@ -434,6 +434,10 @@ export declare class QuestionnairesService {
         date: string;
         count: number;
     }[]>;
+    getCompletedQuestionnairesStatisticsLast30Days(): Promise<{
+        date: string;
+        count: number;
+    }[]>;
     debugBinaryCollections(questionnaireId: string): Promise<{
         questionnaire: {
             id: string;

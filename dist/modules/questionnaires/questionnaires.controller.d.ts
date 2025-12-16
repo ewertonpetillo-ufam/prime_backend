@@ -418,4 +418,8 @@ export declare class QuestionnairesController {
         date: string;
         count: number;
     }[]>;
+    getCompletedQuestionnairesStatisticsLast30Days(): Promise<{
+        date: string;
+        count: number;
+    }[]>;
 }

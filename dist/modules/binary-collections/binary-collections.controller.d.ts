@@ -12,4 +12,14 @@ export declare class BinaryCollectionsController {
     countByQuestionnaireId(questionnaireId: string): Promise<{
         count: number;
     }>;
+    getBinaryCollectionsStatisticsLast30Days(): Promise<{
+        date: string;
+        count: number;
+    }[]>;
+    getBinaryCollectionsByTask(): Promise<{
+        task_id: any;
+        task_code: any;
+        task_name: any;
+        count: number;
+    }[]>;
 }
