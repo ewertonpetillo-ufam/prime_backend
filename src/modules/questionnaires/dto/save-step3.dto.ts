@@ -32,6 +32,16 @@ export class MedicationDto {
   @IsNumber()
   @IsOptional()
   led?: number;
+
+  @ApiPropertyOptional({ description: 'Custom drug name (when drug is "Outro")', example: 'Medicação personalizada' })
+  @IsString()
+  @IsOptional()
+  customDrugName?: string;
+
+  @ApiPropertyOptional({ description: 'Custom conversion factor (when drug is "Outro")', example: 1.5 })
+  @IsNumber()
+  @IsOptional()
+  customConversionFactor?: number;
 }
 
 export class SaveStep3Dto {
