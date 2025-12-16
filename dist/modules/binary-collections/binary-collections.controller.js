@@ -53,6 +53,12 @@ let BinaryCollectionsController = class BinaryCollectionsController {
         const count = await this.binaryCollectionsService.countByQuestionnaireId(questionnaireId);
         return { count };
     }
+    async getBinaryCollectionsStatisticsLast30Days() {
+        return this.binaryCollectionsService.getBinaryCollectionsStatisticsLast30Days();
+    }
+    async getBinaryCollectionsByTask() {
+        return this.binaryCollectionsService.getBinaryCollectionsByTask();
+    }
 };
 exports.BinaryCollectionsController = BinaryCollectionsController;
 __decorate([
@@ -269,6 +275,36 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], BinaryCollectionsController.prototype, "countByQuestionnaireId", null);
+__decorate([
+    (0, common_1.Get)('statistics/last-30-days'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get binary collections statistics for last 30 days',
+        description: 'Returns count of binary collections grouped by date for the last 30 days',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Statistics retrieved successfully',
+    }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], BinaryCollectionsController.prototype, "getBinaryCollectionsStatisticsLast30Days", null);
+__decorate([
+    (0, common_1.Get)('statistics/by-task'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get binary collections statistics grouped by active task',
+        description: 'Returns count of binary collections for each active task',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Statistics retrieved successfully',
+    }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], BinaryCollectionsController.prototype, "getBinaryCollectionsByTask", null);
 exports.BinaryCollectionsController = BinaryCollectionsController = __decorate([
     (0, swagger_1.ApiTags)('Binary Collections'),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),

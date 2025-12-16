@@ -19,4 +19,14 @@ export declare class BinaryCollectionsService {
         filename: string;
     }>;
     countByQuestionnaireId(questionnaireId: string): Promise<number>;
+    getBinaryCollectionsStatisticsLast30Days(): Promise<{
+        date: string;
+        count: number;
+    }[]>;
+    getBinaryCollectionsByTask(): Promise<{
+        task_id: any;
+        task_code: any;
+        task_name: any;
+        count: number;
+    }[]>;
 }

@@ -40,6 +40,18 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Number)
 ], MedicationDto.prototype, "led", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Custom drug name (when drug is "Outro")', example: 'Medicação personalizada' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], MedicationDto.prototype, "customDrugName", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Custom conversion factor (when drug is "Outro")', example: 1.5 }),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], MedicationDto.prototype, "customConversionFactor", void 0);
 class SaveStep3Dto {
 }
 exports.SaveStep3Dto = SaveStep3Dto;

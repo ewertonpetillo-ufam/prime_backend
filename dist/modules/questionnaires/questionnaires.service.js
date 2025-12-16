@@ -378,7 +378,7 @@ let QuestionnairesService = class QuestionnairesService {
         }
         return null;
     }
-    async getOrCreateMedicationReference(drugName) {
+    async getOrCreateMedicationReference(drugName, customConversionFactor) {
         if (!drugName || drugName.trim() === '') {
             throw new common_1.BadRequestException('Drug name is required');
         }
@@ -386,6 +386,10 @@ let QuestionnairesService = class QuestionnairesService {
             where: { drug_name: drugName.trim() },
         });
         if (medication) {
+            if (customConversionFactor !== undefined && medication.led_conversion_factor !== customConversionFactor) {
+                medication.led_conversion_factor = customConversionFactor;
+                medication = await this.medicationReferenceRepository.save(medication);
+            }
             return medication;
         }
         const LEDD_CONVERSION_FACTORS = {
@@ -417,7 +421,9 @@ let QuestionnairesService = class QuestionnairesService {
             'Sinemet CR': 0.75,
             'Stalevo': 1.33,
         };
-        const conversionFactor = LEDD_CONVERSION_FACTORS[drugName.trim()] || 1.0;
+        const conversionFactor = customConversionFactor !== undefined
+            ? customConversionFactor
+            : (LEDD_CONVERSION_FACTORS[drugName.trim()] || 1.0);
         medication = this.medicationReferenceRepository.create({
             drug_name: drugName.trim(),
             led_conversion_factor: conversionFactor,
@@ -693,11 +699,17 @@ let QuestionnairesService = class QuestionnairesService {
                 questionnaire_id: dto.questionnaireId,
             });
             for (const medDto of dto.medications) {
-                if (!medDto.drug || !medDto.doseMg || medDto.doseMg <= 0) {
+                const drugName = medDto.drug === 'Outro' && medDto.customDrugName
+                    ? medDto.customDrugName
+                    : medDto.drug;
+                if (!drugName || !medDto.doseMg || medDto.doseMg <= 0) {
                     continue;
                 }
                 try {
-                    const medicationRef = await this.getOrCreateMedicationReference(medDto.drug);
+                    const customFactor = medDto.drug === 'Outro' && medDto.customConversionFactor !== undefined
+                        ? medDto.customConversionFactor
+                        : undefined;
+                    const medicationRef = await this.getOrCreateMedicationReference(drugName, customFactor);
                     const dosesPerDay = medDto.qtDose && medDto.qtDose > 0 ? medDto.qtDose : 1;
                     const patientMedication = this.patientMedicationRepository.create({
                         questionnaire_id: dto.questionnaireId,
@@ -709,7 +721,7 @@ let QuestionnairesService = class QuestionnairesService {
                     await this.patientMedicationRepository.save(patientMedication);
                 }
                 catch (error) {
-                    console.error(`Error saving medication ${medDto.drug}:`, error);
+                    console.error(`Error saving medication ${drugName}:`, error);
                 }
             }
         }
@@ -1187,9 +1199,9 @@ let QuestionnairesService = class QuestionnairesService {
             else {
                 formData.mainPhenotype = '';
             }
-            formData.levodopaOn = clinical.assessed_on_levodopa || false;
-            formData.diskinectiaPresence = clinical.has_dyskinesia || false;
-            formData.fog = clinical.has_freezing_of_gait || false;
+            formData.levodopaOn = clinical.assessed_on_levodopa === true ? true : undefined;
+            formData.diskinectiaPresence = undefined;
+            formData.fog = clinical.has_freezing_of_gait === true ? true : undefined;
             if (clinical.dyskinesia_type_id) {
                 const dyskinesiaType = await this.dyskinesiaTypeRepository.findOne({
                     where: { id: clinical.dyskinesia_type_id },
@@ -1199,11 +1211,11 @@ let QuestionnairesService = class QuestionnairesService {
             else {
                 formData.fogClassifcation = '';
             }
-            formData.wearingOff = clinical.has_wearing_off || false;
+            formData.wearingOff = clinical.has_wearing_off === true ? true : undefined;
             formData.durationWearingOff = clinical.average_on_time_hours
                 ? String(clinical.average_on_time_hours)
                 : '';
-            formData.DelayOn = clinical.has_delayed_on || false;
+            formData.DelayOn = clinical.has_delayed_on === true ? true : undefined;
             formData.durationLDopa = clinical.ldopa_onset_time_hours
                 ? String(clinical.ldopa_onset_time_hours)
                 : '';
@@ -1256,8 +1268,38 @@ let QuestionnairesService = class QuestionnairesService {
                 });
             }
             const medicationMap = new Map(medicationRefs.map(ref => [ref.id, ref]));
+            const STANDARD_DRUGS = [
+                'Amantadine',
+                'Apomorphine',
+                'Azilect',
+                'Bromocriptine',
+                'Cabergoline',
+                'Duodopa',
+                'Levodopa',
+                'Levodopa CR',
+                'Levodopa with Entacapone',
+                'Levodopa with Tolcapone',
+                'Lisuride',
+                'Madopar',
+                'Mirapex',
+                'Pergolide',
+                'Pramipexole',
+                'Rasagiline',
+                'Requip',
+                'RequipXL',
+                'Ropinirole',
+                'RopiniroleCR',
+                'Rotigotine',
+                'Rytary',
+                'Selegiline Oral',
+                'Selegiline Sublingual',
+                'Sinemet',
+                'Sinemet CR',
+                'Stalevo',
+            ];
             formData.medications = medications.map(med => {
                 const medRef = medicationMap.get(med.medication_id);
+                const drugName = medRef?.drug_name || '';
                 const doseMg = typeof med.dose_mg === 'string'
                     ? parseFloat(med.dose_mg)
                     : Number(med.dose_mg) || 0;
@@ -1268,11 +1310,14 @@ let QuestionnairesService = class QuestionnairesService {
                     ? parseFloat(med.led_conversion_factor)
                     : Number(med.led_conversion_factor) || 0;
                 const ledValue = doseMg * conversionFactor * dosesPerDay;
+                const isCustomDrug = drugName && !STANDARD_DRUGS.includes(drugName);
                 return {
-                    drug: medRef?.drug_name || '',
+                    drug: isCustomDrug ? 'Outro' : drugName,
                     doseMg: doseMg > 0 ? String(doseMg) : '',
                     qtDose: dosesPerDay > 0 ? String(dosesPerDay) : '1',
                     led: ledValue > 0 ? String(Math.round(ledValue)) : '0',
+                    customDrugName: isCustomDrug ? drugName : '',
+                    customConversionFactor: isCustomDrug ? String(conversionFactor) : '',
                 };
             });
             formData.leddResult = String(Math.round(medications.reduce((sum, med) => {
@@ -2115,44 +2160,35 @@ let QuestionnairesService = class QuestionnairesService {
         return exportData;
     }
     async getQuestionnaireStatisticsLast30Days() {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        thirtyDaysAgo.setHours(0, 0, 0, 0);
         const questionnaires = await this.questionnairesRepository
             .createQueryBuilder('q')
             .select([
             "TO_CHAR(DATE_TRUNC('day', q.created_at), 'YYYY-MM-DD') as date",
             'COUNT(*)::int as count',
         ])
-            .where('q.created_at >= :thirtyDaysAgo', { thirtyDaysAgo })
             .groupBy("DATE_TRUNC('day', q.created_at)")
             .orderBy("DATE_TRUNC('day', q.created_at)", 'ASC')
             .getRawMany();
-        const countMap = new Map();
-        console.log('[Statistics] Raw questionnaires data:', JSON.stringify(questionnaires.slice(0, 5)));
-        questionnaires.forEach((q) => {
-            const dateStr = String(q.date || '').trim();
-            if (dateStr) {
-                const count = parseInt(q.count) || 0;
-                countMap.set(dateStr, count);
-                console.log(`[Statistics] Mapped: ${dateStr} -> ${count}`);
-            }
-        });
-        const dates = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        for (let i = 29; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            date.setHours(0, 0, 0, 0);
-            const dateStr = date.toISOString().split('T')[0];
-            const count = countMap.get(dateStr) || 0;
-            dates.push({
-                date: dateStr,
-                count: count,
-            });
-        }
-        return dates;
+        return questionnaires.map((q) => ({
+            date: String(q.date || '').trim(),
+            count: parseInt(q.count) || 0,
+        }));
+    }
+    async getCompletedQuestionnairesStatisticsLast30Days() {
+        const questionnaires = await this.questionnairesRepository
+            .createQueryBuilder('q')
+            .select([
+            "TO_CHAR(DATE_TRUNC('day', q.completed_at), 'YYYY-MM-DD') as date",
+            'COUNT(*)::int as count',
+        ])
+            .where('q.completed_at IS NOT NULL')
+            .groupBy("DATE_TRUNC('day', q.completed_at)")
+            .orderBy("DATE_TRUNC('day', q.completed_at)", 'ASC')
+            .getRawMany();
+        return questionnaires.map((q) => ({
+            date: String(q.date || '').trim(),
+            count: parseInt(q.count) || 0,
+        }));
     }
     async debugBinaryCollections(questionnaireId) {
         const questionnaire = await this.questionnairesRepository.findOne({

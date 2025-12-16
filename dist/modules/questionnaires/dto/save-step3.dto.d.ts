@@ -3,6 +3,8 @@ export declare class MedicationDto {
     doseMg?: number;
     qtDose?: number;
     led?: number;
+    customDrugName?: string;
+    customConversionFactor?: number;
 }
 export declare class SaveStep3Dto {
     questionnaireId: string;
