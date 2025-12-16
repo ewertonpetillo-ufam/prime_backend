@@ -66,6 +66,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], User.prototype, "first_login", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    __metadata("design:type", Date)
+], User.prototype, "last_login", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' }),
     __metadata("design:type", Date)
 ], User.prototype, "created_at", void 0);

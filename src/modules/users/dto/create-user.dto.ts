@@ -104,5 +104,13 @@ export class CreateUserDto {
   @IsBoolean()
   @IsOptional()
   first_login?: boolean;
+
+  @ApiProperty({
+    description: 'Last login timestamp',
+    example: '2025-01-15T10:30:00Z',
+    required: false,
+  })
+  @IsOptional()
+  last_login?: Date;
 }
 
