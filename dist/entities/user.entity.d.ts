@@ -15,6 +15,7 @@ export declare class User {
     phone: string;
     active: boolean;
     first_login: boolean;
+    last_login: Date;
     created_at: Date;
     updated_at: Date;
     questionnaires: Questionnaire[];

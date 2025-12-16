@@ -60,6 +60,8 @@ let AuthService = class AuthService {
         if (!isPasswordValid) {
             throw new common_1.UnauthorizedException('Invalid email or password');
         }
+        user.last_login = new Date();
+        await this.usersService.update(user.id, { last_login: user.last_login });
         const payload = {
             sub: user.id,
             email: user.email,

@@ -119,4 +119,13 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Boolean)
 ], CreateUserDto.prototype, "first_login", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Last login timestamp',
+        example: '2025-01-15T10:30:00Z',
+        required: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Date)
+], CreateUserDto.prototype, "last_login", void 0);
 //# sourceMappingURL=create-user.dto.js.map

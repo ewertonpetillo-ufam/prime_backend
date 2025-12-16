@@ -9,4 +9,5 @@ export declare class CreateUserDto {
     phone?: string;
     active?: boolean;
     first_login?: boolean;
+    last_login?: Date;
 }

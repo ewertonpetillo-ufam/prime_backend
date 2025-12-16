@@ -13,4 +13,5 @@ export declare class UsersService {
     remove(id: string): Promise<void>;
     findByRole(role: UserRole): Promise<User[]>;
     updatePassword(id: string, passwordHash: string, firstLogin?: boolean): Promise<User>;
+    resetPassword(id: string): Promise<User>;
 }

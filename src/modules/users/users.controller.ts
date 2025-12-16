@@ -119,5 +119,17 @@ export class UsersController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.remove(id);
   }
+
+  @Post(':id/reset-password')
+  @ApiOperation({ summary: 'Reset user password to default' })
+  @ApiParam({ name: 'id', description: 'User UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully',
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  resetPassword(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.resetPassword(id);
+  }
 }
 
