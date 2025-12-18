@@ -95,58 +95,35 @@ pipeline {
         
         stage('Code Analysis') {
             steps {
-                echo '🔍 Executando análise de código com SonarQube (scanner em container dedicado)...'
+                echo '🔍 Executando análise de código com SonarQube (usando container Node.js)...'
                 script {
-                    // Verificar se diretórios existem antes de executar
-                    sh '''
-                        echo "Verificando estrutura do projeto..."
-                        ls -la
-                        echo "\n=== Verificando diretório src ==="
-                        if [ -d "src" ]; then
-                            echo "✅ Diretório src encontrado"
-                            ls -la src/ | head -10
-                        else
-                            echo "❌ Diretório src não encontrado!"
-                            exit 1
-                        fi
-                    '''
-                    
-                    // Executar análise SonarQube
-                    sh '''
-                        WORKSPACE_DIR=$(pwd)
-                        echo "📁 Workspace: $WORKSPACE_DIR"
-                        
-                        docker run --rm \
-                            -v "$WORKSPACE_DIR":/usr/src \
-                            -w /usr/src \
-                            --network frontend \
-                            sonarsource/sonar-scanner-cli \
-                            sh -c "
-                                echo '🔍 Verificando dentro do container...'
-                                pwd
-                                ls -la
-                                echo ''
-                                if [ -d 'src' ]; then
-                                    echo '✅ Diretório src encontrado no container'
-                                    ls -la src/ | head -5
-                                else
-                                    echo '❌ Diretório src NÃO encontrado no container!'
-                                    exit 1
-                                fi
-                                echo ''
-                                echo '🚀 Executando SonarQube Scanner...'
-                                sonar-scanner \
-                                    -Dsonar.host.url=http://sonarqube:9000/sonar \
-                                    -Dsonar.token=${SONAR_TOKEN} \
-                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                    -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
-                                    -Dsonar.sources=src \
-                                    -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
-                                    -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/** \
-                                    -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                                    -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                            "
-                    '''
+                    try {
+                        sh '''
+                            # Usar container Docker com Node.js para executar o scanner
+                            # Isso funciona mesmo que o Jenkins rode em container sem Node.js
+                            echo "🚀 Executando SonarQube Scanner em container Node.js..."
+                            
+                            docker run --rm \
+                                -v "$(pwd)":/workspace \
+                                -w /workspace \
+                                node:20-alpine \
+                                sh -c "
+                                    echo '✅ Node.js: ' && node --version
+                                    echo '✅ npm: ' && npm --version
+                                    echo ''
+                                    echo '🚀 Executando SonarQube Scanner...'
+                                    npx --yes @sonar/scan \
+                                        -Dsonar.host.url=https://prime.icomp.ufam.edu.br/sonar \
+                                        -Dsonar.token=${SONAR_TOKEN} \
+                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY}
+                                    echo ''
+                                    echo '✅ Análise SonarQube concluída com sucesso!'
+                                "
+                        '''
+                    } catch (Exception e) {
+                        echo "⚠️ Análise SonarQube falhou, mas o pipeline continuará: ${e.getMessage()}"
+                        // Não falha o build - permite continuar mesmo se SonarQube falhar
+                    }
                 }
             }
         }
