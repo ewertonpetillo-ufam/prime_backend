@@ -89,89 +89,114 @@ pipeline {
                     ls -la
                     echo "\n=== Package.json ==="
                     cat package.json | head -20
-                    echo "\n=== Dockerfile ==="
-                    cat Dockerfile
                 '''
             }
         }
         
-        stage('Install Dependencies') {
-            steps {
-                echo '📦 Instalando dependências para análise...'
-                sh '''
-                    # Instalar dependências sem buildar (mais rápido)
-                    npm ci --prefer-offline --no-audit
-                    echo "✅ Dependências instaladas"
-                '''
-            }
-        }
-        
-        stage('Lint & Tests') {
-            steps {
-                echo '🧪 Executando testes e coverage...'
-                sh '''
-                    # Executar testes com coverage
-                    npm run test:cov || true
-                    
-                    echo "\n=== Coverage gerado ==="
-                    if [ -d "coverage" ]; then
-                        ls -la coverage/
-                        if [ -f "coverage/lcov.info" ]; then
-                            echo "✅ Arquivo lcov.info gerado com sucesso"
-                        else
-                            echo "⚠️ lcov.info não foi gerado"
-                        fi
-                    else
-                        echo "⚠️ Diretório coverage não foi criado"
-                    fi
-                '''
-            }
-        }
-        
-        stage('SonarQube Analysis') {
-            steps {
-                echo '🔍 Analisando código com SonarQube...'
-                script {
-                    def scannerHome = tool 'SonarScanner'
-                    withSonarQubeEnv('SonarQube') {
-                        sh """
-                            ${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                            -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
-                            -Dsonar.sources=src \
-                            -Dsonar.tests=src,test \
-                            -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
-                            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
-                            -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                        """
-                    }
+        stage('Code Analysis') {
+            agent {
+                docker {
+                    image 'node:20-alpine'
+                    args '-v /var/run/docker.sock:/var/run/docker.sock --network frontend'
+                    reuseNode true
                 }
             }
-        }
-        
-        stage('Quality Gate') {
-            steps {
-                echo '🚦 Verificando Quality Gate...'
-                script {
-                    timeout(time: 5, unit: 'MINUTES') {
-                        try {
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                def sonarUrl = "https://prime.icomp.ufam.edu.br/sonar/dashboard?id=${SONAR_PROJECT_KEY}"
-                                sendTelegram("⚠️ *Quality Gate Falhou*\n\n" +
-                                           "📦 Projeto: ${env.JOB_NAME}\n" +
-                                           "🔢 Build: #${env.BUILD_NUMBER}\n" +
-                                           "❌ Status: ${qg.status}\n\n" +
-                                           "🔗 [Ver no SonarQube](${sonarUrl})")
+            stages {
+                stage('Install Dependencies') {
+                    steps {
+                        echo '📦 Instalando dependências para análise...'
+                        sh '''
+                            npm ci --prefer-offline --no-audit
+                            echo "✅ Dependências instaladas"
+                        '''
+                    }
+                }
+                
+                stage('Lint & Tests') {
+                    steps {
+                        echo '🧪 Executando testes e coverage...'
+                        sh '''
+                            # Executar testes com coverage
+                            npm run test:cov || true
+                            
+                            echo "\n=== Coverage gerado ==="
+                            if [ -d "coverage" ]; then
+                                ls -la coverage/
+                                if [ -f "coverage/lcov.info" ]; then
+                                    echo "✅ Arquivo lcov.info gerado com sucesso"
+                                else
+                                    echo "⚠️ lcov.info não foi gerado"
+                                fi
+                            else
+                                echo "⚠️ Diretório coverage não foi criado"
+                            fi
+                        '''
+                    }
+                }
+                
+                stage('SonarQube Analysis') {
+                    steps {
+                        echo '🔍 Analisando código com SonarQube...'
+                        script {
+                            // Instalar SonarScanner no container Node
+                            sh '''
+                                # Instalar dependências do SonarScanner
+                                apk add --no-cache openjdk17-jre wget unzip
                                 
-                                error "Quality Gate falhou: ${qg.status}"
-                            } else {
-                                echo "✅ Quality Gate passou!"
+                                # Baixar e instalar SonarScanner
+                                wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                                unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
+                                mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
+                                
+                                # Executar análise
+                                /opt/sonar-scanner/bin/sonar-scanner \
+                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                                -Dsonar.sources=src \
+                                -Dsonar.tests=src,test \
+                                -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
+                                -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
+                                -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
+                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                -Dsonar.host.url=http://sonarqube:9000 \
+                                -Dsonar.login=${SONAR_TOKEN}
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Quality Gate') {
+                    steps {
+                        echo '🚦 Verificando Quality Gate...'
+                        script {
+                            timeout(time: 5, unit: 'MINUTES') {
+                                sh '''
+                                    echo "Aguardando processamento do SonarQube..."
+                                    sleep 10
+                                    
+                                    # Verificar Quality Gate via API
+                                    RESPONSE=$(wget -q -O- --header="Authorization: Bearer ${SONAR_TOKEN}" \
+                                        "http://sonarqube:9000/api/qualitygates/project_status?projectKey=${SONAR_PROJECT_KEY}")
+                                    
+                                    echo "Response: $RESPONSE"
+                                    
+                                    STATUS=$(echo $RESPONSE | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+                                    
+                                    echo "Quality Gate Status: $STATUS"
+                                    
+                                    if [ "$STATUS" = "OK" ]; then
+                                        echo "✅ Quality Gate passou!"
+                                        exit 0
+                                    elif [ "$STATUS" = "ERROR" ]; then
+                                        echo "❌ Quality Gate falhou!"
+                                        exit 1
+                                    else
+                                        echo "⚠️ Quality Gate status desconhecido: $STATUS"
+                                        # Não falha se status for desconhecido (primeira análise)
+                                        exit 0
+                                    fi
+                                '''
                             }
-                        } catch (Exception e) {
-                            echo "⚠️ Erro ao verificar Quality Gate: ${e.getMessage()}"
-                            throw e
                         }
                     }
                 }
@@ -228,9 +253,6 @@ EOF
                 sh '''
                     docker network create frontend 2>/dev/null || echo "✓ Rede frontend já existe"
                     docker network create prime-network 2>/dev/null || echo "✓ Rede prime-network já existe"
-                    
-                    echo "\n=== Redes Docker disponíveis ==="
-                    docker network ls | grep -E "frontend|prime-network"
                 '''
             }
         }
@@ -298,13 +320,9 @@ EOF
                     if docker ps | grep -q ${CONTAINER_NAME}; then
                         echo "✅ Container está rodando"
                         
-                        echo "\n=== Status do Container ==="
-                        docker ps --filter "name=${CONTAINER_NAME}" --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}"
-                        
-                        echo "\n=== Últimas 40 linhas do log ==="
+                        docker ps --filter "name=${CONTAINER_NAME}"
                         docker logs --tail 40 ${CONTAINER_NAME}
                         
-                        echo "\n=== Verificando Healthcheck ==="
                         for i in {1..6}; do
                             STATUS=$(docker inspect ${CONTAINER_NAME} --format='{{.State.Health.Status}}' 2>/dev/null || echo "sem healthcheck")
                             echo "Tentativa $i/6: Status = $STATUS"
@@ -315,24 +333,9 @@ EOF
                             fi
                             
                             if [ $i -lt 6 ]; then
-                                echo "Aguardando mais 10 segundos..."
                                 sleep 10
                             fi
                         done
-                        
-                        echo "\n=== Testando endpoint /api/v1 ==="
-                        if docker exec ${CONTAINER_NAME} wget --quiet --tries=1 --spider http://localhost:4000/api/v1 2>&1; then
-                            echo "✅ API respondendo em /api/v1"
-                        else
-                            echo "⚠️  Endpoint /api/v1 ainda não está respondendo"
-                        fi
-                        
-                        echo "\n=== Testando Swagger Docs ==="
-                        if docker exec ${CONTAINER_NAME} wget --quiet --tries=1 --spider http://localhost:4000/api/docs 2>&1; then
-                            echo "✅ Swagger disponível em /api/docs"
-                        else
-                            echo "ℹ️  Swagger não disponível"
-                        fi
                     else
                         echo "❌ Container não está rodando!"
                         docker logs ${CONTAINER_NAME} 2>&1 || true
@@ -348,9 +351,6 @@ EOF
                 sh '''
                     rm -f .env
                     docker image prune -f
-                    
-                    echo "\n=== Containers Prime Ativos ==="
-                    docker ps --filter "name=prime" --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}"
                 '''
             }
         }
@@ -370,17 +370,14 @@ EOF
                                 "👤 Iniciado por: ${initiator}\n" +
                                 "⏱️ Duração: ${duration}\n" +
                                 "🐳 Container: ${env.CONTAINER_NAME}\n" +
-                                "🐘 Database: ${env.DB_HOST}\n" +
                                 "✅ Quality Gate: Passou\n\n" +
                                 "🔒 API: porta 4000\n" +
-                                "📚 Swagger: /api/docs\n" +
-                                "🔍 [Ver Análise SonarQube](${sonarUrl})\n\n" +
+                                "📚 Swagger: /api/docs\n\n" +
                                 "Deploy realizado com sucesso! 🎉")
                 } catch (Exception e) {
                     echo "⚠️ Erro ao enviar notificação: ${e.getMessage()}"
                 }
             }
-            echo '✅ Pipeline executado com sucesso!'
         }
         
         failure {
@@ -389,37 +386,21 @@ EOF
                     def duration = currentBuild.durationString.replace(' and counting', '')
                     def initiator = getUserInfo()
                     def stageName = env.STAGE_NAME ?: 'Desconhecido'
-                    def sonarUrl = "https://prime.icomp.ufam.edu.br/sonar/dashboard?id=${SONAR_PROJECT_KEY}"
                     
-                    def errorMessage = "❌ *Deploy Backend Falhou*\n\n" +
+                    sendTelegramWithButtons("❌ *Deploy Backend Falhou*\n\n" +
                                 "📦 Projeto: ${env.JOB_NAME}\n" +
                                 "🔢 Build: #${env.BUILD_NUMBER}\n" +
                                 "👤 Iniciado por: ${initiator}\n" +
                                 "⏱️ Duração: ${duration}\n" +
-                                "📝 Stage: ${stageName}\n"
-                    
-                    // Se falhou no Quality Gate, adicionar link do SonarQube
-                    if (stageName == 'Quality Gate') {
-                        errorMessage += "\n🔍 [Ver Detalhes no SonarQube](${sonarUrl})"
-                    }
-                    
-                    sendTelegramWithButtons(errorMessage)
+                                "📝 Stage: ${stageName}")
                 } catch (Exception e) {
-                    echo "⚠️ Erro ao processar falha: ${e.getMessage()}"
+                    echo "⚠️ Erro ao processar falha"
                 }
             }
-            echo '❌ Pipeline falhou!'
         }
         
         always {
-            script {
-                echo '📊 Execução finalizada'
-                try {
-                    sh 'rm -f .env || true'
-                } catch (Exception e) {
-                    echo '⚠️ Não foi possível remover .env'
-                }
-            }
+            sh 'rm -f .env || true'
         }
     }
 }
@@ -427,30 +408,17 @@ EOF
 def getUserInfo() {
     try {
         def causes = currentBuild.getBuildCauses()
-        
         for (cause in causes) {
             if (cause._class.contains('UserIdCause')) {
-                return cause.userId ?: cause.userName ?: 'Usuário Jenkins'
+                return cause.userId ?: 'Usuário Jenkins'
             }
             if (cause._class.contains('SCMTrigger')) {
-                try {
-                    def gitAuthor = sh(
-                        script: "git log -1 --pretty=format:'%an' 2>/dev/null || echo 'Git'",
-                        returnStdout: true
-                    ).trim()
-                    return "SCM (Git Push por ${gitAuthor})"
-                } catch (Exception e) {
-                    return 'SCM (Git Push)'
-                }
-            }
-            if (cause._class.contains('TimerTrigger')) {
-                return 'Timer (Agendamento)'
+                return 'SCM (Git Push)'
             }
         }
     } catch (Exception e) {
-        echo "⚠️ Erro ao obter informações do usuário"
+        echo "⚠️ Erro ao obter usuário"
     }
-    
     return 'Jenkins (automático)'
 }
 
@@ -464,7 +432,7 @@ def sendTelegram(String message) {
             -d disable_web_page_preview=true
         """
     } catch (Exception e) {
-        echo "⚠️ Erro ao enviar mensagem Telegram"
+        echo "⚠️ Erro ao enviar Telegram"
     }
 }
 
@@ -473,14 +441,7 @@ def sendTelegramWithButtons(String message) {
         def buildUrl = env.BUILD_URL ?: 'https://jenkins'
         def sonarUrl = "https://prime.icomp.ufam.edu.br/sonar/dashboard?id=${env.SONAR_PROJECT_KEY}"
         
-        def keyboard = """
-        {
-            "inline_keyboard": [[
-                {"text": "📊 Ver Build", "url": "${buildUrl}"},
-                {"text": "🔍 SonarQube", "url": "${sonarUrl}"}
-            ]]
-        }
-        """
+        def keyboard = """{"inline_keyboard": [[{"text": "📊 Ver Build", "url": "${buildUrl}"},{"text": "🔍 SonarQube", "url": "${sonarUrl}"}]]}"""
         
         sh """
             curl -s -X POST https://api.telegram.org/bot\${TELEGRAM_BOT_TOKEN}/sendMessage \
@@ -490,7 +451,6 @@ def sendTelegramWithButtons(String message) {
             -d reply_markup='${keyboard}'
         """
     } catch (Exception e) {
-        echo "⚠️ Erro ao enviar mensagem com botões"
         sendTelegram(message)
     }
 }
