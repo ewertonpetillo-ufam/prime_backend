@@ -94,28 +94,43 @@ pipeline {
         }
         
         stage('Code Analysis') {
-            // Usamos um agente genérico; garanta que o nó tenha Docker instalado.
-            agent any
             steps {
                 echo '🔍 Executando análise de código com SonarQube (scanner em container dedicado)...'
-                sh '''
-                    docker run --rm \
-                        -v "$(pwd)":/usr/src \
-                        -w /usr/src \
-                        --network frontend \
-                        sonarsource/sonar-scanner-cli \
-                        sonar-scanner \
-                            -Dsonar.host.url=http://sonarqube:9000/sonar \
-                            -Dsonar.token=${SONAR_TOKEN} \
-                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                            -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
-                            -Dsonar.sources=src \
-                            -Dsonar.tests=src,test \
-                            -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
-                            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
-                            -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                '''
+                script {
+                    // Verificar se diretórios existem antes de executar
+                    sh '''
+                        echo "Verificando estrutura do projeto..."
+                        ls -la
+                        echo "\n=== Verificando diretório src ==="
+                        if [ -d "src" ]; then
+                            echo "✅ Diretório src encontrado"
+                            ls -la src/ | head -10
+                        else
+                            echo "❌ Diretório src não encontrado!"
+                            exit 1
+                        fi
+                    '''
+                    
+                    // Executar análise SonarQube
+                    sh '''
+                        docker run --rm \
+                            -v "$(pwd)":/usr/src \
+                            -w /usr/src \
+                            --network frontend \
+                            sonarsource/sonar-scanner-cli \
+                            sonar-scanner \
+                                -Dsonar.host.url=http://sonarqube:9000/sonar \
+                                -Dsonar.token=${SONAR_TOKEN} \
+                                -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
+                                -Dsonar.sources=src \
+                                -Dsonar.tests=test \
+                                -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
+                                -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/** \
+                                -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
+                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+                    '''
+                }
             }
         }
         
