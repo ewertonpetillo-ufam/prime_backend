@@ -1,7 +1,6 @@
-import { PartialType, OmitType } from '@nestjs/swagger';
+import { PartialType, OmitType, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreatePatientDto } from './create-patient.dto';
 import { IsString, IsOptional, Matches } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
 
 // Allow CPF update only if it's missing (for existing patients)
 export class UpdatePatientDto extends PartialType(
