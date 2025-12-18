@@ -94,121 +94,28 @@ pipeline {
         }
         
         stage('Code Analysis') {
-            // OBS: agente docker declarativo não é suportado nesta instância de Jenkins.
-            // Usamos um agente genérico; garanta que o nó tenha Docker instalado (usaremos docker run).
+            // Usamos um agente genérico; garanta que o nó tenha Docker instalado.
             agent any
-            stages {
-                stage('Install Dependencies') {
-                    steps {
-                        echo '📦 Instalando dependências para análise...'
-                        sh '''
-                            docker run --rm \
-                                -v "$(pwd)":/app \
-                                -w /app \
-                                --network frontend \
-                                node:20-alpine \
-                                sh -lc "npm install --prefer-offline --no-audit && echo '✅ Dependências instaladas'"
-                        '''
-                    }
-                }
-                
-                stage('Lint & Tests') {
-                    steps {
-                        echo '🧪 Executando testes e coverage...'
-                        sh '''
-                            docker run --rm \
-                                -v "$(pwd)":/app \
-                                -w /app \
-                                --network frontend \
-                                node:20-alpine \
-                                sh -lc "
-                                    # Executar testes com coverage
-                                    npm run test:cov || true
-                                    
-                                    echo '\n=== Coverage gerado ==='
-                                    if [ -d 'coverage' ]; then
-                                        ls -la coverage/
-                                        if [ -f 'coverage/lcov.info' ]; then
-                                            echo '✅ Arquivo lcov.info gerado com sucesso'
-                                        else
-                                            echo '⚠️ lcov.info não foi gerado'
-                                        fi
-                                    else
-                                        echo '⚠️ Diretório coverage não foi criado'
-                                    fi
-                                "
-                        '''
-                    }
-                }
-                
-                stage('SonarQube Analysis') {
-                    steps {
-                        echo '🔍 Analisando código com SonarQube...'
-                        script {
-                            // Executar análise usando o Scanner para projetos npm (@sonar/scan)
-                            sh '''
-                                docker run --rm \
-                                    -v "$(pwd)":/app \
-                                    -w /app \
-                                    --network frontend \
-                                    node:20-alpine \
-                                    sh -lc "
-                                        # Instalar Scanner npm do SonarQube
-                                        npm install -g @sonar/scan
-                                        
-                                        # Executar análise com o scanner npm
-                                        sonar \
-                                            -Dsonar.host.url=http://sonarqube:9000 \
-                                            -Dsonar.token=${SONAR_TOKEN} \
-                                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                            -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
-                                            -Dsonar.sources=src \
-                                            -Dsonar.tests=src,test \
-                                            -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
-                                            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
-                                            -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-                                    "
-                            '''
-                        }
-                    }
-                }
-                
-                stage('Quality Gate') {
-                    steps {
-                        echo '🚦 Verificando Quality Gate...'
-                        script {
-                            timeout(time: 5, unit: 'MINUTES') {
-                                sh '''
-                                    echo "Aguardando processamento do SonarQube..."
-                                    sleep 10
-                                    
-                                    # Verificar Quality Gate via API
-                                    RESPONSE=$(wget -q -O- --header="Authorization: Bearer ${SONAR_TOKEN}" \
-                                        "http://sonarqube:9000/api/qualitygates/project_status?projectKey=${SONAR_PROJECT_KEY}")
-                                    
-                                    echo "Response: $RESPONSE"
-                                    
-                                    STATUS=$(echo $RESPONSE | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
-                                    
-                                    echo "Quality Gate Status: $STATUS"
-                                    
-                                    if [ "$STATUS" = "OK" ]; then
-                                        echo "✅ Quality Gate passou!"
-                                        exit 0
-                                    elif [ "$STATUS" = "ERROR" ]; then
-                                        echo "❌ Quality Gate falhou!"
-                                        exit 1
-                                    else
-                                        echo "⚠️ Quality Gate status desconhecido: $STATUS"
-                                        # Não falha se status for desconhecido (primeira análise)
-                                        exit 0
-                                    fi
-                                '''
-                            }
-                        }
-                    }
-                }
+            steps {
+                echo '🔍 Executando análise de código com SonarQube (scanner em container dedicado)...'
+                sh '''
+                    docker run --rm \
+                        -v "$(pwd)":/usr/src \
+                        -w /usr/src \
+                        --network frontend \
+                        sonarsource/sonar-scanner-cli \
+                        sonar-scanner \
+                            -Dsonar.host.url=http://sonarqube:9000 \
+                            -Dsonar.token=${SONAR_TOKEN} \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
+                            -Dsonar.sources=src \
+                            -Dsonar.tests=src,test \
+                            -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
+                            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
+                            -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+                '''
             }
         }
         
