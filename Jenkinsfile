@@ -8,6 +8,11 @@ pipeline {
         CONTAINER_NAME = 'prime-backend'
         IMAGE_NAME = 'prime-backend-pipeline-backend'
         
+        // SonarQube
+        SONAR_TOKEN = credentials('sonarqube-token')
+        SONAR_PROJECT_KEY = 'prime-backend'
+        SONAR_PROJECT_NAME = 'Prime Backend'
+        
         // Credenciais do Telegram
         TELEGRAM_BOT_TOKEN = credentials('telegram-bot-token')
         TELEGRAM_CHAT_ID = credentials('telegram-chat-id')
@@ -18,7 +23,6 @@ pipeline {
         API_PREFIX = 'api/v1'
         
         // Database (Produção)
-        // IMPORTANTE: Configure todas as credenciais no Jenkins antes de executar
         DB_HOST = credentials('prime-db-host')
         DB_PORT = '5432'
         DB_USERNAME = credentials('prime-db-username')
@@ -43,8 +47,7 @@ pipeline {
         SWAGGER_USERNAME = credentials('prime-swagger-username')
         SWAGGER_PASSWORD = credentials('prime-swagger-password')
         
-        // CORS - Múltiplas origens separadas por vírgula
-        // Inclui frontend interno (container) e URL pública
+        // CORS
         CORS_ORIGIN = 'http://nextjs-prime:3000,https://prime.icomp.ufam.edu.br'
     }
     
@@ -63,6 +66,7 @@ pipeline {
                                 "🔢 Build: #${env.BUILD_NUMBER}\n" +
                                 "👤 Iniciado por: ${initiator}\n" +
                                 "🌿 Branch: ${BRANCH}\n" +
+                                "🔍 Análise de código: SonarQube\n" +
                                 "🐘 Database: ${env.DB_HOST}\n" +
                                 "🔒 API: porta 4000 (acesso via VPN)")
                 }
@@ -83,11 +87,94 @@ pipeline {
                 echo '🔍 Verificando estrutura do projeto...'
                 sh '''
                     ls -la
+                    echo "\n=== Package.json ==="
+                    cat package.json | head -20
                     echo "\n=== Dockerfile ==="
                     cat Dockerfile
-                    echo "\n=== docker-compose.yml ==="
-                    cat docker-compose.yml
                 '''
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                echo '📦 Instalando dependências para análise...'
+                sh '''
+                    # Instalar dependências sem buildar (mais rápido)
+                    npm ci --prefer-offline --no-audit
+                    echo "✅ Dependências instaladas"
+                '''
+            }
+        }
+        
+        stage('Lint & Tests') {
+            steps {
+                echo '🧪 Executando testes e coverage...'
+                sh '''
+                    # Executar testes com coverage
+                    npm run test:cov || true
+                    
+                    echo "\n=== Coverage gerado ==="
+                    if [ -d "coverage" ]; then
+                        ls -la coverage/
+                        if [ -f "coverage/lcov.info" ]; then
+                            echo "✅ Arquivo lcov.info gerado com sucesso"
+                        else
+                            echo "⚠️ lcov.info não foi gerado"
+                        fi
+                    else
+                        echo "⚠️ Diretório coverage não foi criado"
+                    fi
+                '''
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                echo '🔍 Analisando código com SonarQube...'
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv('SonarQube') {
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                            -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                            -Dsonar.sources=src \
+                            -Dsonar.tests=src,test \
+                            -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
+                            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
+                            -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
+                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                echo '🚦 Verificando Quality Gate...'
+                script {
+                    timeout(time: 5, unit: 'MINUTES') {
+                        try {
+                            def qg = waitForQualityGate()
+                            if (qg.status != 'OK') {
+                                def sonarUrl = "https://prime.icomp.ufam.edu.br/sonar/dashboard?id=${SONAR_PROJECT_KEY}"
+                                sendTelegram("⚠️ *Quality Gate Falhou*\n\n" +
+                                           "📦 Projeto: ${env.JOB_NAME}\n" +
+                                           "🔢 Build: #${env.BUILD_NUMBER}\n" +
+                                           "❌ Status: ${qg.status}\n\n" +
+                                           "🔗 [Ver no SonarQube](${sonarUrl})")
+                                
+                                error "Quality Gate falhou: ${qg.status}"
+                            } else {
+                                echo "✅ Quality Gate passou!"
+                            }
+                        } catch (Exception e) {
+                            echo "⚠️ Erro ao verificar Quality Gate: ${e.getMessage()}"
+                            throw e
+                        }
+                    }
+                }
             }
         }
         
@@ -131,8 +218,6 @@ CORS_ORIGIN=${CORS_ORIGIN}
 EOF
                     
                     echo "✅ Arquivo .env criado"
-                    echo "\n=== Variáveis configuradas (sem senhas) ==="
-                    grep -v "PASSWORD\\|SECRET\\|_SECRET" .env || echo "Todas as variáveis sensíveis configuradas"
                 '''
             }
         }
@@ -158,19 +243,15 @@ EOF
                         sh '''
                             echo "Testando conectividade com ${DB_HOST}:${DB_PORT}..."
                             
-                            # Testar se a porta está acessível
                             if timeout 5 bash -c "cat < /dev/null > /dev/tcp/${DB_HOST}/${DB_PORT}"; then
                                 echo "✅ Porta ${DB_PORT} acessível em ${DB_HOST}"
                             else
                                 echo "❌ Não foi possível conectar em ${DB_HOST}:${DB_PORT}"
-                                echo "Verifique se o banco está rodando e se há firewall bloqueando"
                                 exit 1
                             fi
                         '''
                     } catch (Exception e) {
-                        echo "⚠️ Aviso: Não foi possível testar conexão com banco. Continuando mesmo assim..."
-                        echo "Erro: ${e.getMessage()}"
-                        // Não falha o build se não conseguir testar a conexão
+                        echo "⚠️ Aviso: Não foi possível testar conexão com banco."
                     }
                 }
             }
@@ -180,7 +261,6 @@ EOF
             steps {
                 echo '🏗️  Construindo imagem Docker...'
                 sh '''
-                    # Habilitar BuildKit para suportar --mount no Dockerfile
                     export DOCKER_BUILDKIT=1
                     export COMPOSE_DOCKER_CLI_BUILD=1
                     docker compose build --no-cache
@@ -240,7 +320,6 @@ EOF
                             fi
                         done
                         
-                        # Testar endpoint da API
                         echo "\n=== Testando endpoint /api/v1 ==="
                         if docker exec ${CONTAINER_NAME} wget --quiet --tries=1 --spider http://localhost:4000/api/v1 2>&1; then
                             echo "✅ API respondendo em /api/v1"
@@ -248,16 +327,14 @@ EOF
                             echo "⚠️  Endpoint /api/v1 ainda não está respondendo"
                         fi
                         
-                        # Testar Swagger (se disponível)
                         echo "\n=== Testando Swagger Docs ==="
                         if docker exec ${CONTAINER_NAME} wget --quiet --tries=1 --spider http://localhost:4000/api/docs 2>&1; then
                             echo "✅ Swagger disponível em /api/docs"
                         else
-                            echo "ℹ️  Swagger não disponível ou endpoint diferente"
+                            echo "ℹ️  Swagger não disponível"
                         fi
                     else
                         echo "❌ Container não está rodando!"
-                        echo "\n=== Logs do container ==="
                         docker logs ${CONTAINER_NAME} 2>&1 || true
                         exit 1
                     fi
@@ -269,17 +346,11 @@ EOF
             steps {
                 echo '🧹 Limpando recursos...'
                 sh '''
-                    # Remove arquivo .env por segurança
                     rm -f .env
-                    
-                    # Remove imagens antigas
                     docker image prune -f
                     
                     echo "\n=== Containers Prime Ativos ==="
                     docker ps --filter "name=prime" --format "table {{.Names}}\\t{{.Status}}\\t{{.Ports}}"
-                    
-                    echo "\n=== Uso de recursos do container ==="
-                    docker stats ${CONTAINER_NAME} --no-stream --format "table {{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}"
                 '''
             }
         }
@@ -291,6 +362,7 @@ EOF
                 try {
                     def duration = currentBuild.durationString.replace(' and counting', '')
                     def initiator = getUserInfo()
+                    def sonarUrl = "https://prime.icomp.ufam.edu.br/sonar/dashboard?id=${SONAR_PROJECT_KEY}"
                     
                     sendTelegramWithButtons("✅ *Deploy Backend Sucesso*\n\n" +
                                 "📦 Projeto: ${env.JOB_NAME}\n" +
@@ -298,12 +370,14 @@ EOF
                                 "👤 Iniciado por: ${initiator}\n" +
                                 "⏱️ Duração: ${duration}\n" +
                                 "🐳 Container: ${env.CONTAINER_NAME}\n" +
-                                "🐘 Database: ${env.DB_HOST}\n\n" +
-                                "🔒 API disponível na porta 4000\n" +
-                                "📚 Swagger: /api/docs\n\n" +
+                                "🐘 Database: ${env.DB_HOST}\n" +
+                                "✅ Quality Gate: Passou\n\n" +
+                                "🔒 API: porta 4000\n" +
+                                "📚 Swagger: /api/docs\n" +
+                                "🔍 [Ver Análise SonarQube](${sonarUrl})\n\n" +
                                 "Deploy realizado com sucesso! 🎉")
                 } catch (Exception e) {
-                    echo "⚠️ Erro ao enviar notificação Telegram: ${e.getMessage()}"
+                    echo "⚠️ Erro ao enviar notificação: ${e.getMessage()}"
                 }
             }
             echo '✅ Pipeline executado com sucesso!'
@@ -314,42 +388,24 @@ EOF
                 try {
                     def duration = currentBuild.durationString.replace(' and counting', '')
                     def initiator = getUserInfo()
-                    def containerName = env.CONTAINER_NAME ?: 'prime-backend'
-                    def logOutput = ''
-                    
-                    // Tentar obter logs apenas se estiver em contexto de node
-                    try {
-                        logOutput = sh(
-                            script: "docker logs ${containerName} 2>&1 | tail -30 || echo 'Sem logs disponíveis'",
-                            returnStdout: true
-                        ).trim()
-                    } catch (Exception e) {
-                        logOutput = 'Logs não disponíveis (container pode não existir ou sem contexto de node)'
-                    }
+                    def stageName = env.STAGE_NAME ?: 'Desconhecido'
+                    def sonarUrl = "https://prime.icomp.ufam.edu.br/sonar/dashboard?id=${SONAR_PROJECT_KEY}"
                     
                     def errorMessage = "❌ *Deploy Backend Falhou*\n\n" +
                                 "📦 Projeto: ${env.JOB_NAME}\n" +
                                 "🔢 Build: #${env.BUILD_NUMBER}\n" +
                                 "👤 Iniciado por: ${initiator}\n" +
                                 "⏱️ Duração: ${duration}\n" +
-                                "📝 Stage: ${env.STAGE_NAME ?: 'Desconhecido'}\n"
+                                "📝 Stage: ${stageName}\n"
                     
-                    if (logOutput) {
-                        errorMessage += "\n```\n${logOutput}\n```"
+                    // Se falhou no Quality Gate, adicionar link do SonarQube
+                    if (stageName == 'Quality Gate') {
+                        errorMessage += "\n🔍 [Ver Detalhes no SonarQube](${sonarUrl})"
                     }
                     
                     sendTelegramWithButtons(errorMessage)
                 } catch (Exception e) {
                     echo "⚠️ Erro ao processar falha: ${e.getMessage()}"
-                    // Tentar enviar mensagem simples sem logs
-                    try {
-                        sendTelegram("❌ *Deploy Backend Falhou*\n\n" +
-                                    "📦 Projeto: ${env.JOB_NAME}\n" +
-                                    "🔢 Build: #${env.BUILD_NUMBER}\n" +
-                                    "Verifique os logs no Jenkins para mais detalhes.")
-                    } catch (Exception e2) {
-                        echo "⚠️ Não foi possível enviar notificação Telegram"
-                    }
                 }
             }
             echo '❌ Pipeline falhou!'
@@ -358,18 +414,16 @@ EOF
         always {
             script {
                 echo '📊 Execução finalizada'
-                // Sempre remove o .env por segurança
                 try {
                     sh 'rm -f .env || true'
                 } catch (Exception e) {
-                    echo '⚠️ Não foi possível remover .env (pode não existir)'
+                    echo '⚠️ Não foi possível remover .env'
                 }
             }
         }
     }
 }
 
-// Função para detectar quem iniciou o build
 def getUserInfo() {
     try {
         def causes = currentBuild.getBuildCauses()
@@ -392,18 +446,14 @@ def getUserInfo() {
             if (cause._class.contains('TimerTrigger')) {
                 return 'Timer (Agendamento)'
             }
-            if (cause._class.contains('UpstreamCause')) {
-                return "Upstream (${cause.upstreamProject})"
-            }
         }
     } catch (Exception e) {
-        echo "⚠️ Erro ao obter informações do usuário: ${e.getMessage()}"
+        echo "⚠️ Erro ao obter informações do usuário"
     }
     
     return 'Jenkins (automático)'
 }
 
-// Função para enviar mensagens no Telegram
 def sendTelegram(String message) {
     try {
         sh """
@@ -414,18 +464,20 @@ def sendTelegram(String message) {
             -d disable_web_page_preview=true
         """
     } catch (Exception e) {
-        echo "⚠️ Erro ao enviar mensagem Telegram: ${e.getMessage()}"
+        echo "⚠️ Erro ao enviar mensagem Telegram"
     }
 }
 
-// Função para enviar mensagens com botões
 def sendTelegramWithButtons(String message) {
     try {
         def buildUrl = env.BUILD_URL ?: 'https://jenkins'
+        def sonarUrl = "https://prime.icomp.ufam.edu.br/sonar/dashboard?id=${env.SONAR_PROJECT_KEY}"
+        
         def keyboard = """
         {
             "inline_keyboard": [[
-                {"text": "📊 Ver Build", "url": "${buildUrl}"}
+                {"text": "📊 Ver Build", "url": "${buildUrl}"},
+                {"text": "🔍 SonarQube", "url": "${sonarUrl}"}
             ]]
         }
         """
@@ -438,12 +490,7 @@ def sendTelegramWithButtons(String message) {
             -d reply_markup='${keyboard}'
         """
     } catch (Exception e) {
-        echo "⚠️ Erro ao enviar mensagem Telegram com botões: ${e.getMessage()}"
-        // Tentar enviar sem botões como fallback
-        try {
-            sendTelegram(message)
-        } catch (Exception e2) {
-            echo "⚠️ Não foi possível enviar notificação Telegram"
-        }
+        echo "⚠️ Erro ao enviar mensagem com botões"
+        sendTelegram(message)
     }
 }

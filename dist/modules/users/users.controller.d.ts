@@ -13,4 +13,5 @@ export declare class UsersController {
     findOne(id: string): Promise<import("../../entities/user.entity").User>;
     update(id: string, updateUserDto: UpdateUserDto): Promise<import("../../entities/user.entity").User>;
     remove(id: string): Promise<void>;
+    resetPassword(id: string): Promise<import("../../entities/user.entity").User>;
 }

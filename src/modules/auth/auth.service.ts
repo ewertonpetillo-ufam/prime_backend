@@ -78,6 +78,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // Update last login timestamp
+    user.last_login = new Date();
+    await this.usersService.update(user.id, { last_login: user.last_login });
+
     // Generate JWT token with user information
     const payload = {
       sub: user.id,
