@@ -100,23 +100,23 @@ pipeline {
                     try {
                         sh '''
                             # Usar container Docker com Node.js para executar o scanner
-                            # Isso funciona mesmo que o Jenkins rode em container sem Node.js
+                            # Copiar arquivos para dentro do container para evitar problemas de volume mount
                             WORKSPACE_DIR=$(pwd)
+                            CONTAINER_NAME="sonar-scanner-$$"
+                            
                             echo "📁 Workspace atual: $WORKSPACE_DIR"
                             
                             # Verificar se src existe no workspace antes de executar
                             if [ ! -d "src" ]; then
                                 echo "❌ Diretório src não encontrado no workspace!"
-                                echo "📂 Conteúdo do workspace:"
-                                ls -la
                                 exit 1
                             fi
                             
                             echo "✅ Diretório src encontrado no workspace"
-                            echo "🚀 Executando SonarQube Scanner em container Node.js..."
+                            echo "🚀 Criando container temporário para análise SonarQube..."
                             
-                            docker run --rm \
-                                -v "$WORKSPACE_DIR":/workspace \
+                            # Criar container em modo detached
+                            docker create --name "$CONTAINER_NAME" \
                                 -w /workspace \
                                 node:20-alpine \
                                 sh -c "
@@ -124,21 +124,14 @@ pipeline {
                                     echo '✅ npm: ' && npm --version
                                     echo ''
                                     echo '📁 Verificando estrutura dentro do container...'
-                                    pwd
                                     ls -la
                                     echo ''
                                     if [ -d 'src' ]; then
-                                        echo '✅ Diretório src encontrado no container'
+                                        echo '✅ Diretório src encontrado'
                                         ls -la src/ | head -5
-                                    else
-                                        echo '❌ Diretório src NÃO encontrado no container!'
-                                        echo '📂 Conteúdo do workspace no container:'
-                                        ls -la
-                                        exit 1
                                     fi
                                     echo ''
                                     echo '🚀 Executando SonarQube Scanner...'
-                                    echo '📄 Usando sonar-project.properties se disponível'
                                     npx --yes @sonar/scan \
                                         -Dsonar.host.url=https://prime.icomp.ufam.edu.br/sonar \
                                         -Dsonar.token=${SONAR_TOKEN} \
@@ -146,6 +139,22 @@ pipeline {
                                     echo ''
                                     echo '✅ Análise SonarQube concluída com sucesso!'
                                 "
+                            
+                            # Copiar arquivos necessários para o container
+                            echo "📦 Copiando arquivos do projeto para o container..."
+                            docker cp "$WORKSPACE_DIR/src" "$CONTAINER_NAME:/workspace/"
+                            docker cp "$WORKSPACE_DIR/sonar-project.properties" "$CONTAINER_NAME:/workspace/" 2>/dev/null || echo "⚠️ sonar-project.properties não encontrado, usando parâmetros padrão"
+                            
+                            # Executar o container
+                            echo "🚀 Executando análise..."
+                            docker start -a "$CONTAINER_NAME"
+                            EXIT_CODE=$?
+                            
+                            # Limpar container
+                            docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+                            
+                            # Retornar código de saída
+                            exit $EXIT_CODE
                         '''
                     } catch (Exception e) {
                         echo "⚠️ Análise SonarQube falhou, mas o pipeline continuará: ${e.getMessage()}"
