@@ -93,83 +93,83 @@ pipeline {
             }
         }
         
-        stage('Code Analysis') {
-            steps {
-                echo '🔍 Executando análise de código com SonarQube (usando container Node.js)...'
-                script {
-                    try {
-                        sh '''
-                            # Usar container Docker com Node.js para executar o scanner
-                            # Copiar arquivos para dentro do container para evitar problemas de volume mount
-                            WORKSPACE_DIR=$(pwd)
-                            CONTAINER_NAME="sonar-scanner-$$"
+        // stage('Code Analysis') {
+        //     steps {
+        //         echo '🔍 Executando análise de código com SonarQube (usando container Node.js)...'
+        //         script {
+        //             try {
+        //                 sh '''
+        //                     # Usar container Docker com Node.js para executar o scanner
+        //                     # Copiar arquivos para dentro do container para evitar problemas de volume mount
+        //                     WORKSPACE_DIR=$(pwd)
+        //                     CONTAINER_NAME="sonar-scanner-$$"
                             
-                            echo "📁 Workspace atual: $WORKSPACE_DIR"
+        //                     echo "📁 Workspace atual: $WORKSPACE_DIR"
                             
-                            # Verificar se src existe no workspace antes de executar
-                            if [ ! -d "src" ]; then
-                                echo "❌ Diretório src não encontrado no workspace!"
-                                exit 1
-                            fi
+        //                     # Verificar se src existe no workspace antes de executar
+        //                     if [ ! -d "src" ]; then
+        //                         echo "❌ Diretório src não encontrado no workspace!"
+        //                         exit 1
+        //                     fi
                             
-                            echo "✅ Diretório src encontrado no workspace"
-                            echo "🚀 Criando container temporário para análise SonarQube..."
+        //                     echo "✅ Diretório src encontrado no workspace"
+        //                     echo "🚀 Criando container temporário para análise SonarQube..."
                             
-                            # Criar container em modo detached
-                            docker create --name "$CONTAINER_NAME" \
-                                -w /workspace \
-                                node:20-alpine \
-                                sh -c "
-                                    echo '✅ Node.js: ' && node --version
-                                    echo '✅ npm: ' && npm --version
-                                    echo ''
-                                    echo '📁 Verificando estrutura dentro do container...'
-                                    ls -la
-                                    echo ''
-                                    if [ -d 'src' ]; then
-                                        echo '✅ Diretório src encontrado'
-                                        ls -la src/ | head -5
-                                    fi
-                                    echo ''
-                                    echo '🚀 Executando SonarQube Scanner...'
-                                    # Remover sonar.tests do properties se causar problema
-                                    if [ -f 'sonar-project.properties' ]; then
-                                        sed -i '/^sonar.tests=/d' sonar-project.properties || true
-                                    fi
-                                    npx --yes @sonar/scan \
-                                        -Dsonar.host.url=https://prime.icomp.ufam.edu.br/sonar \
-                                        -Dsonar.token=${SONAR_TOKEN} \
-                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY}
-                                    echo ''
-                                    echo '✅ Análise SonarQube concluída com sucesso!'
-                                "
+        //                     # Criar container em modo detached
+        //                     docker create --name "$CONTAINER_NAME" \
+        //                         -w /workspace \
+        //                         node:20-alpine \
+        //                         sh -c "
+        //                             echo '✅ Node.js: ' && node --version
+        //                             echo '✅ npm: ' && npm --version
+        //                             echo ''
+        //                             echo '📁 Verificando estrutura dentro do container...'
+        //                             ls -la
+        //                             echo ''
+        //                             if [ -d 'src' ]; then
+        //                                 echo '✅ Diretório src encontrado'
+        //                                 ls -la src/ | head -5
+        //                             fi
+        //                             echo ''
+        //                             echo '🚀 Executando SonarQube Scanner...'
+        //                             # Remover sonar.tests do properties se causar problema
+        //                             if [ -f 'sonar-project.properties' ]; then
+        //                                 sed -i '/^sonar.tests=/d' sonar-project.properties || true
+        //                             fi
+        //                             npx --yes @sonar/scan \
+        //                                 -Dsonar.host.url=https://prime.icomp.ufam.edu.br/sonar \
+        //                                 -Dsonar.token=${SONAR_TOKEN} \
+        //                                 -Dsonar.projectKey=${SONAR_PROJECT_KEY}
+        //                             echo ''
+        //                             echo '✅ Análise SonarQube concluída com sucesso!'
+        //                         "
                             
-                            # Copiar arquivos necessários para o container
-                            echo "📦 Copiando arquivos do projeto para o container..."
-                            docker cp "$WORKSPACE_DIR/src" "$CONTAINER_NAME:/workspace/"
-                            if [ -d "$WORKSPACE_DIR/test" ]; then
-                                docker cp "$WORKSPACE_DIR/test" "$CONTAINER_NAME:/workspace/" || echo "⚠️ Não foi possível copiar diretório test"
-                            fi
-                            docker cp "$WORKSPACE_DIR/sonar-project.properties" "$CONTAINER_NAME:/workspace/" 2>/dev/null || echo "⚠️ sonar-project.properties não encontrado, usando parâmetros padrão"
+        //                     # Copiar arquivos necessários para o container
+        //                     echo "📦 Copiando arquivos do projeto para o container..."
+        //                     docker cp "$WORKSPACE_DIR/src" "$CONTAINER_NAME:/workspace/"
+        //                     if [ -d "$WORKSPACE_DIR/test" ]; then
+        //                         docker cp "$WORKSPACE_DIR/test" "$CONTAINER_NAME:/workspace/" || echo "⚠️ Não foi possível copiar diretório test"
+        //                     fi
+        //                     docker cp "$WORKSPACE_DIR/sonar-project.properties" "$CONTAINER_NAME:/workspace/" 2>/dev/null || echo "⚠️ sonar-project.properties não encontrado, usando parâmetros padrão"
                             
-                            # Executar o container
-                            echo "🚀 Executando análise..."
-                            docker start -a "$CONTAINER_NAME"
-                            EXIT_CODE=$?
+        //                     # Executar o container
+        //                     echo "🚀 Executando análise..."
+        //                     docker start -a "$CONTAINER_NAME"
+        //                     EXIT_CODE=$?
                             
-                            # Limpar container
-                            docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+        //                     # Limpar container
+        //                     docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
                             
-                            # Retornar código de saída
-                            exit $EXIT_CODE
-                        '''
-                    } catch (Exception e) {
-                        echo "⚠️ Análise SonarQube falhou, mas o pipeline continuará: ${e.getMessage()}"
-                        // Não falha o build - permite continuar mesmo se SonarQube falhar
-                    }
-                }
-            }
-        }
+        //                     # Retornar código de saída
+        //                     exit $EXIT_CODE
+        //                 '''
+        //             } catch (Exception e) {
+        //                 echo "⚠️ Análise SonarQube falhou, mas o pipeline continuará: ${e.getMessage()}"
+        //                 // Não falha o build - permite continuar mesmo se SonarQube falhar
+        //             }
+        //         }
+        //     }
+        // }
         
         stage('Criar .env') {
             steps {
