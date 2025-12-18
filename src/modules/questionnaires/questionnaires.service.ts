@@ -748,10 +748,34 @@ export class QuestionnairesService {
     let hoehnYahrStageId: number | null = null;
     if (dto.scaleHY) {
       const stage = parseFloat(dto.scaleHY);
-      const hoehnYahr = await this.hoehnYahrScaleRepository.findOne({
-        where: { stage },
+      console.log('🔍 DEBUG - Salvando scaleHY:', {
+        'dto.scaleHY': dto.scaleHY,
+        'stage (parseFloat)': stage,
+        'tipo stage': typeof stage,
+        'isNaN': isNaN(stage),
       });
-      hoehnYahrStageId = hoehnYahr?.id || null;
+      
+      if (!isNaN(stage)) {
+        // Tentar buscar pelo stage usando query builder para lidar melhor com decimal
+        const hoehnYahr = await this.hoehnYahrScaleRepository
+          .createQueryBuilder('hys')
+          .where('hys.stage = :stage', { stage })
+          .getOne();
+        
+        console.log('🔍 DEBUG - Hoehn-Yahr encontrado:', {
+          'hoehnYahr': hoehnYahr ? { id: hoehnYahr.id, stage: hoehnYahr.stage, tipo_stage: typeof hoehnYahr.stage } : null,
+        });
+        
+        if (!hoehnYahr) {
+          // Se não encontrou, tentar buscar todos para debug
+          const allStages = await this.hoehnYahrScaleRepository.find();
+          console.log('🔍 DEBUG - Todos os stages disponíveis:', allStages.map(h => ({ id: h.id, stage: h.stage, tipo: typeof h.stage })));
+        }
+        
+        hoehnYahrStageId = hoehnYahr?.id || null;
+      } else {
+        console.log('🔍 DEBUG - scaleHY não é um número válido');
+      }
     }
 
     // Map Schwab & England score
@@ -837,7 +861,14 @@ export class QuestionnairesService {
       clinicalAssessment.initial_symptom = dto.initialSympton || clinicalAssessment.initial_symptom;
       clinicalAssessment.affected_side = normalizedAffectedSide !== null ? normalizedAffectedSide : clinicalAssessment.affected_side;
       clinicalAssessment.phenotype_id = phenotype_id !== null ? phenotype_id : clinicalAssessment.phenotype_id;
-      clinicalAssessment.hoehn_yahr_stage_id = hoehnYahrStageId || clinicalAssessment.hoehn_yahr_stage_id;
+      // Atualizar hoehn_yahr_stage_id apenas se um novo valor foi fornecido
+      if (hoehnYahrStageId !== null) {
+        clinicalAssessment.hoehn_yahr_stage_id = hoehnYahrStageId;
+      } else if (dto.scaleHY === '' || dto.scaleHY === null || dto.scaleHY === undefined) {
+        // Se scaleHY foi explicitamente enviado como vazio, limpar o campo
+        clinicalAssessment.hoehn_yahr_stage_id = null;
+      }
+      // Caso contrário, manter o valor existente
       clinicalAssessment.schwab_england_score = schwabEnglandScore || clinicalAssessment.schwab_england_score;
       clinicalAssessment.has_family_history = has_family_history;
       clinicalAssessment.family_kinship_degree = dto.kinshipDegree || clinicalAssessment.family_kinship_degree;
@@ -860,6 +891,12 @@ export class QuestionnairesService {
     }
 
     const savedClinicalAssessment = await this.clinicalAssessmentRepository.save(clinicalAssessment);
+    
+    console.log('🔍 DEBUG - Clinical assessment salvo:', {
+      'savedClinicalAssessment.id': savedClinicalAssessment.id,
+      'hoehn_yahr_stage_id salvo': savedClinicalAssessment.hoehn_yahr_stage_id,
+      'tipo hoehn_yahr_stage_id': typeof savedClinicalAssessment.hoehn_yahr_stage_id,
+    });
 
     // Save medications if provided
     if (dto.medications && Array.isArray(dto.medications) && dto.medications.length > 0) {
@@ -1209,31 +1246,56 @@ export class QuestionnairesService {
    * Get all reference data for questionnaire forms
    */
   async getReferenceData() {
-    const [genders, ethnicities, educationLevels, maritalStatuses, incomeRanges, phenotypes, dyskinesiaTypes] = await Promise.all([
-      this.genderTypeRepository.find({ where: { active: true }, order: { id: 'ASC' } }),
-      this.ethnicityTypeRepository.find({ where: { active: true }, order: { id: 'ASC' } }),
-      this.educationLevelRepository.find({ where: { active: true }, order: { id: 'ASC' } }),
-      this.maritalStatusTypeRepository.find({ where: { active: true }, order: { id: 'ASC' } }),
-      this.incomeRangeRepository.find({ where: { active: true }, order: { id: 'ASC' } }),
-      this.parkinsonPhenotypeRepository.find({ where: { active: true }, order: { id: 'ASC' } }),
-      this.dyskinesiaTypeRepository.find({ order: { id: 'ASC' } }),
-    ]);
+    try {
+      const [genders, ethnicities, educationLevels, maritalStatuses, incomeRanges, phenotypes, dyskinesiaTypes] = await Promise.all([
+        this.genderTypeRepository.find({ 
+          where: { active: true }, 
+          order: { id: 'ASC' } 
+        }).catch(() => []),
+        this.ethnicityTypeRepository.find({ 
+          where: { active: true }, 
+          order: { id: 'ASC' } 
+        }).catch(() => []),
+        this.educationLevelRepository.find({ 
+          where: { active: true }, 
+          order: { id: 'ASC' } 
+        }).catch(() => []),
+        this.maritalStatusTypeRepository.find({ 
+          where: { active: true }, 
+          order: { id: 'ASC' } 
+        }).catch(() => []),
+        this.incomeRangeRepository.find({ 
+          where: { active: true }, 
+          order: { id: 'ASC' } 
+        }).catch(() => []),
+        this.parkinsonPhenotypeRepository.find({ 
+          where: { active: true }, 
+          order: { id: 'ASC' } 
+        }).catch(() => []),
+        this.dyskinesiaTypeRepository.find({ 
+          order: { id: 'ASC' } 
+        }).catch(() => []),
+      ]);
 
-    return {
-      genders: genders.map(g => ({ value: g.code, label: g.description, code: g.code, description: g.description })),
-      ethnicities: ethnicities.map(e => ({ value: e.description, label: e.description })),
-      educationLevels: educationLevels.map(el => ({ value: el.description, label: el.description })),
-      maritalStatuses: maritalStatuses.map(ms => ({ value: ms.description, label: ms.description })),
-      incomeRanges: incomeRanges.map(ir => ({ value: ir.code, label: ir.description })),
-      phenotypes: phenotypes.map(p => ({ value: p.description, label: p.description })),
-      dyskinesiaTypes: dyskinesiaTypes.map(dt => ({ value: dt.description, label: dt.description })),
-      affectedSides: [
-        { value: 'Direito', label: 'Direito' },
-        { value: 'Esquerdo', label: 'Esquerdo' },
-        { value: 'Bilateral', label: 'Bilateral' },
-        { value: 'Não especificado', label: 'Não especificado' },
-      ],
-    };
+      return {
+        genders: genders.map(g => ({ value: g.code, label: g.description, code: g.code, description: g.description })),
+        ethnicities: ethnicities.map(e => ({ value: e.description, label: e.description })),
+        educationLevels: educationLevels.map(el => ({ value: el.description, label: el.description })),
+        maritalStatuses: maritalStatuses.map(ms => ({ value: ms.description, label: ms.description })),
+        incomeRanges: incomeRanges.map(ir => ({ value: ir.code, label: ir.description })),
+        phenotypes: phenotypes.map(p => ({ value: p.description, label: p.description })),
+        dyskinesiaTypes: dyskinesiaTypes.map(dt => ({ value: dt.description, label: dt.description })),
+        affectedSides: [
+          { value: 'Direito', label: 'Direito' },
+          { value: 'Esquerdo', label: 'Esquerdo' },
+          { value: 'Bilateral', label: 'Bilateral' },
+          { value: 'Não especificado', label: 'Não especificado' },
+        ],
+      };
+    } catch (error) {
+      console.error('Erro ao buscar dados de referência:', error);
+      throw error;
+    }
   }
 
   /**
@@ -1526,6 +1588,16 @@ export class QuestionnairesService {
 
     // Dados clínicos
     if (clinical) {
+      try {
+        console.log('🔍 DEBUG - Clinical assessment encontrado:', {
+          'clinical.id': clinical?.id || 'N/A',
+          'hoehn_yahr_stage_id': clinical?.hoehn_yahr_stage_id ?? null,
+          'tipo hoehn_yahr_stage_id': typeof (clinical?.hoehn_yahr_stage_id ?? null),
+        });
+      } catch (error) {
+        console.error('Erro ao logar clinical assessment:', error);
+      }
+      
       formData.diagnosticDescription = clinical.diagnostic_description || '';
       formData.onsetAge = clinical.age_at_onset
         ? String(clinical.age_at_onset)
@@ -1583,12 +1655,40 @@ export class QuestionnairesService {
       
       // Buscar Hoehn-Yahr scale
       if (clinical.hoehn_yahr_stage_id) {
+        console.log('🔍 DEBUG - Carregando scaleHY:', {
+          'hoehn_yahr_stage_id': clinical.hoehn_yahr_stage_id,
+        });
         const hoehnYahr = await this.hoehnYahrScaleRepository.findOne({
           where: { id: clinical.hoehn_yahr_stage_id },
         });
-        formData.scaleHY = hoehnYahr?.stage ? String(hoehnYahr.stage) : '';
+        console.log('🔍 DEBUG - Hoehn-Yahr carregado:', {
+          'hoehnYahr': hoehnYahr ? { id: hoehnYahr.id, stage: hoehnYahr.stage, tipo_stage: typeof hoehnYahr.stage } : null,
+        });
+        if (hoehnYahr?.stage !== null && hoehnYahr?.stage !== undefined) {
+          // Converter stage para string, lidando com diferentes tipos (number, string, Decimal)
+          const stageValue: any = hoehnYahr.stage;
+          if (typeof stageValue === 'number') {
+            formData.scaleHY = String(stageValue);
+          } else if (typeof stageValue === 'string') {
+            formData.scaleHY = stageValue;
+          } else if (stageValue && typeof (stageValue as any).toString === 'function') {
+            // Para objetos Decimal ou similares
+            formData.scaleHY = (stageValue as any).toString();
+          } else {
+            formData.scaleHY = '';
+          }
+          console.log('🔍 DEBUG - scaleHY definido:', {
+            'formData.scaleHY': formData.scaleHY,
+            'stageValue original': stageValue,
+            'tipo stageValue': typeof stageValue,
+          });
+        } else {
+          formData.scaleHY = '';
+          console.log('🔍 DEBUG - scaleHY vazio (stage é null/undefined)');
+        }
       } else {
         formData.scaleHY = '';
+        console.log('🔍 DEBUG - scaleHY vazio (hoehn_yahr_stage_id não existe ou é null/undefined)');
       }
       
       formData.scaleSE = clinical.schwab_england_score

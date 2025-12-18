@@ -49,6 +49,9 @@ let UsersController = class UsersController {
     remove(id) {
         return this.usersService.remove(id);
     }
+    resetPassword(id) {
+        return this.usersService.resetPassword(id);
+    }
 };
 exports.UsersController = UsersController;
 __decorate([
@@ -142,6 +145,20 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)(':id/reset-password'),
+    (0, swagger_1.ApiOperation)({ summary: 'Reset user password to default' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'User UUID' }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Password reset successfully',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'User not found' }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "resetPassword", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),

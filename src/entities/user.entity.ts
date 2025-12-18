@@ -50,6 +50,9 @@ export class User {
   @Column({ type: 'boolean', default: true })
   first_login: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  last_login: Date;
+
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 

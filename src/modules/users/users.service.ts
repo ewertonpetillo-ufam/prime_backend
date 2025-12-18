@@ -109,5 +109,15 @@ export class UsersService {
     user.first_login = firstLogin;
     return this.usersRepository.save(user);
   }
+
+  async resetPassword(id: string): Promise<User> {
+    const user = await this.findOne(id);
+    const defaultPassword = 'Prime2025';
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
+    user.password_hash = passwordHash;
+    user.first_login = true; // Force password change on next login
+    return this.usersRepository.save(user);
+  }
 }
 

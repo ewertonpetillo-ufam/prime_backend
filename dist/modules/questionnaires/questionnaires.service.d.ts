@@ -115,34 +115,34 @@ export declare class QuestionnairesService {
     }>;
     getReferenceData(): Promise<{
         genders: {
-            value: string;
-            label: string;
-            code: string;
-            description: string;
+            value: any;
+            label: any;
+            code: any;
+            description: any;
         }[];
         ethnicities: {
-            value: string;
-            label: string;
+            value: any;
+            label: any;
         }[];
         educationLevels: {
-            value: string;
-            label: string;
+            value: any;
+            label: any;
         }[];
         maritalStatuses: {
-            value: string;
-            label: string;
+            value: any;
+            label: any;
         }[];
         incomeRanges: {
-            value: string;
-            label: string;
+            value: any;
+            label: any;
         }[];
         phenotypes: {
-            value: string;
-            label: string;
+            value: any;
+            label: any;
         }[];
         dyskinesiaTypes: {
-            value: string;
-            label: string;
+            value: any;
+            label: any;
         }[];
         affectedSides: {
             value: string;
