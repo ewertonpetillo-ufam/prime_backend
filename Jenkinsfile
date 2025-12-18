@@ -107,7 +107,7 @@ pipeline {
                                 -w /app \
                                 --network frontend \
                                 node:20-alpine \
-                                sh -lc "npm ci --prefer-offline --no-audit && echo '✅ Dependências instaladas'"
+                                sh -lc "npm install --prefer-offline --no-audit && echo '✅ Dependências instaladas'"
                         '''
                     }
                 }
@@ -145,7 +145,7 @@ pipeline {
                     steps {
                         echo '🔍 Analisando código com SonarQube...'
                         script {
-                            // Executar SonarScanner usando docker run com imagem Node + Java
+                            // Executar análise usando o Scanner para projetos npm (@sonar/scan)
                             sh '''
                                 docker run --rm \
                                     -v "$(pwd)":/app \
@@ -153,16 +153,13 @@ pipeline {
                                     --network frontend \
                                     node:20-alpine \
                                     sh -lc "
-                                        # Instalar dependências do SonarScanner
-                                        apk add --no-cache openjdk17-jre wget unzip
+                                        # Instalar Scanner npm do SonarQube
+                                        npm install -g @sonar/scan
                                         
-                                        # Baixar e instalar SonarScanner
-                                        wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                                        unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
-                                        mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
-                                        
-                                        # Executar análise
-                                        /opt/sonar-scanner/bin/sonar-scanner \
+                                        # Executar análise com o scanner npm
+                                        sonar \
+                                            -Dsonar.host.url=http://sonarqube:9000 \
+                                            -Dsonar.token=${SONAR_TOKEN} \
                                             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                                             -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
                                             -Dsonar.sources=src \
@@ -170,9 +167,7 @@ pipeline {
                                             -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
                                             -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
                                             -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                            -Dsonar.host.url=http://sonarqube:9000 \
-                                            -Dsonar.login=${SONAR_TOKEN}
+                                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
                                     "
                             '''
                         }
