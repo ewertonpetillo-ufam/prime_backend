@@ -105,7 +105,7 @@ pipeline {
                         --network frontend \
                         sonarsource/sonar-scanner-cli \
                         sonar-scanner \
-                            -Dsonar.host.url=http://sonarqube:9000 \
+                            -Dsonar.host.url=http://sonarqube:9000/sonar \
                             -Dsonar.token=${SONAR_TOKEN} \
                             -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                             -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
