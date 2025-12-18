@@ -124,7 +124,6 @@ pipeline {
                                 -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                                 -Dsonar.projectName="${SONAR_PROJECT_NAME}" \
                                 -Dsonar.sources=src \
-                                -Dsonar.tests=test \
                                 -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
                                 -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/** \
                                 -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
