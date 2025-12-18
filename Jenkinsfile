@@ -101,34 +101,48 @@ pipeline {
                         sh '''
                             # Usar container Docker com Node.js para executar o scanner
                             # Isso funciona mesmo que o Jenkins rode em container sem Node.js
+                            WORKSPACE_DIR=$(pwd)
+                            echo "📁 Workspace atual: $WORKSPACE_DIR"
+                            
+                            # Verificar se src existe no workspace antes de executar
+                            if [ ! -d "src" ]; then
+                                echo "❌ Diretório src não encontrado no workspace!"
+                                echo "📂 Conteúdo do workspace:"
+                                ls -la
+                                exit 1
+                            fi
+                            
+                            echo "✅ Diretório src encontrado no workspace"
                             echo "🚀 Executando SonarQube Scanner em container Node.js..."
                             
                             docker run --rm \
-                                -v "$(pwd)":/workspace \
+                                -v "$WORKSPACE_DIR":/workspace \
                                 -w /workspace \
                                 node:20-alpine \
                                 sh -c "
                                     echo '✅ Node.js: ' && node --version
                                     echo '✅ npm: ' && npm --version
                                     echo ''
-                                    echo '📁 Verificando estrutura do projeto...'
+                                    echo '📁 Verificando estrutura dentro do container...'
+                                    pwd
                                     ls -la
                                     echo ''
                                     if [ -d 'src' ]; then
-                                        echo '✅ Diretório src encontrado'
+                                        echo '✅ Diretório src encontrado no container'
                                         ls -la src/ | head -5
                                     else
-                                        echo '❌ Diretório src não encontrado!'
+                                        echo '❌ Diretório src NÃO encontrado no container!'
+                                        echo '📂 Conteúdo do workspace no container:'
+                                        ls -la
                                         exit 1
                                     fi
                                     echo ''
                                     echo '🚀 Executando SonarQube Scanner...'
+                                    echo '📄 Usando sonar-project.properties se disponível'
                                     npx --yes @sonar/scan \
                                         -Dsonar.host.url=https://prime.icomp.ufam.edu.br/sonar \
                                         -Dsonar.token=${SONAR_TOKEN} \
-                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                        -Dsonar.sources=src \
-                                        -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts
+                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY}
                                     echo ''
                                     echo '✅ Análise SonarQube concluída com sucesso!'
                                 "
