@@ -95,46 +95,49 @@ pipeline {
         
         stage('Code Analysis') {
             // OBS: agente docker declarativo não é suportado nesta instância de Jenkins.
-            // Usamos um agente genérico; garanta que o nó tenha Node 20 + Docker instalados.
+            // Usamos um agente genérico; garanta que o nó tenha Docker instalado (usaremos docker run).
             agent any
             stages {
                 stage('Install Dependencies') {
                     steps {
                         echo '📦 Instalando dependências para análise...'
-                        script {
-                            docker.image('node:20-alpine').inside('-v /var/run/docker.sock:/var/run/docker.sock --network frontend') {
-                                sh '''
-                                    npm ci --prefer-offline --no-audit
-                                    echo "✅ Dependências instaladas"
-                                '''
-                            }
-                        }
+                        sh '''
+                            docker run --rm \
+                                -v "$(pwd)":/app \
+                                -w /app \
+                                --network frontend \
+                                node:20-alpine \
+                                sh -lc "npm ci --prefer-offline --no-audit && echo '✅ Dependências instaladas'"
+                        '''
                     }
                 }
                 
                 stage('Lint & Tests') {
                     steps {
                         echo '🧪 Executando testes e coverage...'
-                        script {
-                            docker.image('node:20-alpine').inside('-v /var/run/docker.sock:/var/run/docker.sock --network frontend') {
-                                sh '''
+                        sh '''
+                            docker run --rm \
+                                -v "$(pwd)":/app \
+                                -w /app \
+                                --network frontend \
+                                node:20-alpine \
+                                sh -lc "
                                     # Executar testes com coverage
                                     npm run test:cov || true
                                     
-                                    echo "\n=== Coverage gerado ==="
-                                    if [ -d "coverage" ]; then
+                                    echo '\n=== Coverage gerado ==='
+                                    if [ -d 'coverage' ]; then
                                         ls -la coverage/
-                                        if [ -f "coverage/lcov.info" ]; then
-                                            echo "✅ Arquivo lcov.info gerado com sucesso"
+                                        if [ -f 'coverage/lcov.info' ]; then
+                                            echo '✅ Arquivo lcov.info gerado com sucesso'
                                         else
-                                            echo "⚠️ lcov.info não foi gerado"
+                                            echo '⚠️ lcov.info não foi gerado'
                                         fi
                                     else
-                                        echo "⚠️ Diretório coverage não foi criado"
+                                        echo '⚠️ Diretório coverage não foi criado'
                                     fi
-                                '''
-                            }
-                        }
+                                "
+                        '''
                     }
                 }
                 
@@ -142,31 +145,36 @@ pipeline {
                     steps {
                         echo '🔍 Analisando código com SonarQube...'
                         script {
-                            // Instalar SonarScanner e executar análise dentro do container Node
-                            docker.image('node:20-alpine').inside('-v /var/run/docker.sock:/var/run/docker.sock --network frontend') {
-                                sh '''
-                                    # Instalar dependências do SonarScanner
-                                    apk add --no-cache openjdk17-jre wget unzip
-                                    
-                                    # Baixar e instalar SonarScanner
-                                    wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                                    unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
-                                    mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
-                                    
-                                    # Executar análise
-                                    /opt/sonar-scanner/bin/sonar-scanner \
-                                    -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                                    -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
-                                    -Dsonar.sources=src \
-                                    -Dsonar.tests=src,test \
-                                    -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
-                                    -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
-                                    -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
-                                    -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
-                                    -Dsonar.host.url=http://sonarqube:9000 \
-                                    -Dsonar.login=${SONAR_TOKEN}
-                                '''
-                            }
+                            // Executar SonarScanner usando docker run com imagem Node + Java
+                            sh '''
+                                docker run --rm \
+                                    -v "$(pwd)":/app \
+                                    -w /app \
+                                    --network frontend \
+                                    node:20-alpine \
+                                    sh -lc "
+                                        # Instalar dependências do SonarScanner
+                                        apk add --no-cache openjdk17-jre wget unzip
+                                        
+                                        # Baixar e instalar SonarScanner
+                                        wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
+                                        unzip -q sonar-scanner-cli-5.0.1.3006-linux.zip
+                                        mv sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
+                                        
+                                        # Executar análise
+                                        /opt/sonar-scanner/bin/sonar-scanner \
+                                            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                            -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                                            -Dsonar.sources=src \
+                                            -Dsonar.tests=src,test \
+                                            -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts \
+                                            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts \
+                                            -Dsonar.typescript.lcov.reportPaths=coverage/lcov.info \
+                                            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                                            -Dsonar.host.url=http://sonarqube:9000 \
+                                            -Dsonar.login=${SONAR_TOKEN}
+                                    "
+                            '''
                         }
                     }
                 }
