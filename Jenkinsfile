@@ -94,13 +94,9 @@ pipeline {
         }
         
         stage('Code Analysis') {
-            agent {
-                docker {
-                    image 'node:20-alpine'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock --network frontend'
-                    reuseNode true
-                }
-            }
+            // OBS: agente docker declarativo não é suportado nesta instância de Jenkins.
+            // Usamos um agente genérico; garanta que o nó tenha Node 20 + Docker instalados.
+            agent any
             stages {
                 stage('Install Dependencies') {
                     steps {
