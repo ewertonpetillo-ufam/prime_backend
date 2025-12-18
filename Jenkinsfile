@@ -111,11 +111,24 @@ pipeline {
                                     echo '✅ Node.js: ' && node --version
                                     echo '✅ npm: ' && npm --version
                                     echo ''
+                                    echo '📁 Verificando estrutura do projeto...'
+                                    ls -la
+                                    echo ''
+                                    if [ -d 'src' ]; then
+                                        echo '✅ Diretório src encontrado'
+                                        ls -la src/ | head -5
+                                    else
+                                        echo '❌ Diretório src não encontrado!'
+                                        exit 1
+                                    fi
+                                    echo ''
                                     echo '🚀 Executando SonarQube Scanner...'
                                     npx --yes @sonar/scan \
                                         -Dsonar.host.url=https://prime.icomp.ufam.edu.br/sonar \
                                         -Dsonar.token=${SONAR_TOKEN} \
-                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY}
+                                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                                        -Dsonar.sources=src \
+                                        -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts
                                     echo ''
                                     echo '✅ Análise SonarQube concluída com sucesso!'
                                 "
