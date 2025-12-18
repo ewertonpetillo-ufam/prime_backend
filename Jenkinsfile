@@ -132,6 +132,10 @@ pipeline {
                                     fi
                                     echo ''
                                     echo '🚀 Executando SonarQube Scanner...'
+                                    # Remover sonar.tests do properties se causar problema
+                                    if [ -f 'sonar-project.properties' ]; then
+                                        sed -i '/^sonar.tests=/d' sonar-project.properties || true
+                                    fi
                                     npx --yes @sonar/scan \
                                         -Dsonar.host.url=https://prime.icomp.ufam.edu.br/sonar \
                                         -Dsonar.token=${SONAR_TOKEN} \
@@ -143,6 +147,9 @@ pipeline {
                             # Copiar arquivos necessários para o container
                             echo "📦 Copiando arquivos do projeto para o container..."
                             docker cp "$WORKSPACE_DIR/src" "$CONTAINER_NAME:/workspace/"
+                            if [ -d "$WORKSPACE_DIR/test" ]; then
+                                docker cp "$WORKSPACE_DIR/test" "$CONTAINER_NAME:/workspace/" || echo "⚠️ Não foi possível copiar diretório test"
+                            fi
                             docker cp "$WORKSPACE_DIR/sonar-project.properties" "$CONTAINER_NAME:/workspace/" 2>/dev/null || echo "⚠️ sonar-project.properties não encontrado, usando parâmetros padrão"
                             
                             # Executar o container
