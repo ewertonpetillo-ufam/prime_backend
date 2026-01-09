@@ -385,5 +385,19 @@ export class QuestionnairesController {
   async getCompletedQuestionnairesStatisticsLast30Days() {
     return this.questionnairesService.getCompletedQuestionnairesStatisticsLast30Days();
   }
+
+  @Post('medications/update-reference')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update medications reference table',
+    description: 'Updates medications reference table with new standard drugs and deactivates old ones',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Medications reference updated successfully',
+  })
+  async updateMedicationsReference() {
+    return this.questionnairesService.updateMedicationsReference();
+  }
 }
 
