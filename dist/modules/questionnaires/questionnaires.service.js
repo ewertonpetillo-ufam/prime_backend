@@ -723,7 +723,7 @@ let QuestionnairesService = class QuestionnairesService {
             'hoehn_yahr_stage_id salvo': savedClinicalAssessment.hoehn_yahr_stage_id,
             'tipo hoehn_yahr_stage_id': typeof savedClinicalAssessment.hoehn_yahr_stage_id,
         });
-        if (dto.medications && Array.isArray(dto.medications) && dto.medications.length > 0) {
+        if (dto.medications && Array.isArray(dto.medications)) {
             await this.patientMedicationRepository.delete({
                 questionnaire_id: dto.questionnaireId,
             });
@@ -1364,37 +1364,33 @@ let QuestionnairesService = class QuestionnairesService {
             }
             const medicationMap = new Map(medicationRefs.map(ref => [ref.id, ref]));
             const STANDARD_DRUGS = [
-                'Amantadine',
-                'Apomorphine',
-                'Azilect',
-                'Bromocriptine',
-                'Cabergoline',
-                'Duodopa',
-                'Levodopa',
-                'Levodopa CR',
-                'Levodopa with Entacapone',
-                'Levodopa with Tolcapone',
-                'Lisuride',
-                'Madopar',
-                'Mirapex',
-                'Pergolide',
-                'Pramipexole',
-                'Rasagiline',
-                'Requip',
-                'RequipXL',
-                'Ropinirole',
-                'RopiniroleCR',
-                'Rotigotine',
-                'Rytary',
-                'Selegiline Oral',
-                'Selegiline Sublingual',
-                'Sinemet',
-                'Sinemet CR',
-                'Stalevo',
+                'Levodopa / Carbidopa',
+                'Levodopa / Benserazida BD',
+                'Levodopa / Benserazida',
+                'Levodopa / Benserazida HBS',
+                'Levodopa / Benserazida DR',
+                'Levodopa / Carbidopa / Entacapona',
+                'Entacapone',
+                'Rasagilina',
+                'Safinamida',
+                'Amantadina',
+                'Pramipexol',
             ];
+            const DRUG_NAME_MAPPING = {
+                'Sinemet': 'Levodopa / Carbidopa',
+                'Madopar': 'Levodopa / Benserazida',
+                'Stalevo': 'Levodopa / Carbidopa / Entacapona',
+                'Pramipexole': 'Pramipexol',
+                'Rasagiline': 'Rasagilina',
+                'Amantadine': 'Amantadina',
+                'Entacapone': 'Entacapone',
+            };
             formData.medications = medications.map(med => {
                 const medRef = medicationMap.get(med.medication_id);
-                const drugName = medRef?.drug_name || '';
+                let drugName = medRef?.drug_name || '';
+                if (drugName && DRUG_NAME_MAPPING[drugName]) {
+                    drugName = DRUG_NAME_MAPPING[drugName];
+                }
                 const doseMg = typeof med.dose_mg === 'string'
                     ? parseFloat(med.dose_mg)
                     : Number(med.dose_mg) || 0;
@@ -1405,13 +1401,23 @@ let QuestionnairesService = class QuestionnairesService {
                     ? parseFloat(med.led_conversion_factor)
                     : Number(med.led_conversion_factor) || 0;
                 const ledValue = doseMg * conversionFactor * dosesPerDay;
-                const isCustomDrug = drugName && !STANDARD_DRUGS.includes(drugName);
+                const isCustomDrug = drugName ? !STANDARD_DRUGS.includes(drugName) : true;
+                const finalDrug = isCustomDrug ? 'Outro' : (drugName || '');
+                if (!drugName || isCustomDrug) {
+                    console.log('🔍 Medication mapping:', {
+                        originalName: medRef?.drug_name,
+                        mappedName: drugName,
+                        isCustom: isCustomDrug,
+                        finalDrug,
+                        inStandardList: STANDARD_DRUGS.includes(drugName),
+                    });
+                }
                 return {
-                    drug: isCustomDrug ? 'Outro' : drugName,
+                    drug: finalDrug,
                     doseMg: doseMg > 0 ? String(doseMg) : '',
                     qtDose: dosesPerDay > 0 ? String(dosesPerDay) : '1',
                     led: ledValue > 0 ? String(Math.round(ledValue)) : '0',
-                    customDrugName: isCustomDrug ? drugName : '',
+                    customDrugName: isCustomDrug && drugName ? drugName : '',
                     customConversionFactor: isCustomDrug ? String(conversionFactor) : '',
                 };
             });
@@ -2374,6 +2380,60 @@ let QuestionnairesService = class QuestionnairesService {
                     }))
                     : 0,
             },
+        };
+    }
+    async updateMedicationsReference() {
+        const NEW_STANDARD_DRUGS = [
+            { name: 'Levodopa / Carbidopa', factor: 1, class: 'Levodopa' },
+            { name: 'Levodopa / Benserazida BD', factor: 1, class: 'Levodopa' },
+            { name: 'Levodopa / Benserazida', factor: 1, class: 'Levodopa' },
+            { name: 'Levodopa / Benserazida HBS', factor: 0.75, class: 'Levodopa' },
+            { name: 'Levodopa / Benserazida DR', factor: 0.75, class: 'Levodopa' },
+            { name: 'Levodopa / Carbidopa / Entacapona', factor: 1, class: 'Levodopa' },
+            { name: 'Entacapone', factor: 1, class: 'COMT Inhibitor' },
+            { name: 'Rasagilina', factor: 1, class: 'MAO-B Inhibitor' },
+            { name: 'Safinamida', factor: 1, class: 'MAO-B Inhibitor' },
+            { name: 'Amantadina', factor: 1, class: 'NMDA Antagonist' },
+            { name: 'Pramipexol', factor: 1, class: 'Dopamine Agonist' },
+        ];
+        const results = {
+            created: [],
+            updated: [],
+            errors: [],
+        };
+        for (const drug of NEW_STANDARD_DRUGS) {
+            try {
+                let medication = await this.medicationReferenceRepository.findOne({
+                    where: { drug_name: drug.name },
+                });
+                if (medication) {
+                    medication.led_conversion_factor = drug.factor;
+                    medication.active = true;
+                    medication.medication_class = drug.class;
+                    await this.medicationReferenceRepository.save(medication);
+                    results.updated.push(drug.name);
+                }
+                else {
+                    medication = this.medicationReferenceRepository.create({
+                        drug_name: drug.name,
+                        led_conversion_factor: drug.factor,
+                        active: true,
+                        medication_class: drug.class,
+                    });
+                    await this.medicationReferenceRepository.save(medication);
+                    results.created.push(drug.name);
+                }
+            }
+            catch (error) {
+                console.error(`Error processing medication ${drug.name}:`, error);
+                results.errors.push(`${drug.name}: ${error.message}`);
+            }
+        }
+        return {
+            message: 'Medications reference updated successfully',
+            results,
+            totalProcessed: NEW_STANDARD_DRUGS.length,
+            success: results.errors.length === 0,
         };
     }
 };

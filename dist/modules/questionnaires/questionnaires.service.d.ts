@@ -487,4 +487,14 @@ export declare class QuestionnairesService {
             foundByAlternativeHash: number;
         };
     }>;
+    updateMedicationsReference(): Promise<{
+        message: string;
+        results: {
+            created: string[];
+            updated: string[];
+            errors: string[];
+        };
+        totalProcessed: number;
+        success: boolean;
+    }>;
 }

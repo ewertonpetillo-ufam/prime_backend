@@ -422,4 +422,14 @@ export declare class QuestionnairesController {
         date: string;
         count: number;
     }[]>;
+    updateMedicationsReference(): Promise<{
+        message: string;
+        results: {
+            created: string[];
+            updated: string[];
+            errors: string[];
+        };
+        totalProcessed: number;
+        success: boolean;
+    }>;
 }

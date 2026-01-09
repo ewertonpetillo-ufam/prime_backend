@@ -95,6 +95,9 @@ let QuestionnairesController = class QuestionnairesController {
     async getCompletedQuestionnairesStatisticsLast30Days() {
         return this.questionnairesService.getCompletedQuestionnairesStatisticsLast30Days();
     }
+    async updateMedicationsReference() {
+        return this.questionnairesService.updateMedicationsReference();
+    }
 };
 exports.QuestionnairesController = QuestionnairesController;
 __decorate([
@@ -484,6 +487,21 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], QuestionnairesController.prototype, "getCompletedQuestionnairesStatisticsLast30Days", null);
+__decorate([
+    (0, common_1.Post)('medications/update-reference'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Update medications reference table',
+        description: 'Updates medications reference table with new standard drugs and deactivates old ones',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Medications reference updated successfully',
+    }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], QuestionnairesController.prototype, "updateMedicationsReference", null);
 exports.QuestionnairesController = QuestionnairesController = __decorate([
     (0, swagger_1.ApiTags)('Questionnaires'),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),

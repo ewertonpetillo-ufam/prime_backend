@@ -48,22 +48,37 @@ let BinaryCollectionsService = class BinaryCollectionsService {
         if (!file || !file.buffer) {
             throw new common_1.BadRequestException('File is required');
         }
+        let questionnaire = await this.questionnairesRepository
+            .createQueryBuilder('q')
+            .where('q.patient_id = :patientId', { patientId: patient.id })
+            .andWhere('q.status IN (:...statuses)', { statuses: ['in_progress', 'completed'] })
+            .orderBy('q.created_at', 'DESC')
+            .getOne();
+        if (!questionnaire) {
+            questionnaire = await this.questionnairesRepository
+                .createQueryBuilder('q')
+                .where('q.patient_id = :patientId', { patientId: patient.id })
+                .orderBy('q.created_at', 'DESC')
+                .getOne();
+        }
         const binaryCollection = this.binaryCollectionsRepository.create({
             patient_cpf_hash: cpf_hash,
             task_id: activeTask.id,
+            questionnaire_id: questionnaire?.id || null,
             csv_data: file.buffer,
             file_size_bytes: file.size,
             repetitions_count: 1,
             collection_type: activeTask.task_category ? activeTask.task_category : null,
             collected_at: new Date(),
             uploaded_at: new Date(),
-            processing_status: binary_collection_entity_1.ProcessingStatus.PENDING,
+            processing_status: binary_collection_entity_1.ProcessingStatus.COMPLETED,
             metadata: {
                 uploaded_at: new Date().toISOString(),
                 patient_id: patient.id,
                 task_code: task_code,
                 file_name: file.originalname,
                 file_format: file.mimetype,
+                questionnaire_id: questionnaire?.id || null,
             },
         });
         const saved = await this.binaryCollectionsRepository.save(binaryCollection);
