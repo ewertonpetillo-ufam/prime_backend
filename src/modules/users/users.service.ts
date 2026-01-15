@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../../entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -15,6 +16,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private configService: ConfigService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -32,7 +34,10 @@ export class UsersService {
     // Generate default password hash if not provided
     let passwordHash = createUserDto.password_hash;
     if (!passwordHash) {
-      const defaultPassword = 'Prime2025';
+      const defaultPassword = this.configService.get<string>('DEFAULT_USER_PASSWORD');
+      if (!defaultPassword) {
+        throw new Error('DEFAULT_USER_PASSWORD não configurada. Configure a variável de ambiente.');
+      }
       const saltRounds = 10;
       passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
     }
@@ -112,7 +117,10 @@ export class UsersService {
 
   async resetPassword(id: string): Promise<User> {
     const user = await this.findOne(id);
-    const defaultPassword = 'Prime2025';
+    const defaultPassword = this.configService.get<string>('DEFAULT_USER_PASSWORD');
+    if (!defaultPassword) {
+      throw new Error('DEFAULT_USER_PASSWORD não configurada. Configure a variável de ambiente.');
+    }
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(defaultPassword, saltRounds);
     user.password_hash = passwordHash;
