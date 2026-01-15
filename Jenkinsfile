@@ -47,6 +47,9 @@ pipeline {
         SWAGGER_USERNAME = credentials('prime-swagger-username')
         SWAGGER_PASSWORD = credentials('prime-swagger-password')
         
+        // Default User Password
+        DEFAULT_USER_PASSWORD = credentials('prime-default-user-password')
+        
         // CORS
         CORS_ORIGIN = 'http://nextjs-prime:3000,https://prime.icomp.ufam.edu.br'
     }
@@ -205,6 +208,9 @@ HMAC_SECRET=${HMAC_SECRET}
 ENABLE_SWAGGER=${ENABLE_SWAGGER}
 SWAGGER_USERNAME=${SWAGGER_USERNAME}
 SWAGGER_PASSWORD=${SWAGGER_PASSWORD}
+
+# Default User Password
+DEFAULT_USER_PASSWORD=${DEFAULT_USER_PASSWORD}
 
 # CORS
 CORS_ORIGIN=${CORS_ORIGIN}
