@@ -33,8 +33,8 @@ export class PdfReportsController {
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Upload de relatório PDF',
-    description: 'Armazena um relatório PDF associado a um questionário',
+    summary: 'Upload de relatório de arquivo',
+    description: 'Armazena um arquivo associado a um questionário (PDF, ZIP, CSV, TXT, EDF, etc.)',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -69,15 +69,15 @@ export class PdfReportsController {
   @Get(':id/download')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Download de relatório PDF',
-    description: 'Retorna o arquivo PDF original para download',
+    summary: 'Download de relatório de arquivo',
+    description: 'Retorna o arquivo original para download',
   })
   @ApiResponse({ status: 200, description: 'Relatório retornado com sucesso' })
   @ApiResponse({ status: 404, description: 'Relatório não encontrado' })
   async downloadReport(@Param('id') id: string, @Res() res: Response) {
     const report = await this.pdfReportsService.getReportById(id);
-    const mimeType = report.mime_type || 'application/pdf';
-    const dispositionFileName = encodeURIComponent(report.file_name || 'relatorio.pdf');
+    const mimeType = report.mime_type || 'application/octet-stream';
+    const dispositionFileName = encodeURIComponent(report.file_name || 'relatorio');
 
     res.set({
       'Content-Type': mimeType,
