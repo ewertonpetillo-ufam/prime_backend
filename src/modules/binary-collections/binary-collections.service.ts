@@ -25,7 +25,7 @@ export class BinaryCollectionsService {
   ) {}
 
   /**
-   * Upload CSV file from mobile collection app
+   * Upload de arquivo binário (CSV, áudio, etc.) enviado pelo app de coleta
    * @param patient_cpf - Plain text CPF
    * @param task_code - Task code (e.g., TA1, TA2, TA3)
    * @param file - Multer file object
@@ -195,11 +195,13 @@ export class BinaryCollectionsService {
   }
 
   /**
-   * Get binary collection CSV data for download
+   * Obtém o binário da coleção (CSV, áudio, etc.) para download
    * @param id - Binary collection UUID
-   * @returns Buffer containing the CSV file data
+   * @returns Buffer contendo o arquivo binário, nome do arquivo e content-type
    */
-  async downloadCsv(id: string): Promise<{ buffer: Buffer; filename: string }> {
+  async downloadCsv(
+    id: string,
+  ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const collection = await this.binaryCollectionsRepository.findOne({
       where: { id },
       select: ['id', 'csv_data', 'metadata'],
@@ -210,17 +212,22 @@ export class BinaryCollectionsService {
     }
 
     if (!collection.csv_data) {
-      throw new NotFoundException(`CSV data not found for binary collection ${id}`);
+      throw new NotFoundException(
+        `Binary data not found for binary collection ${id}`,
+      );
     }
 
     // Get filename from metadata or generate a default one
     const filename =
-      collection.metadata?.file_name ||
-      `binary-collection-${id}.csv`;
+      collection.metadata?.file_name || `binary-collection-${id}.bin`;
+
+    const contentType =
+      (collection.metadata?.file_format as string) || 'application/octet-stream';
 
     return {
       buffer: collection.csv_data,
       filename,
+      contentType,
     };
   }
 

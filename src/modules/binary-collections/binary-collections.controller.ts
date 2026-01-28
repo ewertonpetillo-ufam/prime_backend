@@ -39,10 +39,10 @@ export class BinaryCollectionsController {
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Upload CSV file from collection app',
+    summary: 'Upload de arquivo binário do app de coleta',
     description:
-      'Receives CPF (plain text), task code (e.g., TA1), and CSV file. ' +
-      'The CPF will be hashed with HMAC to find the patient, then the binary file will be stored.',
+      'Recebe CPF (texto puro), código da tarefa (ex.: TA1) e um arquivo binário (CSV, áudio, etc.). ' +
+      'O CPF será hasheado com HMAC para localizar o paciente, e o arquivo binário será armazenado.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -63,7 +63,7 @@ export class BinaryCollectionsController {
         file: {
           type: 'string',
           format: 'binary',
-          description: 'CSV file',
+          description: 'Arquivo binário (CSV, áudio, etc.)',
         },
       },
     },
@@ -164,17 +164,18 @@ export class BinaryCollectionsController {
   }
 
   @Get(':id/download')
-  @Header('Content-Type', 'text/csv')
   @ApiOperation({
-    summary: 'Download binary collection CSV file',
-    description: 'Downloads the CSV file associated with the binary collection',
+    summary: 'Download de arquivo da coleção binária',
+    description:
+      'Faz o download do arquivo binário associado à coleção (CSV, áudio, etc.). ' +
+      'O content-type é retornado conforme o tipo de arquivo armazenado.',
   })
   @ApiParam({ name: 'id', description: 'Binary collection UUID' })
   @ApiResponse({
     status: 200,
-    description: 'CSV file downloaded successfully',
+    description: 'Arquivo binário baixado com sucesso',
     content: {
-      'text/csv': {
+      'application/octet-stream': {
         schema: {
           type: 'string',
           format: 'binary',
@@ -184,12 +185,13 @@ export class BinaryCollectionsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Binary collection not found or CSV data not available',
+    description: 'Binary collection não encontrada ou dados binários indisponíveis',
   })
   async downloadCsv(@Param('id', ParseUUIDPipe) id: string) {
-    const { buffer, filename } = await this.binaryCollectionsService.downloadCsv(id);
+    const { buffer, filename, contentType } =
+      await this.binaryCollectionsService.downloadCsv(id);
     return new StreamableFile(buffer, {
-      type: 'text/csv',
+      type: contentType,
       disposition: `attachment; filename="${filename}"`,
     });
   }
