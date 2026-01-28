@@ -20,7 +20,7 @@ export class PdfReportsService {
     uploadedBy?: string,
   ) {
     if (!file) {
-      throw new BadRequestException('Arquivo PDF é obrigatório');
+      throw new BadRequestException('Arquivo é obrigatório');
     }
 
     const questionnaire = await this.questionnaireRepository.findOne({
@@ -36,7 +36,7 @@ export class PdfReportsService {
       report_type: dto.reportType,
       file_name: file.originalname,
       file_size_bytes: file.size,
-      mime_type: file.mimetype || 'application/pdf',
+      mime_type: file.mimetype || 'application/octet-stream',
       file_data: file.buffer,
       notes: dto.notes || null,
       uploaded_by: uploadedBy || null,
