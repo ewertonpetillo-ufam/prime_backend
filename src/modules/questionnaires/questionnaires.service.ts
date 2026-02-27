@@ -2124,7 +2124,7 @@ export class QuestionnairesService {
       'cpf_hash',
       'data_coleta',
       'nome_avaliador',
-      'birthday',
+      // removido: birthday (data de nascimento)
       'age',
       'gender',
       'etnia',
@@ -2189,7 +2189,6 @@ export class QuestionnairesService {
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.dataColeta || '',
       evaluatorFirstName,
-      data.data?.birthday || '',
       data.data?.age || '',
       data.data?.gender || '',
       data.data?.etnia || '',
