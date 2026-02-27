@@ -2117,10 +2117,10 @@ export class QuestionnairesService {
   private generateDemographicAnthropometricClinicalCsv(data: any): string {
     const rows: string[] = [];
     
-    // Header
+    // Header (sem telefones e e-mail)
     const headers = [
       'questionnaire_id',
-      'patient_name',
+      'patient_name', // apenas primeiro nome
       'cpf_hash',
       'data_coleta',
       'nome_avaliador',
@@ -2133,9 +2133,7 @@ export class QuestionnairesService {
       'education_other',
       'marital_status',
       'occupation',
-      'phone_number',
-      'phone_number_contact',
-      'email',
+      // removidos: phone_number, phone_number_contact, email
       'fuma_case',
       'fumou_antes',
       'smoking_duration',
@@ -2180,12 +2178,17 @@ export class QuestionnairesService {
     rows.push(headers.join(','));
 
     // Data row
+    const fullName: string = data.data?.fullName || '';
+    const firstName: string = fullName.split(' ')[0] || '';
+    const evaluatorFullName: string = data.data?.nomeAvaliador || '';
+    const evaluatorFirstName: string = evaluatorFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      firstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.dataColeta || '',
-      data.data?.nomeAvaliador || '',
+      evaluatorFirstName,
       data.data?.birthday || '',
       data.data?.age || '',
       data.data?.gender || '',
@@ -2195,9 +2198,7 @@ export class QuestionnairesService {
       data.data?.educationOther || '',
       data.data?.maritalStatus || '',
       data.data?.occupation || '',
-      data.data?.phoneNumber || '',
-      data.data?.phoneNumberContact || '',
-      data.data?.email || '',
+      // telefones e e-mail removidos
       data.data?.fumaCase || '',
       data.data?.fumouAntes || '',
       data.data?.smokingDuration || '',
@@ -2361,9 +2362,12 @@ export class QuestionnairesService {
     const meem = data.data?.meemScores || {};
     const udysrs = data.data?.udysrsScores || {};
     
+    const speechFullName: string = data.data?.fullName || '';
+    const speechFirstName: string = speechFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      speechFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreUPDRS3 || '',
       updrs3.speech || '',
@@ -2504,9 +2508,12 @@ export class QuestionnairesService {
 
     // Data row - NMF data would need to be added to the questionnaire structure
     const nmf = data.data?.nmfScores || {};
+    const nmfFullName: string = data.data?.fullName || '';
+    const nmfFirstName: string = nmfFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      nmfFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreNMF || '',
       nmf.q1 || '',
@@ -2592,9 +2599,12 @@ export class QuestionnairesService {
     rows.push(headers.join(','));
 
     // Data row
+    const stopFullName: string = data.data?.fullName || '';
+    const stopFirstName: string = stopFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      stopFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreStopBang || '',
       data.data?.stopbang_snore || '',
@@ -2668,9 +2678,12 @@ export class QuestionnairesService {
 
     // Data row
     const fogq = data.fogq || {};
+    const fogqFullName: string = data.data?.fullName || '';
+    const fogqFirstName: string = fogqFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      fogqFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreFOGQ || '',
       fogq.gait_worst_state || '',
