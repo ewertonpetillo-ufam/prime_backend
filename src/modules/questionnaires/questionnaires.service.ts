@@ -2117,10 +2117,10 @@ export class QuestionnairesService {
   private generateDemographicAnthropometricClinicalCsv(data: any): string {
     const rows: string[] = [];
     
-    // Header
+    // Header (sem telefones e e-mail)
     const headers = [
       'questionnaire_id',
-      'patient_name',
+      'patient_name', // apenas primeiro nome
       'cpf_hash',
       'data_coleta',
       'nome_avaliador',
@@ -2133,9 +2133,7 @@ export class QuestionnairesService {
       'education_other',
       'marital_status',
       'occupation',
-      'phone_number',
-      'phone_number_contact',
-      'email',
+      // removidos: phone_number, phone_number_contact, email
       'fuma_case',
       'fumou_antes',
       'smoking_duration',
@@ -2180,12 +2178,17 @@ export class QuestionnairesService {
     rows.push(headers.join(','));
 
     // Data row
+    const fullName: string = data.data?.fullName || '';
+    const firstName: string = fullName.split(' ')[0] || '';
+    const evaluatorFullName: string = data.data?.nomeAvaliador || '';
+    const evaluatorFirstName: string = evaluatorFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      firstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.dataColeta || '',
-      data.data?.nomeAvaliador || '',
+      evaluatorFirstName,
       data.data?.birthday || '',
       data.data?.age || '',
       data.data?.gender || '',
@@ -2195,9 +2198,7 @@ export class QuestionnairesService {
       data.data?.educationOther || '',
       data.data?.maritalStatus || '',
       data.data?.occupation || '',
-      data.data?.phoneNumber || '',
-      data.data?.phoneNumberContact || '',
-      data.data?.email || '',
+      // telefones e e-mail removidos
       data.data?.fumaCase || '',
       data.data?.fumouAntes || '',
       data.data?.smokingDuration || '',
@@ -2361,9 +2362,12 @@ export class QuestionnairesService {
     const meem = data.data?.meemScores || {};
     const udysrs = data.data?.udysrsScores || {};
     
+    const speechFullName: string = data.data?.fullName || '';
+    const speechFirstName: string = speechFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      speechFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreUPDRS3 || '',
       updrs3.speech || '',
@@ -2504,9 +2508,12 @@ export class QuestionnairesService {
 
     // Data row - NMF data would need to be added to the questionnaire structure
     const nmf = data.data?.nmfScores || {};
+    const nmfFullName: string = data.data?.fullName || '';
+    const nmfFirstName: string = nmfFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      nmfFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreNMF || '',
       nmf.q1 || '',
@@ -2592,9 +2599,12 @@ export class QuestionnairesService {
     rows.push(headers.join(','));
 
     // Data row
+    const stopFullName: string = data.data?.fullName || '';
+    const stopFirstName: string = stopFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      stopFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreStopBang || '',
       data.data?.stopbang_snore || '',
@@ -2668,9 +2678,12 @@ export class QuestionnairesService {
 
     // Data row
     const fogq = data.fogq || {};
+    const fogqFullName: string = data.data?.fullName || '';
+    const fogqFirstName: string = fogqFullName.split(' ')[0] || '';
+
     const values = [
       data.id || '',
-      data.data?.fullName || '',
+      fogqFirstName,
       data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreFOGQ || '',
       fogq.gait_worst_state || '',
@@ -2743,26 +2756,42 @@ export class QuestionnairesService {
       .orderBy('bc.collected_at', 'ASC')
       .getMany();
 
-    // Process binary collections - already have csv_data from query
-    const binaryCollectionsWithData = binaryCollections.map((collection) => ({
-      id: collection.id,
-      patient_cpf_hash: collection.patient_cpf_hash,
-      repetitions_count: collection.repetitions_count,
-      task_id: collection.task_id,
-      file_size_bytes: collection.file_size_bytes,
-      file_checksum: collection.file_checksum,
-      collection_type: collection.collection_type,
-      device_type: collection.device_type,
-      device_serial: collection.device_serial,
-      sampling_rate_hz: collection.sampling_rate_hz,
-      collected_at: collection.collected_at,
-      uploaded_at: collection.uploaded_at,
-      metadata: collection.metadata,
-      processing_status: collection.processing_status,
-      processing_error: collection.processing_error,
-      active_task: collection.active_task,
-      csv_data: collection.csv_data ? collection.csv_data.toString('utf-8') : null,
-    }));
+    // Process binary collections - já temos csv_data (Buffer) da query
+    const binaryCollectionsWithData = binaryCollections.map((collection) => {
+      const metadata: any = collection.metadata || {};
+      const mimeType: string =
+        (metadata.file_format as string) ||
+        (metadata.mime_type as string) ||
+        'application/octet-stream';
+
+      return {
+        id: collection.id,
+        patient_cpf_hash: collection.patient_cpf_hash,
+        repetitions_count: collection.repetitions_count,
+        task_id: collection.task_id,
+        file_size_bytes: collection.file_size_bytes,
+        file_checksum: collection.file_checksum,
+        collection_type: collection.collection_type,
+        device_type: collection.device_type,
+        device_serial: collection.device_serial,
+        sampling_rate_hz: collection.sampling_rate_hz,
+        collected_at: collection.collected_at,
+        uploaded_at: collection.uploaded_at,
+        metadata: collection.metadata,
+        processing_status: collection.processing_status,
+        processing_error: collection.processing_error,
+        active_task: collection.active_task,
+        // csv_data em texto (para arquivos texto/CSV)
+        csv_data: collection.csv_data
+          ? collection.csv_data.toString('utf-8')
+          : null,
+        // file_data em base64 para preservar integridade de binários (áudio, etc.)
+        file_data: collection.csv_data
+          ? collection.csv_data.toString('base64')
+          : null,
+        mime_type: mimeType,
+      };
+    });
 
     return {
       questionnaire,
