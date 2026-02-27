@@ -2743,26 +2743,42 @@ export class QuestionnairesService {
       .orderBy('bc.collected_at', 'ASC')
       .getMany();
 
-    // Process binary collections - already have csv_data from query
-    const binaryCollectionsWithData = binaryCollections.map((collection) => ({
-      id: collection.id,
-      patient_cpf_hash: collection.patient_cpf_hash,
-      repetitions_count: collection.repetitions_count,
-      task_id: collection.task_id,
-      file_size_bytes: collection.file_size_bytes,
-      file_checksum: collection.file_checksum,
-      collection_type: collection.collection_type,
-      device_type: collection.device_type,
-      device_serial: collection.device_serial,
-      sampling_rate_hz: collection.sampling_rate_hz,
-      collected_at: collection.collected_at,
-      uploaded_at: collection.uploaded_at,
-      metadata: collection.metadata,
-      processing_status: collection.processing_status,
-      processing_error: collection.processing_error,
-      active_task: collection.active_task,
-      csv_data: collection.csv_data ? collection.csv_data.toString('utf-8') : null,
-    }));
+    // Process binary collections - já temos csv_data (Buffer) da query
+    const binaryCollectionsWithData = binaryCollections.map((collection) => {
+      const metadata: any = collection.metadata || {};
+      const mimeType: string =
+        (metadata.file_format as string) ||
+        (metadata.mime_type as string) ||
+        'application/octet-stream';
+
+      return {
+        id: collection.id,
+        patient_cpf_hash: collection.patient_cpf_hash,
+        repetitions_count: collection.repetitions_count,
+        task_id: collection.task_id,
+        file_size_bytes: collection.file_size_bytes,
+        file_checksum: collection.file_checksum,
+        collection_type: collection.collection_type,
+        device_type: collection.device_type,
+        device_serial: collection.device_serial,
+        sampling_rate_hz: collection.sampling_rate_hz,
+        collected_at: collection.collected_at,
+        uploaded_at: collection.uploaded_at,
+        metadata: collection.metadata,
+        processing_status: collection.processing_status,
+        processing_error: collection.processing_error,
+        active_task: collection.active_task,
+        // csv_data em texto (para arquivos texto/CSV)
+        csv_data: collection.csv_data
+          ? collection.csv_data.toString('utf-8')
+          : null,
+        // file_data em base64 para preservar integridade de binários (áudio, etc.)
+        file_data: collection.csv_data
+          ? collection.csv_data.toString('base64')
+          : null,
+        mime_type: mimeType,
+      };
+    });
 
     return {
       questionnaire,
