@@ -86,6 +86,18 @@ export class Patient {
   @Column({ type: 'boolean', nullable: true, default: false })
   stuttering: boolean;
 
+  @Column({ type: 'boolean', nullable: true })
+  can_read: boolean | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  can_write: boolean | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  dominant_hand: string | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  tcle_signed: boolean | null;
+
   @Column({ type: 'boolean', default: true })
   active: boolean;
 

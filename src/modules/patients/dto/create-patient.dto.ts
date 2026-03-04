@@ -262,4 +262,48 @@ export class CreatePatientDto {
   @IsBoolean()
   @IsOptional()
   stuttering?: boolean;
+
+  @ApiProperty({
+    description: 'Can read',
+    example: true,
+    required: false,
+    default: null,
+    type: Boolean,
+  })
+  @IsBoolean()
+  @IsOptional()
+  can_read?: boolean | null;
+
+  @ApiProperty({
+    description: 'Can write',
+    example: true,
+    required: false,
+    default: null,
+    type: Boolean,
+  })
+  @IsBoolean()
+  @IsOptional()
+  can_write?: boolean | null;
+
+  @ApiProperty({
+    description: 'Dominant hand',
+    example: 'Direita',
+    required: false,
+    maxLength: 20,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(20)
+  dominant_hand?: string;
+
+  @ApiProperty({
+    description: 'Indicates if the patient has a signed TCLE (Termo de Consentimento Livre e Esclarecido)',
+    example: true,
+    required: false,
+    default: null,
+    type: Boolean,
+  })
+  @IsBoolean()
+  @IsOptional()
+  tcle_signed?: boolean | null;
 }
