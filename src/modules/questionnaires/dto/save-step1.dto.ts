@@ -139,9 +139,26 @@ export class SaveStep1Dto {
   @IsOptional()
   gagueja?: string;
 
+  @ApiPropertyOptional({ description: 'Can read', example: 'Sim' })
+  @IsOptional()
+  canRead?: string | boolean;
+
+  @ApiPropertyOptional({ description: 'Can write', example: 'Sim' })
+  @IsOptional()
+  canWrite?: string | boolean;
+
+  @ApiPropertyOptional({ description: 'TCLE assinado (Sim/Não)', example: 'Sim' })
+  @IsOptional()
+  tcleAssinado?: string | boolean;
+
   @ApiPropertyOptional({ description: 'Existing questionnaire ID (if editing)', example: 'uuid' })
   @IsString()
   @IsOptional()
   questionnaireId?: string;
+
+  @ApiPropertyOptional({ description: 'Dominant hand (Direita/Esquerda)', example: 'Direita' })
+  @IsString()
+  @IsOptional()
+  dominantHand?: string;
 }
 
