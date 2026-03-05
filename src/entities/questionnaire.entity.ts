@@ -24,6 +24,7 @@ import { StopbangScore } from './stopbang-score.entity';
 import { EpworthScore } from './epworth-score.entity';
 import { Pdss2Score } from './pdss2-score.entity';
 import { RbdsqScore } from './rbdsq-score.entity';
+import { RbdsqBrScore } from './rbdsq-br-score.entity';
 import { PatientTaskCollection } from './patient-task-collection.entity';
 import { PdfReport } from './pdf-report.entity';
 import { ClinicalImpression } from './clinical-impression.entity';
@@ -142,6 +143,11 @@ export class Questionnaire {
     cascade: true,
   })
   rbdsq_score: RbdsqScore;
+
+  @OneToOne(() => RbdsqBrScore, (rbdsqBr) => rbdsqBr.questionnaire, {
+    cascade: true,
+  })
+  rbdsq_br_score: RbdsqBrScore;
 
   @OneToMany(() => PatientTaskCollection, (task) => task.questionnaire, {
     cascade: true,
