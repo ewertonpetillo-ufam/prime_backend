@@ -32,6 +32,7 @@ import { StopbangScore } from '../../entities/stopbang-score.entity';
 import { EpworthScore } from '../../entities/epworth-score.entity';
 import { Pdss2Score } from '../../entities/pdss2-score.entity';
 import { RbdsqScore } from '../../entities/rbdsq-score.entity';
+import { RbdsqBrScore } from '../../entities/rbdsq-br-score.entity';
 import { FogqScore } from '../../entities/fogq-score.entity';
 import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { PdfReport } from '../../entities/pdf-report.entity';
@@ -42,6 +43,7 @@ import { SaveStopbangDto } from './dto/save-stopbang.dto';
 import { SaveEpworthDto } from './dto/save-epworth.dto';
 import { SavePdss2Dto } from './dto/save-pdss2.dto';
 import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
+import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 
 const UPDRS_SCORE_FIELDS = [
@@ -197,6 +199,24 @@ const RBDSQ_SCORE_FIELDS = [
   'q10_rem_behavior_problem',
 ] as const;
 
+// RBDSQ-BR (nova versão brasileira, tabela separada – rbdsq_br_scores)
+const RBDSQ_BR_SCORE_FIELDS = [
+  'q1_realistic_dreams',
+  'q2_aggressive_dreams',
+  'q3_dream_enactment',
+  'q4_limb_movements',
+  'q5_injury_potential',
+  'q6_1_vocalizations',
+  'q6_2_fighting_movements',
+  'q6_3_complex_movements_or_falls',
+  'q6_4_objects_falling',
+  'q7_movements_cause_awakenings',
+  'q8_dream_recall',
+  'q9_disturbed_sleep',
+  'q10_neurological_disease',
+  'neuro_disease_description',
+] as const;
+
 const FOGQ_SCORE_FIELDS = [
   'gait_worst_state',
   'impact_daily_activities',
@@ -251,6 +271,8 @@ export class QuestionnairesService {
     private pdss2Repository: Repository<Pdss2Score>,
     @InjectRepository(RbdsqScore)
     private rbdsqRepository: Repository<RbdsqScore>,
+    @InjectRepository(RbdsqBrScore)
+    private rbdsqBrRepository: Repository<RbdsqBrScore>,
     @InjectRepository(FogqScore)
     private fogqRepository: Repository<FogqScore>,
     @InjectRepository(BinaryCollection)
@@ -1248,6 +1270,45 @@ export class QuestionnairesService {
   }
 
   /**
+   * Save RBDSQ-BR questionnaire (nova tabela rbdsq_br_scores)
+   */
+  async saveRbdsqBrScores(dto: SaveRbdsqBrDto) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: dto.questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+    }
+
+    let rbdsqBrScore = await this.rbdsqBrRepository.findOne({
+      where: { questionnaire_id: dto.questionnaireId },
+    });
+
+    if (!rbdsqBrScore) {
+      rbdsqBrScore = this.rbdsqBrRepository.create({
+        questionnaire_id: dto.questionnaireId,
+      });
+    }
+
+    this.assignScoreFields(rbdsqBrScore, dto, RBDSQ_BR_SCORE_FIELDS);
+
+    const saved = await this.rbdsqBrRepository.save(rbdsqBrScore);
+
+    // Atualiza last_step para 6 (Avaliação do Sono), sem nunca diminuir
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 6);
+      await this.questionnairesRepository.save(questionnaire);
+    }
+
+    return {
+      questionnaireId: saved.questionnaire_id,
+      totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
    * Save FOGQ scores
    */
   async saveFogqScores(dto: SaveFogqDto) {
@@ -1427,6 +1488,7 @@ export class QuestionnairesService {
       .leftJoinAndSelect('q.epworth_score', 'epworth_score')
       .leftJoinAndSelect('q.pdss2_score', 'pdss2_score')
       .leftJoinAndSelect('q.rbdsq_score', 'rbdsq_score')
+      .leftJoinAndSelect('q.rbdsq_br_score', 'rbdsq_br_score')
       .leftJoinAndSelect('q.fogq_score', 'fogq_score')
       .leftJoinAndSelect('q.pdf_reports', 'pdf_reports')
       .leftJoinAndSelect('q.updrs3_score', 'updrs3_score')
@@ -1963,8 +2025,30 @@ export class QuestionnairesService {
       formData.scorePDSS2 = pdss2.total_score !== null ? String(pdss2.total_score) : '';
     }
 
-    // Carregar protocolos do sono - RBDSQ
-    if (questionnaire.rbdsq_score) {
+    // Carregar protocolos do sono - RBDSQ / RBDSQ-BR
+    if (questionnaire.rbdsq_br_score) {
+      // Nova versão RBDSQ-BR (preferencial)
+      const rbdsq = questionnaire.rbdsq_br_score as any;
+      formData.q1RBDSQ = rbdsq.q1_realistic_dreams !== null && rbdsq.q1_realistic_dreams !== undefined ? (rbdsq.q1_realistic_dreams ? '1' : '0') : '';
+      formData.q2RBDSQ = rbdsq.q2_aggressive_dreams !== null && rbdsq.q2_aggressive_dreams !== undefined ? (rbdsq.q2_aggressive_dreams ? '1' : '0') : '';
+      formData.q3RBDSQ = rbdsq.q3_dream_enactment !== null && rbdsq.q3_dream_enactment !== undefined ? (rbdsq.q3_dream_enactment ? '1' : '0') : '';
+      formData.q4RBDSQ = rbdsq.q4_limb_movements !== null && rbdsq.q4_limb_movements !== undefined ? (rbdsq.q4_limb_movements ? '1' : '0') : '';
+      formData.q5RBDSQ = rbdsq.q5_injury_potential !== null && rbdsq.q5_injury_potential !== undefined ? (rbdsq.q5_injury_potential ? '1' : '0') : '';
+      formData.q6_1RBDSQ = rbdsq.q6_1_vocalizations !== null && rbdsq.q6_1_vocalizations !== undefined ? (rbdsq.q6_1_vocalizations ? '1' : '0') : '';
+      formData.q6_2RBDSQ = rbdsq.q6_2_fighting_movements !== null && rbdsq.q6_2_fighting_movements !== undefined ? (rbdsq.q6_2_fighting_movements ? '1' : '0') : '';
+      formData.q6_3RBDSQ = rbdsq.q6_3_complex_movements_or_falls !== null && rbdsq.q6_3_complex_movements_or_falls !== undefined ? (rbdsq.q6_3_complex_movements_or_falls ? '1' : '0') : '';
+      formData.q6_4RBDSQ = rbdsq.q6_4_objects_falling !== null && rbdsq.q6_4_objects_falling !== undefined ? (rbdsq.q6_4_objects_falling ? '1' : '0') : '';
+      formData.q7RBDSQ = rbdsq.q7_movements_cause_awakenings !== null && rbdsq.q7_movements_cause_awakenings !== undefined ? (rbdsq.q7_movements_cause_awakenings ? '1' : '0') : '';
+      formData.q8RBDSQ = rbdsq.q8_dream_recall !== null && rbdsq.q8_dream_recall !== undefined ? (rbdsq.q8_dream_recall ? '1' : '0') : '';
+      formData.q9RBDSQ = rbdsq.q9_disturbed_sleep !== null && rbdsq.q9_disturbed_sleep !== undefined ? (rbdsq.q9_disturbed_sleep ? '1' : '0') : '';
+      formData.q10RBDSQ = rbdsq.q10_neurological_disease !== null && rbdsq.q10_neurological_disease !== undefined ? (rbdsq.q10_neurological_disease ? '1' : '0') : '';
+      formData.rbdsqNeuroDiseaseDescription =
+        rbdsq.neuro_disease_description !== null && rbdsq.neuro_disease_description !== undefined
+          ? String(rbdsq.neuro_disease_description)
+          : '';
+      formData.scoreRBDSQ = rbdsq.total_score !== null ? String(rbdsq.total_score) : '';
+    } else if (questionnaire.rbdsq_score) {
+      // Versão antiga (deprecated), mantém carregamento para compatibilidade
       const rbdsq = questionnaire.rbdsq_score;
       formData.q1RBDSQ = rbdsq.q1_vivid_dreams !== null && rbdsq.q1_vivid_dreams !== undefined ? (rbdsq.q1_vivid_dreams ? '1' : '0') : '';
       formData.q2RBDSQ = rbdsq.q2_aggressive_content !== null && rbdsq.q2_aggressive_content !== undefined ? (rbdsq.q2_aggressive_content ? '1' : '0') : '';
@@ -2645,11 +2729,15 @@ export class QuestionnairesService {
       'rbdsq_q3',
       'rbdsq_q4',
       'rbdsq_q5',
-      'rbdsq_q6',
+      'rbdsq_q6_1',
+      'rbdsq_q6_2',
+      'rbdsq_q6_3',
+      'rbdsq_q6_4',
       'rbdsq_q7',
       'rbdsq_q8',
       'rbdsq_q9',
       'rbdsq_q10',
+      'rbdsq_neuro_disease_description',
     ];
     rows.push(headers.join(','));
 
@@ -2700,11 +2788,15 @@ export class QuestionnairesService {
       data.data?.q3RBDSQ || '',
       data.data?.q4RBDSQ || '',
       data.data?.q5RBDSQ || '',
-      data.data?.q6RBDSQ || '',
+      data.data?.q6_1RBDSQ || '',
+      data.data?.q6_2RBDSQ || '',
+      data.data?.q6_3RBDSQ || '',
+      data.data?.q6_4RBDSQ || '',
       data.data?.q7RBDSQ || '',
       data.data?.q8RBDSQ || '',
       data.data?.q9RBDSQ || '',
       data.data?.q10RBDSQ || '',
+      data.data?.rbdsqNeuroDiseaseDescription || '',
     ];
     rows.push(this.objectToCsvRow(values));
 

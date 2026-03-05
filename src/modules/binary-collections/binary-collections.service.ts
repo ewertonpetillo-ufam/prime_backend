@@ -11,6 +11,10 @@ import { ActiveTaskDefinition } from '../../entities/active-task-definition.enti
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { CryptoUtil } from '../../utils/crypto.util';
 
+type UploadCsvResponse = Omit<BinaryCollection, 'csv_data' | 'task_id'> & {
+  task_code: string;
+};
+
 @Injectable()
 export class BinaryCollectionsService {
   constructor(
@@ -34,7 +38,7 @@ export class BinaryCollectionsService {
     patient_cpf: string,
     task_code: string,
     file: Express.Multer.File,
-  ): Promise<Omit<BinaryCollection, 'csv_data'>> {
+  ): Promise<UploadCsvResponse> {
     // Validate CPF format
     if (!CryptoUtil.isValidCpfFormat(patient_cpf)) {
       throw new BadRequestException('Invalid CPF format');
@@ -108,10 +112,13 @@ export class BinaryCollectionsService {
 
     const saved = await this.binaryCollectionsRepository.save(binaryCollection);
 
-    // Remove csv_data from response to reduce payload size
-    const { csv_data, ...response } = saved;
+    // Remove csv_data and task_id from response and include task_code instead
+    const { csv_data, task_id, ...response } = saved;
 
-    return response as Omit<BinaryCollection, 'csv_data'>;
+    return {
+      ...response,
+      task_code: activeTask.task_code,
+    } as UploadCsvResponse;
   }
 
   async findAll(): Promise<BinaryCollection[]> {
