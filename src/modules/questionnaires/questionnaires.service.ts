@@ -562,6 +562,7 @@ export class QuestionnairesService {
     const smoked_before = is_current_smoker
       ? true
       : this.normalizeYesNoBoolean(dto.fumouAntes);
+    const tcle_signed = this.normalizeYesNoBoolean(dto.tcleAssinado);
 
     // Create or update patient
     if (patient) {
@@ -587,6 +588,10 @@ export class QuestionnairesService {
         deficiencia_visual: dto.deficienciaVisual === 'Sim',
         hoarseness: dto.rouquidao === 'Sim',
         stuttering: dto.gagueja === 'Sim',
+        can_read: this.normalizeYesNoBoolean(dto.canRead),
+        can_write: this.normalizeYesNoBoolean(dto.canWrite),
+        dominant_hand: dto.dominantHand || null,
+        tcle_signed,
       };
       
       // Update CPF if it's missing (for existing patients that don't have it)
@@ -621,6 +626,10 @@ export class QuestionnairesService {
         deficiencia_visual: dto.deficienciaVisual === 'Sim',
         hoarseness: dto.rouquidao === 'Sim',
         stuttering: dto.gagueja === 'Sim',
+        can_read: this.normalizeYesNoBoolean(dto.canRead),
+        can_write: this.normalizeYesNoBoolean(dto.canWrite),
+        dominant_hand: dto.dominantHand || null,
+        tcle_signed,
       });
     }
 
@@ -639,7 +648,9 @@ export class QuestionnairesService {
         // Update existing questionnaire (even if it's completed, we're editing it)
         questionnaire.collection_date = new Date(dto.dataColeta);
         questionnaire.status = 'in_progress';
-        questionnaire.last_step = 1;
+        // Nunca reduzir o last_step ao editar passos anteriores
+        const currentLastStep = questionnaire.last_step ?? 0;
+        questionnaire.last_step = Math.max(currentLastStep, 1);
         // Atualizar avaliador caso tenha mudado
         questionnaire.evaluator_id = evaluatorId;
         questionnaire = await this.questionnairesRepository.save(questionnaire);
@@ -674,7 +685,9 @@ export class QuestionnairesService {
       // Update existing questionnaire (only if we didn't already update it above)
       questionnaire.collection_date = new Date(dto.dataColeta);
       questionnaire.status = 'in_progress';
-      questionnaire.last_step = 1;
+      // Nunca reduzir o last_step ao editar passos anteriores
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 1);
       // Atualizar avaliador caso tenha mudado
       questionnaire.evaluator_id = evaluatorId;
       questionnaire = await this.questionnairesRepository.save(questionnaire);
@@ -720,8 +733,11 @@ export class QuestionnairesService {
       anthropometricData.abdominal_circumference_cm = dto.abdominal ? parseFloat(String(dto.abdominal)) : anthropometricData.abdominal_circumference_cm;
     }
 
-    // Update questionnaire last_step to 2
-    questionnaire.last_step = 2;
+    // Update questionnaire last_step to 2 (sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 2);
+    }
     await this.questionnairesRepository.save(questionnaire);
 
     return await this.anthropometricDataRepository.save(anthropometricData);
@@ -946,8 +962,11 @@ export class QuestionnairesService {
       }
     }
 
-    // Update questionnaire last_step to 3
-    questionnaire.last_step = 3;
+    // Update questionnaire last_step to 3 (sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 3);
+    }
     await this.questionnairesRepository.save(questionnaire);
 
     return savedClinicalAssessment;
@@ -979,9 +998,12 @@ export class QuestionnairesService {
 
     const saved = await this.updrs3Repository.save(updrsScore);
 
-    // Update questionnaire last_step to 4
-    questionnaire.last_step = 4;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 4 (sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 4);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1015,9 +1037,12 @@ export class QuestionnairesService {
 
     const saved = await this.meemRepository.save(meemScore);
 
-    // Update questionnaire last_step to 4 (Avaliação Neurológica)
-    questionnaire.last_step = 4;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 4 (Avaliação Neurológica, sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 4);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1051,9 +1076,12 @@ export class QuestionnairesService {
 
     const saved = await this.udysrsRepository.save(udysrsScore);
 
-    // Update questionnaire last_step to 4 (Avaliação Neurológica)
-    questionnaire.last_step = 4;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 4 (Avaliação Neurológica, sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 4);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1089,9 +1117,12 @@ export class QuestionnairesService {
 
     const saved = await this.stopbangRepository.save(stopbangScore);
 
-    // Update questionnaire last_step to 6 (Avaliação do Sono)
-    questionnaire.last_step = 6;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 6 (Avaliação do Sono, sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 6);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1125,9 +1156,12 @@ export class QuestionnairesService {
 
     const saved = await this.epworthRepository.save(epworthScore);
 
-    // Update questionnaire last_step to 6 (Avaliação do Sono)
-    questionnaire.last_step = 6;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 6 (Avaliação do Sono, sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 6);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1161,9 +1195,12 @@ export class QuestionnairesService {
 
     const saved = await this.pdss2Repository.save(pdssScore);
 
-    // Update questionnaire last_step to 6 (Avaliação do Sono)
-    questionnaire.last_step = 6;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 6 (Avaliação do Sono, sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 6);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1197,9 +1234,12 @@ export class QuestionnairesService {
 
     const saved = await this.rbdsqRepository.save(rbdsqScore);
 
-    // Update questionnaire last_step to 6 (Avaliação do Sono)
-    questionnaire.last_step = 6;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 6 (Avaliação do Sono, sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 6);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1233,9 +1273,12 @@ export class QuestionnairesService {
 
     const saved = await this.fogqRepository.save(fogqScore);
 
-    // Update questionnaire last_step to 7 (Avaliação Fisioterápica)
-    questionnaire.last_step = 7;
-    await this.questionnairesRepository.save(questionnaire);
+    // Update questionnaire last_step to 7 (Avaliação Fisioterápica, sem nunca diminuir)
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 7);
+      await this.questionnairesRepository.save(questionnaire);
+    }
 
     return {
       questionnaireId: saved.questionnaire_id,
@@ -1565,6 +1608,19 @@ export class QuestionnairesService {
       gagueja: patient.stuttering !== undefined && patient.stuttering !== null
         ? (patient.stuttering ? 'Sim' : 'Não')
         : '',
+      canRead:
+        (patient as any).can_read !== undefined && (patient as any).can_read !== null
+          ? ((patient as any).can_read ? 'Sim' : 'Não')
+          : '',
+      canWrite:
+        (patient as any).can_write !== undefined && (patient as any).can_write !== null
+          ? ((patient as any).can_write ? 'Sim' : 'Não')
+          : '',
+      dominantHand: (patient as any).dominant_hand || '',
+      tcleAssinado:
+        (patient as any).tcle_signed !== undefined && (patient as any).tcle_signed !== null
+          ? ((patient as any).tcle_signed ? 'Sim' : 'Não')
+          : '',
     };
 
     // Dados antropométricos
