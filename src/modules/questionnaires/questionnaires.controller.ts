@@ -26,6 +26,7 @@ import { SaveStopbangDto } from './dto/save-stopbang.dto';
 import { SaveEpworthDto } from './dto/save-epworth.dto';
 import { SavePdss2Dto } from './dto/save-pdss2.dto';
 import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
+import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
@@ -203,19 +204,19 @@ export class QuestionnairesController {
   @Post('rbdsq')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Salvar protocolo RBDSQ',
-    description: 'Persiste as respostas do questionário REM Behavior Disorder Screening',
+    summary: 'Salvar protocolo RBDSQ-BR',
+    description: 'Persiste as respostas da versão brasileira do questionário REM Sleep Behavior Disorder Screening (RBDSQ-BR)',
   })
   @ApiResponse({
     status: 200,
-    description: 'Pontuações RBDSQ salvas com sucesso',
+    description: 'Pontuações RBDSQ-BR salvas com sucesso',
   })
   @ApiResponse({
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveRbdsq(@Body() dto: SaveRbdsqDto) {
-    return this.questionnairesService.saveRbdsqScores(dto);
+  async saveRbdsq(@Body() dto: SaveRbdsqBrDto) {
+    return this.questionnairesService.saveRbdsqBrScores(dto);
   }
 
   @Post('fogq')
