@@ -2256,14 +2256,11 @@ export class QuestionnairesService {
    */
   private generateDemographicAnthropometricClinicalCsv(data: any): string {
     const rows: string[] = [];
-    
-    // Header (sem telefones e e-mail)
+
+    // Header anonimizado (sem nomes, CPF, telefones e e-mail)
     const headers = [
       'questionnaire_id',
-      'patient_name', // apenas primeiro nome
-      'cpf_hash',
       'data_coleta',
-      'nome_avaliador',
       // removido: birthday (data de nascimento)
       'age',
       'gender',
@@ -2318,17 +2315,9 @@ export class QuestionnairesService {
     rows.push(headers.join(','));
 
     // Data row
-    const fullName: string = data.data?.fullName || '';
-    const firstName: string = fullName.split(' ')[0] || '';
-    const evaluatorFullName: string = data.data?.nomeAvaliador || '';
-    const evaluatorFirstName: string = evaluatorFullName.split(' ')[0] || '';
-
     const values = [
       data.id || '',
-      firstName,
-      data.cpfHash || '', // Apenas hash do CPF
       data.data?.dataColeta || '',
-      evaluatorFirstName,
       data.data?.age || '',
       data.data?.gender || '',
       data.data?.etnia || '',
@@ -2389,12 +2378,10 @@ export class QuestionnairesService {
    */
   private generateNeurologicalAssessmentCsv(data: any): string {
     const rows: string[] = [];
-    
-    // Header
+
+    // Header anonimizado (sem nome e CPF)
     const headers = [
       'questionnaire_id',
-      'patient_name',
-      'cpf_hash',
       'updrs3_total_score',
       'updrs3_speech',
       'updrs3_facial_expression',
@@ -2500,14 +2487,12 @@ export class QuestionnairesService {
     const updrs3 = data.data?.updrs3Scores || {};
     const meem = data.data?.meemScores || {};
     const udysrs = data.data?.udysrsScores || {};
-    
+
     const speechFullName: string = data.data?.fullName || '';
     const speechFirstName: string = speechFullName.split(' ')[0] || '';
 
     const values = [
       data.id || '',
-      speechFirstName,
-      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreUPDRS3 || '',
       updrs3.speech || '',
       updrs3.facial_expression || '',
@@ -2617,12 +2602,10 @@ export class QuestionnairesService {
    */
   private generateSpeechTherapyCsv(data: any): string {
     const rows: string[] = [];
-    
-    // Header
+
+    // Header anonimizado (sem nome e CPF)
     const headers = [
       'questionnaire_id',
-      'patient_name',
-      'cpf_hash',
       'nmf_total_score',
       'nmf_q1',
       'nmf_q2',
@@ -2652,8 +2635,6 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
-      nmfFirstName,
-      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreNMF || '',
       nmf.q1 || '',
       nmf.q2 || '',
@@ -2684,12 +2665,10 @@ export class QuestionnairesService {
    */
   private generateSleepAssessmentCsv(data: any): string {
     const rows: string[] = [];
-    
-    // Header
+
+    // Header anonimizado (sem nome e CPF)
     const headers = [
       'questionnaire_id',
-      'patient_name',
-      'cpf_hash',
       'stopbang_total_score',
       'stopbang_snore',
       'stopbang_tired',
@@ -2747,8 +2726,6 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
-      stopFirstName,
-      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreStopBang || '',
       data.data?.stopbang_snore || '',
       data.data?.stopbang_tired || '',
@@ -2808,12 +2785,10 @@ export class QuestionnairesService {
    */
   private generatePhysiotherapyCsv(data: any): string {
     const rows: string[] = [];
-    
-    // Header
+
+    // Header anonimizado (sem nome e CPF)
     const headers = [
       'questionnaire_id',
-      'patient_name',
-      'cpf_hash',
       'fogq_total_score',
       'fogq_gait_worst_state',
       'fogq_impact_daily_activities',
@@ -2830,8 +2805,6 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
-      fogqFirstName,
-      data.cpfHash || '', // Apenas hash do CPF
       data.data?.scoreFOGQ || '',
       fogq.gait_worst_state || '',
       fogq.impact_daily_activities || '',
