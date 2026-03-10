@@ -231,7 +231,7 @@ export class CreatePatientDto {
   active?: boolean;
 
   @ApiProperty({
-    description: 'Visual deficiency',
+    description: 'Visual impairment',
     example: false,
     required: false,
     default: false,
@@ -239,7 +239,7 @@ export class CreatePatientDto {
   })
   @IsBoolean()
   @IsOptional()
-  deficiencia_visual?: boolean;
+  visual_impairment?: boolean;
 
   @ApiProperty({
     description: 'Hoarseness (rouquidão)',

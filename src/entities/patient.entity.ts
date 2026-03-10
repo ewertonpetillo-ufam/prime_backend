@@ -78,7 +78,7 @@ export class Patient {
   smoked_before: boolean;
 
   @Column({ type: 'boolean', nullable: true, default: false })
-  deficiencia_visual: boolean;
+  visual_impairment: boolean;
 
   @Column({ type: 'boolean', nullable: true, default: false })
   hoarseness: boolean;
