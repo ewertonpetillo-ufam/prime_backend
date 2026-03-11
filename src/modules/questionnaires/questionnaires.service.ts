@@ -1422,6 +1422,7 @@ export class QuestionnairesService {
         'patient.full_name',
         'patient.cpf',
         'patient.cpf_hash',
+        'patient.public_identifier',
       ])
       .orderBy('q.created_at', 'DESC')
       .limit(100); // Limitar resultados para melhor performance
@@ -1460,6 +1461,7 @@ export class QuestionnairesService {
       fullName: q.patient?.full_name || '',
       cpf: q.patient?.cpf || '', // CPF em texto para exibição nas telas
       cpfHash: q.patient?.cpf_hash || '', // Hash do CPF para exportações
+      public_identifier: q.patient?.public_identifier || null,
       createdAt: q.created_at,
       updatedAt: q.updated_at,
       completedAt: q.completed_at,
