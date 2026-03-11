@@ -36,12 +36,18 @@ export class PatientsService {
       throw new ConflictException('Patient with this CPF already registered');
     }
 
+    const result = await this.patientsRepository.query(
+      'SELECT generate_patient_identifier() AS identifier',
+    );
+    const public_identifier = result[0]?.identifier;
+
     // Create patient with hashed CPF and plain CPF
     const { cpf, ...patientData } = createPatientDto;
     const patient = this.patientsRepository.create({
       ...patientData,
       cpf_hash,
       cpf, // Store CPF in plain text for retrieval
+      public_identifier,
     });
 
     return this.patientsRepository.save(patient);

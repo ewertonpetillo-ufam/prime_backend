@@ -211,7 +211,7 @@ export class BinaryCollectionsService {
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const collection = await this.binaryCollectionsRepository.findOne({
       where: { id },
-      select: ['id', 'csv_data', 'metadata'],
+      select: ['id', 'csv_data', 'metadata', 'patient_cpf_hash'],
     });
 
     if (!collection) {
@@ -224,9 +224,22 @@ export class BinaryCollectionsService {
       );
     }
 
-    // Get filename from metadata or generate a default one
-    const filename =
+    let filename =
       collection.metadata?.file_name || `binary-collection-${id}.bin`;
+
+    const cpfHash = collection.patient_cpf_hash;
+
+    if (cpfHash) {
+      // Try to resolve patient and use their public_identifier if available
+      const patient = await this.patientsRepository.findOne({
+        where: { cpf_hash: cpfHash },
+      });
+
+      const idPaciente =
+        patient?.public_identifier || `binary-collection-${id}`;
+
+      filename = `Dados_Paciente_${idPaciente}_${cpfHash}.csv`;
+    }
 
     const contentType =
       (collection.metadata?.file_format as string) || 'application/octet-stream';

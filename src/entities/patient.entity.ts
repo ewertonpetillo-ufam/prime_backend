@@ -20,6 +20,9 @@ export class Patient {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', length: 10, nullable: true, unique: true })
+  public_identifier: string;
+
   @Column({ type: 'varchar', length: 128, unique: true })
   cpf_hash: string;
 
