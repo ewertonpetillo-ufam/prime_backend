@@ -1559,7 +1559,7 @@ export class QuestionnairesService {
             'active_task.id',
             'active_task.task_code',
             'active_task.task_name',
-            'active_task.task_description',
+            'active_task.description',
           ])
           .where('bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash', {
             questionnaireId: id,
