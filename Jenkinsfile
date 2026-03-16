@@ -1,5 +1,9 @@
 pipeline {
     agent any
+
+        options {
+        skipDefaultCheckout(true)  // 👈 adicionar aqui
+    }
     
     environment {
         // Git e Pipeline
