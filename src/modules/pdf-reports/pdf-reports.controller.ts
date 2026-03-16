@@ -9,6 +9,7 @@ import {
   Get,
   Param,
   Res,
+  Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -89,6 +90,18 @@ export class PdfReportsController {
     }
 
     res.send(report.file_data ?? Buffer.from([]));
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Excluir relatório de arquivo',
+    description: 'Remove um relatório PDF associado a um questionário',
+  })
+  @ApiResponse({ status: 204, description: 'Relatório excluído com sucesso' })
+  @ApiResponse({ status: 404, description: 'Relatório não encontrado' })
+  async deleteReport(@Param('id') id: string) {
+    await this.pdfReportsService.deleteReport(id);
   }
 }
 

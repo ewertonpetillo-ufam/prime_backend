@@ -58,5 +58,14 @@ export class PdfReportsService {
 
     return report;
   }
+
+  async deleteReport(id: string) {
+    const existing = await this.pdfReportRepository.findOne({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`Relatório com ID ${id} não encontrado`);
+    }
+    await this.pdfReportRepository.delete(id);
+    return { success: true };
+  }
 }
 
