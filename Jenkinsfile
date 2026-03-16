@@ -83,7 +83,7 @@ pipeline {
                     $class: 'GitSCM',
                     branches: [[name: "*/${BRANCH}"]],
                     extensions: [
-                        [$class: 'CloneOption', shallow: true, depth: 1]
+                        [$class: 'CloneOption', shallow: true, depth: 1, noTags: true]
                     ],
                     userRemoteConfigs: [[
                         credentialsId: 'github-token',
