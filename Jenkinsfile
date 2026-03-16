@@ -76,14 +76,23 @@ pipeline {
             }
         }
         
-        stage('Checkout') {
+        stage('Checkout') {          
             steps {
                 echo '📦 Clonando repositório do GitHub...'
-                git branch: "${BRANCH}",
-                    credentialsId: 'github-token',
-                    url: "${GIT_REPO}"
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${BRANCH}"]],
+                    extensions: [
+                        [$class: 'CloneOption', shallow: true, depth: 1]
+                    ],
+                    userRemoteConfigs: [[
+                        credentialsId: 'github-token',
+                        url: "${GIT_REPO}"
+                    ]]
+                ])
             }
         }
+
         
         stage('Verificar Arquivos') {
             steps {
