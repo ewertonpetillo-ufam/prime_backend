@@ -57,6 +57,9 @@ export class ClinicalAssessment {
   @Column({ type: 'int', nullable: true })
   dyskinesia_type_id: number;
 
+  @Column({ type: 'text', nullable: true })
+  dyskinesia_type_codes: string;
+
   @Column({ type: 'boolean', default: false })
   has_freezing_of_gait: boolean;
 
@@ -101,6 +104,9 @@ export class ClinicalAssessment {
 
   @Column({ type: 'text', nullable: true })
   current_symptoms: string;
+
+  @Column({ type: 'text', nullable: true })
+  physio_patient_description: string;
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

@@ -28,6 +28,7 @@ import { SavePdss2Dto } from './dto/save-pdss2.dto';
 import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
 import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
+import { SavePhysioDto } from './dto/save-physio.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Questionnaires')
@@ -235,6 +236,68 @@ export class QuestionnairesController {
   })
   async saveFogq(@Body() dto: SaveFogqDto) {
     return this.questionnairesService.saveFogqScores(dto);
+  }
+
+  @Post('physio')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar avaliação fisioterápica (descrição do paciente)',
+    description: 'Atualiza a descrição fisioterápica do paciente vinculada ao questionário',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avaliação fisioterápica salva com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async savePhysio(@Body() dto: SavePhysioDto) {
+    return this.questionnairesService.savePhysioAssessment(dto);
+  }
+
+  @Post(':id/session/start')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Iniciar sessão de preenchimento do questionário',
+    description:
+      'Registra o início de uma sessão de coleta de dados para um questionário. Se já houver sessão aberta, acumula o tempo até o momento e reinicia.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sessão iniciada com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async startSession(
+    @Param('id') questionnaireId: string,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.startSession(questionnaireId, user.userId);
+  }
+
+  @Post(':id/session/end')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Encerrar sessão de preenchimento do questionário',
+    description:
+      'Encerra a sessão atual de coleta de dados, acumulando o tempo decorrido no campo de tempo de coleta do questionário.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sessão encerrada com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async endSession(
+    @Param('id') questionnaireId: string,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.endSession(questionnaireId, user.userId);
   }
 
   @Get('reference-data')

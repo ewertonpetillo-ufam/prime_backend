@@ -62,6 +62,12 @@ export class Questionnaire {
   @Column({ type: 'timestamp', nullable: true })
   completed_at: Date;
 
+  @Column({ type: 'integer', default: 0 })
+  collection_time_seconds: number;
+
+  @Column({ type: 'timestamp', nullable: true })
+  current_session_started_at: Date | null;
+
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
