@@ -130,10 +130,19 @@ export class SaveStep3Dto {
   @IsOptional()
   fog?: boolean;
 
-  @ApiPropertyOptional({ description: 'FOG classification', example: 'Pico de dose' })
+  @ApiPropertyOptional({ description: 'FOG classification (legacy, single value)', example: 'Pico de dose' })
   @IsString()
   @IsOptional()
   fogClassifcation?: string;
+
+  @ApiPropertyOptional({
+    description: 'Dyskinesia types (multiple values)',
+    example: ['Pico de dose', 'Bifásicas'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsString({ each: true })
+  fogClassifcationList?: string[];
 
   @ApiPropertyOptional({ description: 'Has wearing off', example: false })
   @IsBoolean()

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DeepPartial } from 'typeorm';
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { Patient } from '../../entities/patient.entity';
 import { AnthropometricData } from '../../entities/anthropometric-data.entity';
@@ -45,6 +45,7 @@ import { SavePdss2Dto } from './dto/save-pdss2.dto';
 import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
 import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
+import { SavePhysioDto } from './dto/save-physio.dto';
 
 const UPDRS_SCORE_FIELDS = [
   'speech',
@@ -281,6 +282,45 @@ export class QuestionnairesService {
     private pdfReportRepository: Repository<PdfReport>,
     private patientsService: PatientsService,
   ) {}
+
+  /**
+   * Acumula tempo de sessão corrente no questionário, em segundos.
+   * Se não houver sessão aberta, retorna o questionário sem alterações.
+   */
+  private accumulateSessionTime(
+    questionnaire: Questionnaire,
+    now: Date = new Date(),
+    options?: { endSession?: boolean },
+  ): Questionnaire {
+    const { endSession = false } = options || {};
+
+    if (!questionnaire.current_session_started_at) {
+      return questionnaire;
+    }
+
+    const start = questionnaire.current_session_started_at.getTime();
+    const end = now.getTime();
+    const diffMs = end - start;
+
+    // Ignorar deltas negativos ou absurdamente grandes (ex.: > 8h)
+    const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+    if (diffMs <= 0 || diffMs > EIGHT_HOURS_MS) {
+      if (endSession) {
+        questionnaire.current_session_started_at = null;
+      } else {
+        questionnaire.current_session_started_at = now;
+      }
+      return questionnaire;
+    }
+
+    const deltaSeconds = Math.floor(diffMs / 1000);
+    const currentTotal = questionnaire.collection_time_seconds || 0;
+    questionnaire.collection_time_seconds = currentTotal + deltaSeconds;
+
+    questionnaire.current_session_started_at = endSession ? null : now;
+
+    return questionnaire;
+  }
 
   private assignScoreFields(
     target: Record<string, any>,
@@ -712,6 +752,7 @@ export class QuestionnairesService {
       questionnaire.last_step = Math.max(currentLastStep, 1);
       // Atualizar avaliador caso tenha mudado
       questionnaire.evaluator_id = evaluatorId;
+      this.accumulateSessionTime(questionnaire, new Date());
       questionnaire = await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -755,12 +796,13 @@ export class QuestionnairesService {
       anthropometricData.abdominal_circumference_cm = dto.abdominal ? parseFloat(String(dto.abdominal)) : anthropometricData.abdominal_circumference_cm;
     }
 
-    // Update questionnaire last_step to 2 (sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 2);
+      this.accumulateSessionTime(questionnaire, new Date());
+      await this.questionnairesRepository.save(questionnaire);
     }
-    await this.questionnairesRepository.save(questionnaire);
 
     return await this.anthropometricDataRepository.save(anthropometricData);
   }
@@ -831,13 +873,25 @@ export class QuestionnairesService {
       phenotype_id = phenotype?.id || null;
     }
 
-    // Map dyskinesia type to ID
+    // Map dyskinesia type(s)
     let dyskinesia_type_id: number | null = null;
-    if (dto.fogClassifcation) {
-      const dyskinesiaType = await this.dyskinesiaTypeRepository.findOne({
-        where: { description: dto.fogClassifcation },
-      });
-      dyskinesia_type_id = dyskinesiaType?.id || null;
+    let dyskinesia_type_codes: string | null = null;
+    const fogList =
+      Array.isArray((dto as any).fogClassifcationList) && (dto as any).fogClassifcationList.length > 0
+        ? (dto as any).fogClassifcationList
+        : dto.fogClassifcation
+          ? [dto.fogClassifcation]
+          : [];
+
+    if (fogList.length > 0) {
+      const dyskinesiaTypes = await this.dyskinesiaTypeRepository.find({
+        where: fogList.map((description: string) => ({ description })),
+      } as any);
+      if (dyskinesiaTypes.length > 0) {
+        dyskinesia_type_id = dyskinesiaTypes[0].id;
+        const descriptions = dyskinesiaTypes.map((dt) => dt.description);
+        dyskinesia_type_codes = JSON.stringify(descriptions);
+      }
     }
 
     // Parse average ON time hours
@@ -884,6 +938,7 @@ export class QuestionnairesService {
         ldopa_onset_time_hours,
         assessed_on_levodopa: dto.levodopaOn || false,
         dyskinesia_type_id,
+        dyskinesia_type_codes,
         comorbidities: dto.comorbidities,
         other_medications: dto.otherMedications,
         has_surgery_history,
@@ -917,6 +972,12 @@ export class QuestionnairesService {
       clinicalAssessment.has_delayed_on = dto.DelayOn || clinicalAssessment.has_delayed_on;
       clinicalAssessment.ldopa_onset_time_hours = ldopa_onset_time_hours || clinicalAssessment.ldopa_onset_time_hours;
       clinicalAssessment.assessed_on_levodopa = dto.levodopaOn || clinicalAssessment.assessed_on_levodopa;
+      if (dyskinesia_type_id !== null) {
+        clinicalAssessment.dyskinesia_type_id = dyskinesia_type_id;
+      }
+      if (dyskinesia_type_codes !== null) {
+        clinicalAssessment.dyskinesia_type_codes = dyskinesia_type_codes;
+      }
       clinicalAssessment.dyskinesia_type_id = dyskinesia_type_id !== null ? dyskinesia_type_id : clinicalAssessment.dyskinesia_type_id;
       clinicalAssessment.comorbidities = dto.comorbidities || clinicalAssessment.comorbidities;
       clinicalAssessment.other_medications = dto.otherMedications || clinicalAssessment.other_medications;
@@ -984,14 +1045,81 @@ export class QuestionnairesService {
       }
     }
 
-    // Update questionnaire last_step to 3 (sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 3);
+      this.accumulateSessionTime(questionnaire, new Date());
+      await this.questionnairesRepository.save(questionnaire);
     }
-    await this.questionnairesRepository.save(questionnaire);
 
     return savedClinicalAssessment;
+  }
+
+  async savePhysioAssessment(dto: SavePhysioDto): Promise<ClinicalAssessment> {
+    const { questionnaireId, physioPatientDescription } = dto;
+
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+    }
+
+    let clinicalAssessment: ClinicalAssessment | null = await this.clinicalAssessmentRepository.findOne({
+      where: { questionnaire_id: questionnaireId },
+    });
+
+    if (!clinicalAssessment) {
+      const payload: DeepPartial<ClinicalAssessment> = {
+        questionnaire_id: questionnaireId,
+        diagnostic_description: '',
+        age_at_onset: null,
+        initial_symptom: null,
+        affected_side: null,
+        phenotype_id: null,
+        hoehn_yahr_stage_id: null,
+        schwab_england_score: null,
+        has_family_history: false,
+        family_kinship_degree: null,
+        has_dyskinesia: false,
+        dyskinesia_interfered: false,
+        dyskinesia_type_id: null,
+        dyskinesia_type_codes: null,
+        has_freezing_of_gait: false,
+        has_wearing_off: false,
+        average_on_time_hours: null,
+        has_delayed_on: false,
+        ldopa_onset_time_hours: null,
+        assessed_on_levodopa: false,
+        has_surgery_history: false,
+        surgery_year: null,
+        surgery_type_id: null,
+        surgery_target: null,
+        comorbidities: null,
+        other_medications: null,
+        disease_evolution: null,
+        current_symptoms: null,
+        physio_patient_description: physioPatientDescription ?? null,
+      };
+      clinicalAssessment = this.clinicalAssessmentRepository.create(payload);
+    } else {
+      clinicalAssessment.physio_patient_description = physioPatientDescription ?? null;
+    }
+
+    const saved = await this.clinicalAssessmentRepository.save(clinicalAssessment);
+
+    // Atualizar passo (clínico) e acumular tempo de sessão
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      // Step clínico principal já é 3; aqui mantemos no mínimo 3
+      questionnaire.last_step = Math.max(currentLastStep, 3);
+      this.accumulateSessionTime(questionnaire, new Date());
+      await this.questionnairesRepository.save(questionnaire);
+    }
+
+    return saved;
   }
 
   /**
@@ -1020,10 +1148,11 @@ export class QuestionnairesService {
 
     const saved = await this.updrs3Repository.save(updrsScore);
 
-    // Update questionnaire last_step to 4 (sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 4);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1059,10 +1188,11 @@ export class QuestionnairesService {
 
     const saved = await this.meemRepository.save(meemScore);
 
-    // Update questionnaire last_step to 4 (Avaliação Neurológica, sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão (Avaliação Neurológica, sem nunca diminuir)
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 4);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1098,10 +1228,11 @@ export class QuestionnairesService {
 
     const saved = await this.udysrsRepository.save(udysrsScore);
 
-    // Update questionnaire last_step to 4 (Avaliação Neurológica, sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão (Avaliação Neurológica, sem nunca diminuir)
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 4);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1139,10 +1270,11 @@ export class QuestionnairesService {
 
     const saved = await this.stopbangRepository.save(stopbangScore);
 
-    // Update questionnaire last_step to 6 (Avaliação do Sono, sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão (Avaliação do Sono, sem nunca diminuir)
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1178,10 +1310,11 @@ export class QuestionnairesService {
 
     const saved = await this.epworthRepository.save(epworthScore);
 
-    // Update questionnaire last_step to 6 (Avaliação do Sono, sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão (Avaliação do Sono, sem nunca diminuir)
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1217,10 +1350,11 @@ export class QuestionnairesService {
 
     const saved = await this.pdss2Repository.save(pdssScore);
 
-    // Update questionnaire last_step to 6 (Avaliação do Sono, sem nunca diminuir)
+    // Atualizar passo e acumular tempo de sessão (Avaliação do Sono, sem nunca diminuir)
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1295,16 +1429,77 @@ export class QuestionnairesService {
 
     const saved = await this.rbdsqBrRepository.save(rbdsqBrScore);
 
-    // Atualiza last_step para 6 (Avaliação do Sono), sem nunca diminuir
+    // Atualiza last_step para 6 (Avaliação do Sono), sem nunca diminuir, e acumula tempo
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
     return {
       questionnaireId: saved.questionnaire_id,
       totalScore: saved.total_score ?? null,
+    };
+  }
+
+  /**
+   * Inicia uma nova sessão de preenchimento do questionário.
+   * Se já houver sessão aberta, acumula o tempo até agora e reinicia o contador.
+   */
+  async startSession(questionnaireId: string, evaluatorId?: string) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+    }
+
+    if (evaluatorId && questionnaire.evaluator_id && questionnaire.evaluator_id !== evaluatorId) {
+      throw new BadRequestException('Este questionário pertence a outro avaliador.');
+    }
+
+    const now = new Date();
+
+    // Se havia uma sessão aberta, acumula o tempo até agora e reinicia
+    this.accumulateSessionTime(questionnaire, now, { endSession: false });
+    questionnaire.current_session_started_at = now;
+
+    const saved = await this.questionnairesRepository.save(questionnaire);
+
+    return {
+      questionnaireId: saved.id,
+      collectionTimeSeconds: saved.collection_time_seconds ?? 0,
+      currentSessionStartedAt: saved.current_session_started_at,
+    };
+  }
+
+  /**
+   * Encerra a sessão corrente de preenchimento, acumulando tempo ao total.
+   */
+  async endSession(questionnaireId: string, evaluatorId?: string) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+    }
+
+    if (evaluatorId && questionnaire.evaluator_id && questionnaire.evaluator_id !== evaluatorId) {
+      throw new BadRequestException('Este questionário pertence a outro avaliador.');
+    }
+
+    const now = new Date();
+    this.accumulateSessionTime(questionnaire, now, { endSession: true });
+
+    const saved = await this.questionnairesRepository.save(questionnaire);
+
+    return {
+      questionnaireId: saved.id,
+      collectionTimeSeconds: saved.collection_time_seconds ?? 0,
+      currentSessionStartedAt: saved.current_session_started_at,
     };
   }
 
@@ -1334,10 +1529,11 @@ export class QuestionnairesService {
 
     const saved = await this.fogqRepository.save(fogqScore);
 
-    // Update questionnaire last_step to 7 (Avaliação Fisioterápica, sem nunca diminuir)
+    // Update questionnaire last_step to 7 (Avaliação Fisioterápica, sem nunca diminuir) e acumular tempo
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 7);
+      this.accumulateSessionTime(questionnaire, new Date());
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1417,6 +1613,7 @@ export class QuestionnairesService {
         'q.created_at',
         'q.updated_at',
         'q.completed_at',
+        'q.collection_time_seconds',
         'q.collection_date',
         'patient.id',
         'patient.full_name',
@@ -1466,6 +1663,7 @@ export class QuestionnairesService {
       updatedAt: q.updated_at,
       completedAt: q.completed_at,
       status: q.status,
+      collectionTimeSeconds: q.collection_time_seconds ?? 0,
       data: null, // Dados completos serão carregados apenas quando necessário
     }));
   }
@@ -1755,15 +1953,31 @@ export class QuestionnairesService {
       formData.diskinectiaPresence = undefined; // Sempre undefined por padrão, só será true se vier do UPDRS3
       formData.fog = clinical.has_freezing_of_gait === true ? true : undefined;
       
-      // Buscar dyskinesia type
-      if (clinical.dyskinesia_type_id) {
+      // Buscar dyskinesia types (lista + legado)
+      let dyskinesiaDescriptions: string[] = [];
+      if (clinical.dyskinesia_type_codes) {
+        try {
+          const parsed = JSON.parse(clinical.dyskinesia_type_codes);
+          if (Array.isArray(parsed)) {
+            dyskinesiaDescriptions = parsed.filter((v) => typeof v === 'string');
+          }
+        } catch {
+          // ignora JSON inválido
+        }
+      }
+
+      if (dyskinesiaDescriptions.length === 0 && clinical.dyskinesia_type_id) {
         const dyskinesiaType = await this.dyskinesiaTypeRepository.findOne({
           where: { id: clinical.dyskinesia_type_id },
         });
-        formData.fogClassifcation = dyskinesiaType?.description || '';
-      } else {
-        formData.fogClassifcation = '';
+        if (dyskinesiaType?.description) {
+          dyskinesiaDescriptions = [dyskinesiaType.description];
+        }
       }
+
+      (formData as any).fogClassifcationList = dyskinesiaDescriptions;
+      formData.fogClassifcation = dyskinesiaDescriptions[0] || '';
+      (formData as any).physioPatientDescription = clinical.physio_patient_description || '';
       
       formData.wearingOff = clinical.has_wearing_off === true ? true : undefined;
       formData.durationWearingOff = clinical.average_on_time_hours
@@ -2198,6 +2412,7 @@ export class QuestionnairesService {
       completedAt: questionnaire.completed_at
         ? questionnaire.completed_at.toISOString().split('T')[0]
         : null,
+      collectionTimeSeconds: questionnaire.collection_time_seconds ?? 0,
       data: {
         ...formData,
         binaryCollections, // Adicionar binary collections ao formData
@@ -2216,23 +2431,148 @@ export class QuestionnairesService {
     };
   }
 
+  private async areAllActiveTasksCompleted(questionnaireId: string): Promise<boolean> {
+    // Critério de conclusão das Tarefas Ativas:
+    // - Para cada task_code que tenha coletas binárias (binary_collections),
+    //   usamos a contagem exata de repetições por tarefa:
+    //     TA5  -> 3 repetições
+    //     TA14 -> 3 repetições
+    //     TA15 -> 2 repetições
+    //     TA16 -> 2 repetições
+    //     TA17 -> 3 repetições
+    //   Para as demais tarefas, exigimos pelo menos 1 repetição.
+    // - Se não houver nenhuma binary_collection associada ao questionário,
+    //   usamos PatientTaskCollection como fallback, exigindo completion_percentage >= 100
+    //   para todas as tasks ligadas ao questionário.
+
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+      relations: ['binary_collections', 'binary_collections.active_task', 'patient', 'task_collections'],
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+    }
+
+    const binaryCollections = Array.isArray((questionnaire as any).binary_collections)
+      ? (questionnaire as any).binary_collections
+      : [];
+
+    if (binaryCollections.length > 0) {
+      const expectedRepetitionsByTaskCode: Record<string, number> = {
+        TA5: 3,
+        TA14: 3,
+        TA15: 2,
+        TA16: 2,
+        TA17: 3,
+      };
+
+      const repetitionsByTaskCode = new Map<string, number>();
+
+      for (const bc of binaryCollections) {
+        const taskCode: string | undefined = bc.active_task?.task_code;
+        if (!taskCode) {
+          continue;
+        }
+        const current = repetitionsByTaskCode.get(taskCode) ?? 0;
+        const reps = typeof bc.repetitions_count === 'number' && bc.repetitions_count > 0
+          ? bc.repetitions_count
+          : 1;
+        repetitionsByTaskCode.set(taskCode, current + reps);
+      }
+
+      // Se não houver task_code associado às coletas, consideramos tarefas não concluídas
+      if (repetitionsByTaskCode.size === 0) {
+        return false;
+      }
+
+      for (const [taskCode, totalReps] of repetitionsByTaskCode.entries()) {
+        const expected = expectedRepetitionsByTaskCode[taskCode] ?? 1;
+        if (totalReps < expected) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    const taskCollections = Array.isArray((questionnaire as any).task_collections)
+      ? (questionnaire as any).task_collections
+      : [];
+
+    if (taskCollections.length === 0) {
+      return false;
+    }
+
+    return taskCollections.every(
+      (tc: any) => typeof tc.completion_percentage === 'number' && tc.completion_percentage >= 100,
+    );
+  }
+
+  private areAllQuestionnaireProtocolsCompleted(questionnaire: Questionnaire): boolean {
+    // Consideramos protocolos concluídos quando existem registros associados
+    // às relações de score/avaliação do questionário. Como cada protocolo é salvo
+    // em tabela própria, a presença do objeto já indica que o protocolo foi preenchido.
+
+    const sleepProtocolsCompleted =
+      !!questionnaire.stopbang_score &&
+      !!questionnaire.epworth_score &&
+      !!questionnaire.pdss2_score &&
+      !!questionnaire.rbdsq_score;
+
+    const neurologicalProtocolsCompleted =
+      !!questionnaire.updrs3_score &&
+      !!questionnaire.meem_score &&
+      !!questionnaire.udysrs_score;
+
+    const physiotherapyProtocolsCompleted = !!questionnaire.fogq_score;
+
+    // Aqui assumimos que todos esses protocolos são obrigatórios
+    return (
+      sleepProtocolsCompleted &&
+      neurologicalProtocolsCompleted &&
+      physiotherapyProtocolsCompleted
+    );
+  }
+
   async finalizeQuestionnaire(id: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id },
+      relations: [
+        'patient',
+        'binary_collections',
+        'task_collections',
+        'updrs3_score',
+        'meem_score',
+        'udysrs_score',
+        'stopbang_score',
+        'epworth_score',
+        'pdss2_score',
+        'rbdsq_score',
+        'fogq_score',
+      ],
     });
 
     if (!questionnaire) {
       throw new NotFoundException(`Questionnaire with ID ${id} not found`);
     }
 
-    // Se já está finalizado, retornar sem fazer nada (evita duplicação)
     if (questionnaire.status === 'completed') {
       return questionnaire;
     }
 
+    const allTasksDone = await this.areAllActiveTasksCompleted(id);
+    const allProtocolsDone = this.areAllQuestionnaireProtocolsCompleted(questionnaire);
+
+    if (!allTasksDone || !allProtocolsDone) {
+      throw new BadRequestException(
+        'O questionário ainda possui Tarefas Ativas ou protocolos pendentes. Conclua todas as coletas e protocolos antes de finalizar.',
+      );
+    }
+
     questionnaire.status = 'completed';
     questionnaire.completed_at = new Date();
-    questionnaire.last_step = 8; // Passo final
+    questionnaire.last_step = 8;
 
     return this.questionnairesRepository.save(questionnaire);
   }
