@@ -46,6 +46,7 @@ import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
 import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { SavePhysioDto } from './dto/save-physio.dto';
+import { PdfReportsService } from '../pdf-reports/pdf-reports.service';
 
 const UPDRS_SCORE_FIELDS = [
   'speech',
@@ -281,6 +282,7 @@ export class QuestionnairesService {
     @InjectRepository(PdfReport)
     private pdfReportRepository: Repository<PdfReport>,
     private patientsService: PatientsService,
+    private pdfReportsService: PdfReportsService,
   ) {}
 
   /**
@@ -2324,14 +2326,23 @@ export class QuestionnairesService {
     }
 
     const pdfReports = Array.isArray(questionnaire.pdf_reports)
-      ? questionnaire.pdf_reports.map((report) => ({
-          id: report.id,
-          reportType: report.report_type,
-          fileName: report.file_name,
-          fileSizeBytes: report.file_size_bytes,
-          uploadedAt: report.uploaded_at,
-          notes: report.notes,
-        }))
+      ? await Promise.all(
+          questionnaire.pdf_reports.map(async (report) => {
+            const fileDownloadUrl = await this.pdfReportsService.getPresignedDownloadUrl(
+              report.file_path,
+            );
+            return {
+              id: report.id,
+              reportType: report.report_type,
+              fileName: report.file_name,
+              fileSizeBytes: report.file_size_bytes,
+              uploadedAt: report.uploaded_at,
+              notes: report.notes,
+              filePath: report.file_path ?? null,
+              fileDownloadUrl,
+            };
+          }),
+        )
       : [];
 
     if (pdfReports.length > 0) {
@@ -3181,16 +3192,25 @@ export class QuestionnairesService {
       .where('report.questionnaire_id = :questionnaireId', { questionnaireId })
       .getMany();
 
-    const pdfReports = pdfReportsWithData.map((report) => ({
-      id: report.id,
-      report_type: report.report_type,
-      file_name: report.file_name,
-      file_size_bytes: report.file_size_bytes,
-      mime_type: report.mime_type,
-      uploaded_at: report.uploaded_at,
-      notes: report.notes,
-      file_data: report.file_data ? report.file_data.toString('base64') : null,
-    }));
+    const pdfReports = await Promise.all(
+      pdfReportsWithData.map(async (report) => {
+        const buffer = await this.pdfReportsService.readStoredFileBuffer({
+          file_path: report.file_path,
+          file_data: report.file_data,
+        });
+        return {
+          id: report.id,
+          report_type: report.report_type,
+          file_name: report.file_name,
+          file_size_bytes: report.file_size_bytes,
+          mime_type: report.mime_type,
+          uploaded_at: report.uploaded_at,
+          notes: report.notes,
+          file_path: report.file_path,
+          file_data: buffer ? buffer.toString('base64') : null,
+        };
+      }),
+    );
     
     // Get patient CPF hash to find ALL binary collections for this patient
     // Binary collections can be linked by questionnaire_id OR by patient_cpf_hash
