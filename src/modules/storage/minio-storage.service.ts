@@ -78,12 +78,51 @@ export class MinioStorageService {
     }
   }
 
+  /**
+   * Aceita chaves legadas em formatos diferentes e normaliza para object key:
+   * - baiobit/arquivo.pdf (formato esperado)
+   * - /prime-coleta/baiobit/arquivo.pdf
+   * - https://host/minio/prime-coleta/baiobit/arquivo.pdf
+   */
+  private normalizeObjectKey(rawKey: string): string {
+    const trimmed = rawKey.trim();
+    if (!trimmed) {
+      return trimmed;
+    }
+
+    let candidate = trimmed;
+
+    // Se veio URL completa, usa apenas o pathname.
+    if (/^https?:\/\//i.test(candidate)) {
+      try {
+        const url = new URL(candidate);
+        candidate = decodeURIComponent(url.pathname || '');
+      } catch {
+        // mantém candidate original se URL inválida
+      }
+    }
+
+    // Remove barra inicial
+    candidate = candidate.replace(/^\/+/, '');
+
+    // Remove prefixos comuns de proxy (ex.: /minio/...)
+    candidate = candidate.replace(/^minio\/+/, '');
+
+    // Remove bucket explícito no começo (ex.: prime-coleta/...)
+    const bucketPrefix = `${this.bucket}/`;
+    if (candidate.startsWith(bucketPrefix)) {
+      candidate = candidate.slice(bucketPrefix.length);
+    }
+
+    return candidate;
+  }
+
   async putObject(key: string, body: Buffer, contentType: string): Promise<void> {
     this.assertEnabled();
     await this.internalClient.send(
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: key,
+        Key: this.normalizeObjectKey(key),
         Body: body,
         ContentType: contentType,
       }),
@@ -93,14 +132,20 @@ export class MinioStorageService {
   async deleteObject(key: string): Promise<void> {
     this.assertEnabled();
     await this.internalClient.send(
-      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: this.normalizeObjectKey(key),
+      }),
     );
   }
 
   async getObjectBuffer(key: string): Promise<Buffer> {
     this.assertEnabled();
     const out = await this.internalClient.send(
-      new GetObjectCommand({ Bucket: this.bucket, Key: key }),
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: this.normalizeObjectKey(key),
+      }),
     );
     const stream = out.Body as Readable;
     const chunks: Buffer[] = [];
@@ -110,9 +155,23 @@ export class MinioStorageService {
     return Buffer.concat(chunks);
   }
 
+  async getObjectStream(key: string): Promise<Readable> {
+    this.assertEnabled();
+    const out = await this.internalClient.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: this.normalizeObjectKey(key),
+      }),
+    );
+    return out.Body as Readable;
+  }
+
   async getPresignedGetUrl(key: string, expiresInSeconds: number): Promise<string> {
     this.assertEnabled();
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: this.normalizeObjectKey(key),
+    });
     return getSignedUrl(this.presignClient, command, { expiresIn: expiresInSeconds });
   }
 }

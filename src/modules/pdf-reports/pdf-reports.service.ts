@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
+import { Readable } from 'stream';
 import { PdfReport } from '../../entities/pdf-report.entity';
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { UploadPdfReportDto } from './dto/upload-pdf-report.dto';
@@ -124,6 +125,33 @@ export class PdfReportsService {
     }
 
     return report;
+  }
+
+  async getReportForDownload(id: string): Promise<{
+    report: PdfReport;
+    stream: Readable;
+  }> {
+    const report = await this.pdfReportRepository.findOne({ where: { id } });
+
+    if (!report) {
+      throw new NotFoundException(`Relatório com ID ${id} não encontrado`);
+    }
+
+    if (report.file_path) {
+      if (!this.minioStorage.isEnabled()) {
+        throw new InternalServerErrorException(
+          'Arquivo está no MinIO mas o storage não está configurado neste ambiente.',
+        );
+      }
+      try {
+        const stream = await this.minioStorage.getObjectStream(report.file_path);
+        return { report, stream };
+      } catch {
+        throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
+      }
+    }
+
+    return { report, stream: Readable.from(report.file_data ?? Buffer.from([])) };
   }
 
   async deleteReport(id: string) {
