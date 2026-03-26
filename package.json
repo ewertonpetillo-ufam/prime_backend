@@ -24,6 +24,8 @@
     "hash:password": "node scripts/generate-password-hash.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1017.0",
+    "@aws-sdk/s3-request-presigner": "^3.1017.0",
     "@inquirer/prompts": "^7.10.1",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.2",
@@ -83,19 +85,24 @@
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": ["ts-jest", {
-        "tsconfig": {
-          "emitDecoratorMetadata": true,
-          "experimentalDecorators": true
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "emitDecoratorMetadata": true,
+            "experimentalDecorators": true
+          }
         }
-      }]
+      ]
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
-    "setupFiles": ["<rootDir>/../jest.setup.js"],
+    "setupFiles": [
+      "<rootDir>/../jest.setup.js"
+    ],
     "transformIgnorePatterns": [
       "node_modules/(?!(@nestjs/testing|@nestjs/common|@nestjs/core))"
     ],

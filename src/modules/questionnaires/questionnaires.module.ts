@@ -28,6 +28,7 @@ import { FogqScore } from '../../entities/fogq-score.entity';
 import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { PdfReport } from '../../entities/pdf-report.entity';
 import { PatientsModule } from '../patients/patients.module';
+import { PdfReportsModule } from '../pdf-reports/pdf-reports.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { PatientsModule } from '../patients/patients.module';
       PdfReport,
     ]),
     PatientsModule,
+    PdfReportsModule,
   ],
   controllers: [QuestionnairesController],
   providers: [QuestionnairesService],

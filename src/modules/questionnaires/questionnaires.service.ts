@@ -46,6 +46,7 @@ import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
 import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { SavePhysioDto } from './dto/save-physio.dto';
+import { PdfReportsService } from '../pdf-reports/pdf-reports.service';
 
 const UPDRS_SCORE_FIELDS = [
   'speech',
@@ -281,6 +282,7 @@ export class QuestionnairesService {
     @InjectRepository(PdfReport)
     private pdfReportRepository: Repository<PdfReport>,
     private patientsService: PatientsService,
+    private pdfReportsService: PdfReportsService,
   ) {}
 
   /**
@@ -1447,17 +1449,13 @@ export class QuestionnairesService {
    * Inicia uma nova sessão de preenchimento do questionário.
    * Se já houver sessão aberta, acumula o tempo até agora e reinicia o contador.
    */
-  async startSession(questionnaireId: string, evaluatorId?: string) {
+  async startSession(questionnaireId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: questionnaireId },
     });
 
     if (!questionnaire) {
       throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
-    }
-
-    if (evaluatorId && questionnaire.evaluator_id && questionnaire.evaluator_id !== evaluatorId) {
-      throw new BadRequestException('Este questionário pertence a outro avaliador.');
     }
 
     const now = new Date();
@@ -1478,17 +1476,13 @@ export class QuestionnairesService {
   /**
    * Encerra a sessão corrente de preenchimento, acumulando tempo ao total.
    */
-  async endSession(questionnaireId: string, evaluatorId?: string) {
+  async endSession(questionnaireId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: questionnaireId },
     });
 
     if (!questionnaire) {
       throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
-    }
-
-    if (evaluatorId && questionnaire.evaluator_id && questionnaire.evaluator_id !== evaluatorId) {
-      throw new BadRequestException('Este questionário pertence a outro avaliador.');
     }
 
     const now = new Date();
@@ -2324,14 +2318,23 @@ export class QuestionnairesService {
     }
 
     const pdfReports = Array.isArray(questionnaire.pdf_reports)
-      ? questionnaire.pdf_reports.map((report) => ({
-          id: report.id,
-          reportType: report.report_type,
-          fileName: report.file_name,
-          fileSizeBytes: report.file_size_bytes,
-          uploadedAt: report.uploaded_at,
-          notes: report.notes,
-        }))
+      ? await Promise.all(
+          questionnaire.pdf_reports.map(async (report) => {
+            const fileDownloadUrl = await this.pdfReportsService.getPresignedDownloadUrl(
+              report.file_path,
+            );
+            return {
+              id: report.id,
+              reportType: report.report_type,
+              fileName: report.file_name,
+              fileSizeBytes: report.file_size_bytes,
+              uploadedAt: report.uploaded_at,
+              notes: report.notes,
+              filePath: report.file_path ?? null,
+              fileDownloadUrl,
+            };
+          }),
+        )
       : [];
 
     if (pdfReports.length > 0) {
@@ -3174,10 +3177,9 @@ export class QuestionnairesService {
       physiotherapy: this.generatePhysiotherapyCsv(questionnaire),
     };
     
-    // Load PDF reports with binary data - optimized: single query with file_data
+    // Load PDF reports metadata only (without binary payload).
     const pdfReportsWithData = await this.pdfReportRepository
       .createQueryBuilder('report')
-      .addSelect('report.file_data')
       .where('report.questionnaire_id = :questionnaireId', { questionnaireId })
       .getMany();
 
@@ -3189,7 +3191,8 @@ export class QuestionnairesService {
       mime_type: report.mime_type,
       uploaded_at: report.uploaded_at,
       notes: report.notes,
-      file_data: report.file_data ? report.file_data.toString('base64') : null,
+      file_path: report.file_path,
+      download_path: `/api/pdf-reports/${report.id}`,
     }));
     
     // Get patient CPF hash to find ALL binary collections for this patient
@@ -3207,7 +3210,6 @@ export class QuestionnairesService {
     const binaryCollectionsQuery = this.binaryCollectionRepository
       .createQueryBuilder('bc')
       .leftJoinAndSelect('bc.active_task', 'active_task')
-      .addSelect('bc.csv_data')
       .where('bc.questionnaire_id = :questionnaireId', { questionnaireId });
     
     if (patientCpfHash) {
@@ -3218,7 +3220,7 @@ export class QuestionnairesService {
       .orderBy('bc.collected_at', 'ASC')
       .getMany();
 
-    // Process binary collections - já temos csv_data (Buffer) da query
+    // Process binary collections metadata only (without inline binary payload)
     const binaryCollectionsWithData = binaryCollections.map((collection) => {
       const metadata: any = collection.metadata || {};
       const mimeType: string =
@@ -3243,15 +3245,8 @@ export class QuestionnairesService {
         processing_status: collection.processing_status,
         processing_error: collection.processing_error,
         active_task: collection.active_task,
-        // csv_data em texto (para arquivos texto/CSV)
-        csv_data: collection.csv_data
-          ? collection.csv_data.toString('utf-8')
-          : null,
-        // file_data em base64 para preservar integridade de binários (áudio, etc.)
-        file_data: collection.csv_data
-          ? collection.csv_data.toString('base64')
-          : null,
         mime_type: mimeType,
+        download_path: `/api/binary-collections/${collection.id}/download`,
       };
     });
 

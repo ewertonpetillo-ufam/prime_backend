@@ -56,6 +56,17 @@ pipeline {
         
         // CORS
         CORS_ORIGIN = 'http://nextjs-prime:3000,https://prime.icomp.ufam.edu.br'
+
+        // MinIO (S3-compatible) - PDF reports
+        // Em produção, backend acessa MinIO via DNS interno do Docker
+        MINIO_ENDPOINT = 'http://minio:9000'
+        // URL pública usada para links presignados no frontend
+        MINIO_PUBLIC_BASE_URL = 'https://prime.icomp.ufam.edu.br/minio'
+        MINIO_ACCESS_KEY = credentials('prime-minio-access-key')
+        MINIO_SECRET_KEY = credentials('prime-minio-secret-key')
+        MINIO_BUCKET = 'prime-coleta'
+        MINIO_REGION = 'us-east-1'
+        MINIO_FORCE_PATH_STYLE = 'true'
     }
     
     triggers {
@@ -227,6 +238,15 @@ DEFAULT_USER_PASSWORD=${DEFAULT_USER_PASSWORD}
 
 # CORS
 CORS_ORIGIN=${CORS_ORIGIN}
+
+# MinIO (S3-compatible)
+MINIO_ENDPOINT=${MINIO_ENDPOINT}
+MINIO_PUBLIC_BASE_URL=${MINIO_PUBLIC_BASE_URL}
+MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+MINIO_BUCKET=${MINIO_BUCKET}
+MINIO_REGION=${MINIO_REGION}
+MINIO_FORCE_PATH_STYLE=${MINIO_FORCE_PATH_STYLE}
 EOF
                     
                     echo "✅ Arquivo .env criado"
