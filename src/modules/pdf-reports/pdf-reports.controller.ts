@@ -107,7 +107,7 @@ export class PdfReportsController {
   @ApiResponse({ status: 404, description: 'Relatório não encontrado' })
   async downloadReport(@Param('id') id: string, @Res() res: Response) {
     const startedAt = Date.now();
-    const report = await this.pdfReportsService.getReportById(id);
+    const { report, stream } = await this.pdfReportsService.getReportForDownload(id);
     const mimeType = report.mime_type || 'application/octet-stream';
     const dispositionFileName = encodeURIComponent(report.file_name || 'relatorio');
 
@@ -120,12 +120,31 @@ export class PdfReportsController {
       res.set('Content-Length', report.file_size_bytes.toString());
     }
 
-    res.send(report.file_data ?? Buffer.from([]));
-    this.logMemoryTelemetry('download_report', {
-      reportId: id,
-      fileSizeBytes: report.file_size_bytes ?? 0,
-      durationMs: Date.now() - startedAt,
+    stream.on('error', (err: Error & { code?: string }) => {
+      console.error('[pdf-reports] download stream error', {
+        reportId: id,
+        message: err?.message,
+        code: err?.code,
+      });
+      if (!res.headersSent) {
+        res.status(500).json({
+          statusCode: 500,
+          message: 'Falha ao transmitir o arquivo do armazenamento',
+        });
+      } else {
+        res.destroy(err);
+      }
     });
+
+    stream.on('end', () => {
+      this.logMemoryTelemetry('download_report', {
+        reportId: id,
+        fileSizeBytes: report.file_size_bytes ?? 0,
+        durationMs: Date.now() - startedAt,
+      });
+    });
+
+    stream.pipe(res);
   }
 
   @Delete(':id')
