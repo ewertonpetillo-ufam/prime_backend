@@ -273,9 +273,8 @@ export class QuestionnairesController {
   })
   async startSession(
     @Param('id') questionnaireId: string,
-    @CurrentUser() user: { userId: string },
   ) {
-    return this.questionnairesService.startSession(questionnaireId, user.userId);
+    return this.questionnairesService.startSession(questionnaireId);
   }
 
   @Post(':id/session/end')
@@ -295,9 +294,8 @@ export class QuestionnairesController {
   })
   async endSession(
     @Param('id') questionnaireId: string,
-    @CurrentUser() user: { userId: string },
   ) {
-    return this.questionnairesService.endSession(questionnaireId, user.userId);
+    return this.questionnairesService.endSession(questionnaireId);
   }
 
   @Get('reference-data')
