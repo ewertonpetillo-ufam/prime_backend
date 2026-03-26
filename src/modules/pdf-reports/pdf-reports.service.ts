@@ -77,7 +77,15 @@ export class PdfReportsService {
         file.mimetype || 'application/octet-stream',
       );
     } catch (e) {
+      const err = e as Error & { code?: string; name?: string };
       const msg = e instanceof Error ? e.message : 'Falha ao enviar arquivo ao MinIO';
+      console.error('[pdf-reports] MinIO putObject failed', {
+        key,
+        fileSizeBytes: file.size,
+        message: msg,
+        code: err.code,
+        name: err.name,
+      });
       throw new InternalServerErrorException(msg);
     }
 
@@ -146,7 +154,14 @@ export class PdfReportsService {
       try {
         const stream = await this.minioStorage.getObjectStream(report.file_path);
         return { report, stream };
-      } catch {
+      } catch (e) {
+        const err = e as Error & { code?: string };
+        console.error('[pdf-reports] MinIO getObjectStream failed', {
+          reportId: id,
+          filePath: report.file_path,
+          message: err?.message,
+          code: err?.code,
+        });
         throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
       }
     }
