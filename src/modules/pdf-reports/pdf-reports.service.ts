@@ -32,6 +32,31 @@ function sanitizeOriginalFileName(name: string): string {
   return trimmed || 'file';
 }
 
+function buildStorageKeyCandidates(originalPath: string): string[] {
+  const variants = new Set<string>();
+  const base = originalPath.trim();
+  if (!base) return [];
+
+  variants.add(base);
+
+  // Variações comuns de nomenclatura de pastas já vistas em ambientes diferentes.
+  variants.add(base.replace(/baiobit/gi, 'biobit'));
+  variants.add(base.replace(/biobit/gi, 'baiobit'));
+  variants.add(base.replace(/polysomnograph/gi, 'polysomnography'));
+  variants.add(base.replace(/polysomnography/gi, 'polysomnograph'));
+
+  return Array.from(variants).filter(Boolean);
+}
+
+function isStorageNotFoundError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { name?: string; Code?: string; code?: string };
+  const values = [e.name, e.Code, e.code].filter(Boolean);
+  return values.some((v) =>
+    ['NoSuchKey', 'NotFound', 'NoSuchObject', 'NoSuchBucket'].includes(String(v)),
+  );
+}
+
 @Injectable()
 export class PdfReportsService {
   constructor(
@@ -116,12 +141,28 @@ export class PdfReportsService {
           'Arquivo está no MinIO mas o storage não está configurado neste ambiente.',
         );
       }
-      try {
-        const buffer = await this.minioStorage.getObjectBuffer(report.file_path);
-        return Object.assign(report, { file_data: buffer });
-      } catch {
-        throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
+      const candidates = buildStorageKeyCandidates(report.file_path);
+      for (const candidate of candidates) {
+        try {
+          const buffer = await this.minioStorage.getObjectBuffer(candidate);
+          return Object.assign(report, { file_data: buffer });
+        } catch (error) {
+          // Só tenta próximo candidato quando o storage reporta "objeto não encontrado".
+          // Erros de credencial/assinatura/rede devem aparecer para diagnóstico.
+          if (isStorageNotFoundError(error)) {
+            continue;
+          }
+          const msg =
+            error instanceof Error ? error.message : 'Falha ao acessar arquivo no storage';
+          throw new InternalServerErrorException(msg);
+        }
       }
+
+      // Fallback para legado: se houver BYTEA no banco, retorna mesmo com file_path inválido.
+      if (report.file_data?.length) {
+        return report;
+      }
+      throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
     }
 
     return report;
