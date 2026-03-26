@@ -11,6 +11,7 @@ import {
   UploadedFile,
   Body,
   BadRequestException,
+  PayloadTooLargeException,
   StreamableFile,
   Header,
 } from '@nestjs/common';
@@ -27,6 +28,9 @@ import {
 import { BinaryCollectionsService } from './binary-collections.service';
 import { UploadBinaryDto } from './dto/upload-binary.dto';
 
+const MAX_UPLOAD_FILE_SIZE_BYTES =
+  Number(process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 50 * 1024 * 1024);
+
 @ApiTags('Binary Collections')
 @ApiBearerAuth('JWT-auth')
 @Controller('binary-collections')
@@ -35,8 +39,21 @@ export class BinaryCollectionsController {
     private readonly binaryCollectionsService: BinaryCollectionsService,
   ) {}
 
+  private logMemoryTelemetry(event: string, details: Record<string, unknown>) {
+    const mem = process.memoryUsage();
+    console.log(`[binary-collections] ${event}`, {
+      ...details,
+      heapUsedMB: Number((mem.heapUsed / 1024 / 1024).toFixed(2)),
+      rssMB: Number((mem.rss / 1024 / 1024).toFixed(2)),
+    });
+  }
+
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_UPLOAD_FILE_SIZE_BYTES },
+    }),
+  )
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Upload de arquivo binário do app de coleta',
@@ -85,15 +102,27 @@ export class BinaryCollectionsController {
     @Body('patient_cpf') patient_cpf: string,
     @Body('task_code') task_code: string,
   ) {
+    const startedAt = Date.now();
     if (!file) {
       throw new BadRequestException('File is required');
+    }
+    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+      throw new PayloadTooLargeException(
+        `Arquivo excede o limite de ${MAX_UPLOAD_FILE_SIZE_BYTES} bytes`,
+      );
     }
 
     if (!task_code) {
       throw new BadRequestException('task_code is required');
     }
 
-    return this.binaryCollectionsService.uploadCsv(patient_cpf, task_code, file);
+    const result = await this.binaryCollectionsService.uploadCsv(patient_cpf, task_code, file);
+    this.logMemoryTelemetry('upload_binary', {
+      taskCode: task_code,
+      fileSizeBytes: file.size,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
   }
 
   @Get()
@@ -188,8 +217,14 @@ export class BinaryCollectionsController {
     description: 'Binary collection não encontrada ou dados binários indisponíveis',
   })
   async downloadCsv(@Param('id', ParseUUIDPipe) id: string) {
+    const startedAt = Date.now();
     const { buffer, filename, contentType } =
       await this.binaryCollectionsService.downloadCsv(id);
+    this.logMemoryTelemetry('download_binary', {
+      collectionId: id,
+      fileSizeBytes: buffer.length,
+      durationMs: Date.now() - startedAt,
+    });
     return new StreamableFile(buffer, {
       type: contentType,
       disposition: `attachment; filename="${filename}"`,

@@ -10,6 +10,7 @@ import {
   Param,
   Res,
   Delete,
+  PayloadTooLargeException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -25,11 +26,23 @@ import { UploadPdfReportDto } from './dto/upload-pdf-report.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 import { Response } from 'express';
 
+const MAX_UPLOAD_FILE_SIZE_BYTES =
+  Number(process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 50 * 1024 * 1024);
+
 @ApiTags('PDF Reports')
 @ApiBearerAuth('JWT-auth')
 @Controller('pdf-reports')
 export class PdfReportsController {
   constructor(private readonly pdfReportsService: PdfReportsService) {}
+
+  private logMemoryTelemetry(event: string, details: Record<string, unknown>) {
+    const mem = process.memoryUsage();
+    console.log(`[pdf-reports] ${event}`, {
+      ...details,
+      heapUsedMB: Number((mem.heapUsed / 1024 / 1024).toFixed(2)),
+      rssMB: Number((mem.rss / 1024 / 1024).toFixed(2)),
+    });
+  }
 
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
@@ -58,13 +71,30 @@ export class PdfReportsController {
   })
   @ApiResponse({ status: 201, description: 'Relatório salvo com sucesso' })
   @ApiResponse({ status: 400, description: 'Arquivo inválido' })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_UPLOAD_FILE_SIZE_BYTES },
+    }),
+  )
   async uploadReport(
     @Body() dto: UploadPdfReportDto,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: { userId: string },
   ) {
-    return this.pdfReportsService.uploadReport(dto, file, user?.userId);
+    const startedAt = Date.now();
+    if (file && file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+      throw new PayloadTooLargeException(
+        `Arquivo excede o limite de ${MAX_UPLOAD_FILE_SIZE_BYTES} bytes`,
+      );
+    }
+    const result = await this.pdfReportsService.uploadReport(dto, file, user?.userId);
+    this.logMemoryTelemetry('upload_report', {
+      questionnaireId: dto.questionnaireId,
+      reportType: dto.reportType,
+      fileSizeBytes: file?.size ?? 0,
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
   }
 
   @Get(':id/download')
@@ -76,6 +106,7 @@ export class PdfReportsController {
   @ApiResponse({ status: 200, description: 'Relatório retornado com sucesso' })
   @ApiResponse({ status: 404, description: 'Relatório não encontrado' })
   async downloadReport(@Param('id') id: string, @Res() res: Response) {
+    const startedAt = Date.now();
     const report = await this.pdfReportsService.getReportById(id);
     const mimeType = report.mime_type || 'application/octet-stream';
     const dispositionFileName = encodeURIComponent(report.file_name || 'relatorio');
@@ -90,6 +121,11 @@ export class PdfReportsController {
     }
 
     res.send(report.file_data ?? Buffer.from([]));
+    this.logMemoryTelemetry('download_report', {
+      reportId: id,
+      fileSizeBytes: report.file_size_bytes ?? 0,
+      durationMs: Date.now() - startedAt,
+    });
   }
 
   @Delete(':id')
