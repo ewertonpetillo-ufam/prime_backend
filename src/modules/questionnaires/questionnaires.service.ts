@@ -3183,17 +3183,32 @@ export class QuestionnairesService {
       .where('report.questionnaire_id = :questionnaireId', { questionnaireId })
       .getMany();
 
-    const pdfReports = pdfReportsWithData.map((report) => ({
-      id: report.id,
-      report_type: report.report_type,
-      file_name: report.file_name,
-      file_size_bytes: report.file_size_bytes,
-      mime_type: report.mime_type,
-      uploaded_at: report.uploaded_at,
-      notes: report.notes,
-      file_path: report.file_path,
-      download_path: `/api/pdf-reports/${report.id}`,
-    }));
+    /** TTL longo: montagem do ZIP no browser pode demorar (vários arquivos grandes). */
+    const exportPresignedTtlSeconds = 4 * 60 * 60;
+
+    const pdfReports = await Promise.all(
+      pdfReportsWithData.map(async (report) => {
+        let presigned_download_url: string | null = null;
+        if (report.file_path) {
+          presigned_download_url = await this.pdfReportsService.getPresignedDownloadUrl(
+            report.file_path,
+            exportPresignedTtlSeconds,
+          );
+        }
+        return {
+          id: report.id,
+          report_type: report.report_type,
+          file_name: report.file_name,
+          file_size_bytes: report.file_size_bytes,
+          mime_type: report.mime_type,
+          uploaded_at: report.uploaded_at,
+          notes: report.notes,
+          file_path: report.file_path,
+          download_path: `/api/pdf-reports/${report.id}`,
+          presigned_download_url,
+        };
+      }),
+    );
     
     // Get patient CPF hash to find ALL binary collections for this patient
     // Binary collections can be linked by questionnaire_id OR by patient_cpf_hash
