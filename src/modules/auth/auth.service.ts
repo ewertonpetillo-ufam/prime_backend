@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -6,6 +11,10 @@ import { LoginDto } from './dto/login.dto';
 import { UserLoginDto } from './dto/user-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { PasswordResetToken } from '../../entities/password-reset-token.entity';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +22,9 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private usersService: UsersService,
+    private mailService: MailService,
+    @InjectRepository(PasswordResetToken)
+    private readonly passwordResetTokenRepository: Repository<PasswordResetToken>,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -139,6 +151,81 @@ export class AuthService {
     return {
       success: true,
       message: 'Password changed successfully',
+    };
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await this.usersService.findByEmail(email);
+
+    // Sempre retornar sucesso para não expor se o email existe
+    if (!user) {
+      return {
+        success: true,
+        message:
+          'Se o email estiver cadastrado, você receberá instruções para redefinir a senha.',
+      };
+    }
+
+    const token = await bcrypt.genSalt(12);
+
+    const expiresInMinutes =
+      this.configService.get<number>('RESET_PASSWORD_EXP_MINUTES') ?? 60;
+    const expires_at = new Date(
+      Date.now() + expiresInMinutes * 60 * 1000,
+    );
+
+    const resetToken = this.passwordResetTokenRepository.create({
+      user_id: user.id,
+      token,
+      expires_at,
+      used: false,
+    });
+
+    await this.passwordResetTokenRepository.save(resetToken);
+
+    const frontendBaseUrl =
+      this.configService.get<string>('FRONTEND_BASE_URL') ||
+      'http://localhost:3000';
+
+    const resetLink = `${frontendBaseUrl}/redefinir-senha?token=${encodeURIComponent(
+      token,
+    )}`;
+
+    await this.mailService.sendPasswordResetEmail(
+      user.email,
+      user.full_name,
+      resetLink,
+    );
+
+    return {
+      success: true,
+      message:
+        'Se o email estiver cadastrado, você receberá instruções para redefinir a senha.',
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const resetToken = await this.passwordResetTokenRepository.findOne({
+      where: { token, used: false },
+    });
+
+    if (!resetToken || resetToken.expires_at <= new Date()) {
+      throw new BadRequestException('Token inválido ou expirado');
+    }
+
+    const user = await this.usersService.findOne(resetToken.user_id);
+
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    await this.usersService.updatePassword(user.id, newPasswordHash, false);
+
+    resetToken.used = true;
+    await this.passwordResetTokenRepository.save(resetToken);
+
+    return {
+      success: true,
+      message: 'Senha redefinida com sucesso',
     };
   }
 

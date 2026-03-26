@@ -12,6 +12,8 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { UserLoginDto } from './dto/user-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
@@ -118,5 +120,50 @@ export class AuthController {
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(user.userId, changePasswordDto);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Solicitar redefinição de senha',
+    description:
+      'Envia um email com link de redefinição de senha para o usuário, caso o email esteja cadastrado.',
+  })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Resposta genérica informando que, se o email existir, o usuário receberá instruções.',
+  })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+    return this.authService.requestPasswordReset(email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Redefinir senha usando token',
+    description:
+      'Redefine a senha do usuário a partir de um token de redefinição válido enviado por email.',
+  })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Senha redefinida com sucesso',
+  })
+  @ApiBadRequestResponse({
+    description: 'Token inválido ou expirado',
+  })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    const { token, new_password, confirm_password } = resetPasswordDto;
+
+    if (new_password !== confirm_password) {
+      throw new Error('As senhas não conferem');
+    }
+
+    return this.authService.resetPassword(token, new_password);
   }
 }

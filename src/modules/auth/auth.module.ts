@@ -7,11 +7,16 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import * as jwt from 'jsonwebtoken';
+import { MailModule } from '../mail/mail.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PasswordResetToken } from '../../entities/password-reset-token.entity';
 
 @Module({
   imports: [
     PassportModule,
     UsersModule,
+    MailModule,
+    TypeOrmModule.forFeature([PasswordResetToken]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService): Promise<JwtModuleOptions> => {
