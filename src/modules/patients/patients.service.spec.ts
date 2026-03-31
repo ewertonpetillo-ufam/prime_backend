@@ -26,6 +26,7 @@ describe('PatientsService', () => {
     update: jest.fn(),
     remove: jest.fn(),
     createQueryBuilder: jest.fn(),
+    query: jest.fn(),
   };
 
   const mockConfigService = {
@@ -88,6 +89,7 @@ describe('PatientsService', () => {
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { cpf_hash: hashedCpf },
       });
+      expect(mockRepository.query).not.toHaveBeenCalled();
       expect(mockRepository.create).toHaveBeenCalled();
       expect(mockRepository.save).toHaveBeenCalled();
     });
@@ -142,6 +144,87 @@ describe('PatientsService', () => {
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { cpf_hash: hashedCpf },
       });
+      expect(mockRepository.query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createWithPublicIdentifier', () => {
+    const createPatientDto: CreatePatientDto = {
+      cpf: '12345678900',
+      full_name: 'João Silva',
+      date_of_birth: '1990-01-01',
+      email: 'joao@example.com',
+      phone_primary: '11999999999',
+    };
+
+    it('deve criar paciente com public_identifier gerado no banco', async () => {
+      const hashedCpf = CryptoUtil.hashCpf(createPatientDto.cpf);
+      const savedPatient = {
+        id: 'patient-id',
+        ...createPatientDto,
+        cpf_hash: hashedCpf,
+        public_identifier: 'P0001',
+      };
+
+      mockRepository.findOne.mockResolvedValue(null);
+      mockRepository.query.mockResolvedValue([{ identifier: 'P0001' }]);
+      mockRepository.create.mockReturnValue(savedPatient);
+      mockRepository.save.mockResolvedValue(savedPatient);
+
+      const result = await service.createWithPublicIdentifier(createPatientDto);
+
+      expect(result.public_identifier).toBe('P0001');
+      expect(mockRepository.query).toHaveBeenCalledWith(
+        'SELECT generate_patient_identifier() AS identifier',
+      );
+    });
+
+    it('deve lançar ConflictException para CPF duplicado', async () => {
+      const hashedCpf = CryptoUtil.hashCpf(createPatientDto.cpf);
+      mockRepository.findOne.mockResolvedValue({
+        id: 'existing',
+        cpf_hash: hashedCpf,
+      });
+
+      await expect(
+        service.createWithPublicIdentifier(createPatientDto),
+      ).rejects.toThrow(ConflictException);
+      expect(mockRepository.query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ensurePublicIdentifier', () => {
+    it('deve atribuir identificador quando ainda é nulo', async () => {
+      const patientId = '550e8400-e29b-41d4-a716-446655440000';
+      const afterAssign = {
+        id: patientId,
+        full_name: 'João',
+        public_identifier: 'P0002',
+      };
+
+      mockRepository.findOne
+        .mockResolvedValueOnce({ id: patientId, public_identifier: null })
+        .mockResolvedValueOnce(afterAssign);
+      mockRepository.query.mockResolvedValue([
+        { public_identifier: 'P0002' },
+      ]);
+
+      const result = await service.ensurePublicIdentifier(patientId);
+
+      expect(result).toEqual(afterAssign);
+      expect(mockRepository.query).toHaveBeenCalled();
+    });
+
+    it('deve retornar paciente sem query quando já há identificador', async () => {
+      const patientId = '550e8400-e29b-41d4-a716-446655440000';
+      const patient = { id: patientId, public_identifier: 'P0001' };
+
+      mockRepository.findOne.mockResolvedValueOnce(patient);
+
+      const result = await service.ensurePublicIdentifier(patientId);
+
+      expect(result.public_identifier).toBe('P0001');
+      expect(mockRepository.query).not.toHaveBeenCalled();
     });
   });
 
