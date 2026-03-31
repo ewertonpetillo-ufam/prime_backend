@@ -324,6 +324,14 @@ export class QuestionnairesService {
     return questionnaire;
   }
 
+  /** Avaliador do questionário = usuário autenticado que acabou de persistir alterações. */
+  private setQuestionnaireEvaluator(
+    questionnaire: Questionnaire,
+    evaluatorId: string,
+  ): void {
+    questionnaire.evaluator_id = evaluatorId;
+  }
+
   private assignScoreFields(
     target: Record<string, any>,
     dto: Record<string, any>,
@@ -524,6 +532,29 @@ export class QuestionnairesService {
   }
 
   /**
+   * Alinha o estágio Hoehn–Yahr ao mesmo texto dos <option value> do frontend.
+   * Colunas decimal no PG podem vir como "2.5000" e quebram o <select> controlado.
+   */
+  private normalizeHoehnYahrStageForFrontend(stageValue: unknown): string {
+    const allowed = [0, 1, 1.5, 2, 2.5, 3, 4, 5];
+    if (stageValue === null || stageValue === undefined) {
+      return '';
+    }
+    let n: number;
+    if (typeof stageValue === 'number') {
+      if (!Number.isFinite(stageValue)) return '';
+      n = stageValue;
+    } else {
+      const s = String(stageValue).trim().replace(',', '.');
+      if (s === '') return '';
+      n = parseFloat(s);
+      if (!Number.isFinite(n)) return '';
+    }
+    const matched = allowed.find((a) => Math.abs(a - n) < 1e-9);
+    return matched !== undefined ? String(matched) : '';
+  }
+
+  /**
    * Get or create medication reference by drug name
    * Uses the same LED conversion factors as the frontend
    */
@@ -666,9 +697,12 @@ export class QuestionnairesService {
       await this.patientsService.update(patient.id, updateData);
       // Reload patient to get updated data - relations are eager loaded in entity
       patient = await this.patientsService.findOne(patient.id);
+      if (!patient.public_identifier) {
+        patient = await this.patientsService.ensurePublicIdentifier(patient.id);
+      }
     } else {
-      // Create new patient
-      patient = await this.patientsService.create({
+      // Create new patient (identificador público só neste fluxo — Step 1)
+      patient = await this.patientsService.createWithPublicIdentifier({
         cpf,
         full_name: dto.fullName,
         date_of_birth: dto.birthday,
@@ -767,7 +801,7 @@ export class QuestionnairesService {
   /**
    * Save Step 2: Save anthropometric data
    */
-  async saveStep2(dto: SaveStep2Dto): Promise<AnthropometricData> {
+  async saveStep2(dto: SaveStep2Dto, evaluatorId: string): Promise<AnthropometricData> {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -803,6 +837,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 2);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -812,7 +847,7 @@ export class QuestionnairesService {
   /**
    * Save Step 3: Save clinical assessment data
    */
-  async saveStep3(dto: SaveStep3Dto): Promise<ClinicalAssessment> {
+  async saveStep3(dto: SaveStep3Dto, evaluatorId: string): Promise<ClinicalAssessment> {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1052,13 +1087,14 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 3);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
     return savedClinicalAssessment;
   }
 
-  async savePhysioAssessment(dto: SavePhysioDto): Promise<ClinicalAssessment> {
+  async savePhysioAssessment(dto: SavePhysioDto, evaluatorId: string): Promise<ClinicalAssessment> {
     const { questionnaireId, physioPatientDescription } = dto;
 
     const questionnaire = await this.questionnairesRepository.findOne({
@@ -1118,6 +1154,7 @@ export class QuestionnairesService {
       // Step clínico principal já é 3; aqui mantemos no mínimo 3
       questionnaire.last_step = Math.max(currentLastStep, 3);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1127,7 +1164,7 @@ export class QuestionnairesService {
   /**
    * Save UPDRS-III scores (Step 4 - Avaliação Neurológica)
    */
-  async saveUpdrs3Scores(dto: SaveUpdrs3Dto) {
+  async saveUpdrs3Scores(dto: SaveUpdrs3Dto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1155,6 +1192,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 4);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1167,7 +1205,7 @@ export class QuestionnairesService {
   /**
    * Save MEEM scores
    */
-  async saveMeemScores(dto: SaveMeemDto) {
+  async saveMeemScores(dto: SaveMeemDto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1195,6 +1233,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 4);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1207,7 +1246,7 @@ export class QuestionnairesService {
   /**
    * Save UDysRS scores
    */
-  async saveUdysrsScores(dto: SaveUdysrsDto) {
+  async saveUdysrsScores(dto: SaveUdysrsDto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1235,6 +1274,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 4);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1249,7 +1289,7 @@ export class QuestionnairesService {
   /**
    * Save STOP-Bang screening
    */
-  async saveStopbangScores(dto: SaveStopbangDto) {
+  async saveStopbangScores(dto: SaveStopbangDto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1277,6 +1317,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1289,7 +1330,7 @@ export class QuestionnairesService {
   /**
    * Save Epworth Sleepiness Scale
    */
-  async saveEpworthScores(dto: SaveEpworthDto) {
+  async saveEpworthScores(dto: SaveEpworthDto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1317,6 +1358,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1329,7 +1371,7 @@ export class QuestionnairesService {
   /**
    * Save PDSS-2 responses
    */
-  async savePdss2Scores(dto: SavePdss2Dto) {
+  async savePdss2Scores(dto: SavePdss2Dto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1357,6 +1399,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1369,7 +1412,7 @@ export class QuestionnairesService {
   /**
    * Save RBDSQ questionnaire
    */
-  async saveRbdsqScores(dto: SaveRbdsqDto) {
+  async saveRbdsqScores(dto: SaveRbdsqDto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1396,6 +1439,7 @@ export class QuestionnairesService {
     {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1408,7 +1452,7 @@ export class QuestionnairesService {
   /**
    * Save RBDSQ-BR questionnaire (nova tabela rbdsq_br_scores)
    */
-  async saveRbdsqBrScores(dto: SaveRbdsqBrDto) {
+  async saveRbdsqBrScores(dto: SaveRbdsqBrDto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1436,6 +1480,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 6);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1500,7 +1545,7 @@ export class QuestionnairesService {
   /**
    * Save FOGQ scores
    */
-  async saveFogqScores(dto: SaveFogqDto) {
+  async saveFogqScores(dto: SaveFogqDto, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
@@ -1528,6 +1573,7 @@ export class QuestionnairesService {
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 7);
       this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
       await this.questionnairesRepository.save(questionnaire);
     }
 
@@ -1982,8 +2028,8 @@ export class QuestionnairesService {
         ? String(clinical.ldopa_onset_time_hours)
         : '';
       
-      // Buscar Hoehn-Yahr scale
-      if (clinical.hoehn_yahr_stage_id) {
+      // Buscar Hoehn-Yahr scale (stage decimal deve bater com value do select: "2.5" não "2.5000")
+      if (clinical.hoehn_yahr_stage_id != null) {
         console.log('🔍 DEBUG - Carregando scaleHY:', {
           'hoehn_yahr_stage_id': clinical.hoehn_yahr_stage_id,
         });
@@ -1994,22 +2040,10 @@ export class QuestionnairesService {
           'hoehnYahr': hoehnYahr ? { id: hoehnYahr.id, stage: hoehnYahr.stage, tipo_stage: typeof hoehnYahr.stage } : null,
         });
         if (hoehnYahr?.stage !== null && hoehnYahr?.stage !== undefined) {
-          // Converter stage para string, lidando com diferentes tipos (number, string, Decimal)
-          const stageValue: any = hoehnYahr.stage;
-          if (typeof stageValue === 'number') {
-            formData.scaleHY = String(stageValue);
-          } else if (typeof stageValue === 'string') {
-            formData.scaleHY = stageValue;
-          } else if (stageValue && typeof (stageValue as any).toString === 'function') {
-            // Para objetos Decimal ou similares
-            formData.scaleHY = (stageValue as any).toString();
-          } else {
-            formData.scaleHY = '';
-          }
+          formData.scaleHY = this.normalizeHoehnYahrStageForFrontend(hoehnYahr.stage);
           console.log('🔍 DEBUG - scaleHY definido:', {
             'formData.scaleHY': formData.scaleHY,
-            'stageValue original': stageValue,
-            'tipo stageValue': typeof stageValue,
+            'stage bruto': hoehnYahr.stage,
           });
         } else {
           formData.scaleHY = '';
@@ -2538,7 +2572,7 @@ export class QuestionnairesService {
     );
   }
 
-  async finalizeQuestionnaire(id: string) {
+  async finalizeQuestionnaire(id: string, evaluatorId: string) {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id },
       relations: [
@@ -2576,6 +2610,7 @@ export class QuestionnairesService {
     questionnaire.status = 'completed';
     questionnaire.completed_at = new Date();
     questionnaire.last_step = 8;
+    this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
 
     return this.questionnairesRepository.save(questionnaire);
   }
