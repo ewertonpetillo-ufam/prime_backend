@@ -72,8 +72,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionnaire not found',
   })
-  async saveStep2(@Body() dto: SaveStep2Dto) {
-    return this.questionnairesService.saveStep2(dto);
+  async saveStep2(
+    @Body() dto: SaveStep2Dto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveStep2(dto, user.userId);
   }
 
   @Post('step3')
@@ -90,8 +93,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionnaire not found',
   })
-  async saveStep3(@Body() dto: SaveStep3Dto) {
-    return this.questionnairesService.saveStep3(dto);
+  async saveStep3(
+    @Body() dto: SaveStep3Dto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveStep3(dto, user.userId);
   }
 
   @Post('updrs3')
@@ -108,8 +114,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveUpdrs3(@Body() dto: SaveUpdrs3Dto) {
-    return this.questionnairesService.saveUpdrs3Scores(dto);
+  async saveUpdrs3(
+    @Body() dto: SaveUpdrs3Dto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveUpdrs3Scores(dto, user.userId);
   }
 
   @Post('meem')
@@ -126,8 +135,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveMeem(@Body() dto: SaveMeemDto) {
-    return this.questionnairesService.saveMeemScores(dto);
+  async saveMeem(
+    @Body() dto: SaveMeemDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveMeemScores(dto, user.userId);
   }
 
   @Post('udysrs')
@@ -144,8 +156,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveUdysrs(@Body() dto: SaveUdysrsDto) {
-    return this.questionnairesService.saveUdysrsScores(dto);
+  async saveUdysrs(
+    @Body() dto: SaveUdysrsDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveUdysrsScores(dto, user.userId);
   }
 
   @Post('stopbang')
@@ -162,8 +177,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveStopbang(@Body() dto: SaveStopbangDto) {
-    return this.questionnairesService.saveStopbangScores(dto);
+  async saveStopbang(
+    @Body() dto: SaveStopbangDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveStopbangScores(dto, user.userId);
   }
 
   @Post('epworth')
@@ -180,8 +198,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveEpworth(@Body() dto: SaveEpworthDto) {
-    return this.questionnairesService.saveEpworthScores(dto);
+  async saveEpworth(
+    @Body() dto: SaveEpworthDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveEpworthScores(dto, user.userId);
   }
 
   @Post('pdss2')
@@ -198,8 +219,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async savePdss2(@Body() dto: SavePdss2Dto) {
-    return this.questionnairesService.savePdss2Scores(dto);
+  async savePdss2(
+    @Body() dto: SavePdss2Dto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.savePdss2Scores(dto, user.userId);
   }
 
   @Post('rbdsq')
@@ -216,8 +240,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveRbdsq(@Body() dto: SaveRbdsqBrDto) {
-    return this.questionnairesService.saveRbdsqBrScores(dto);
+  async saveRbdsq(
+    @Body() dto: SaveRbdsqBrDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveRbdsqBrScores(dto, user.userId);
   }
 
   @Post('fogq')
@@ -234,8 +261,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async saveFogq(@Body() dto: SaveFogqDto) {
-    return this.questionnairesService.saveFogqScores(dto);
+  async saveFogq(
+    @Body() dto: SaveFogqDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveFogqScores(dto, user.userId);
   }
 
   @Post('physio')
@@ -252,8 +282,11 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async savePhysio(@Body() dto: SavePhysioDto) {
-    return this.questionnairesService.savePhysioAssessment(dto);
+  async savePhysio(
+    @Body() dto: SavePhysioDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.savePhysioAssessment(dto, user.userId);
   }
 
   @Post(':id/session/start')
@@ -370,8 +403,11 @@ export class QuestionnairesController {
   })
   @ApiResponse({ status: 200, description: 'Questionnaire finalized successfully' })
   @ApiResponse({ status: 404, description: 'Questionnaire not found' })
-  async finalizeQuestionnaire(@Param('id') id: string) {
-    return this.questionnairesService.finalizeQuestionnaire(id);
+  async finalizeQuestionnaire(
+    @Param('id') id: string,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.finalizeQuestionnaire(id, user.userId);
   }
 
   @Get(':id/export')

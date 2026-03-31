@@ -36,21 +36,76 @@ export class PatientsService {
       throw new ConflictException('Patient with this CPF already registered');
     }
 
-    const result = await this.patientsRepository.query(
-      'SELECT generate_patient_identifier() AS identifier',
-    );
-    const public_identifier = result[0]?.identifier;
-
-    // Create patient with hashed CPF and plain CPF
+    // public_identifier é atribuído apenas em createWithPublicIdentifier (ex.: save Step 1)
     const { cpf, ...patientData } = createPatientDto;
     const patient = this.patientsRepository.create({
       ...patientData,
       cpf_hash,
       cpf, // Store CPF in plain text for retrieval
+    });
+
+    return this.patientsRepository.save(patient);
+  }
+
+  /**
+   * Cria paciente e gera public_identifier (sequência no banco). Usar no fluxo do questionário — Step 1.
+   */
+  async createWithPublicIdentifier(
+    createPatientDto: CreatePatientDto,
+  ): Promise<Patient> {
+    if (!CryptoUtil.isValidCpfFormat(createPatientDto.cpf)) {
+      throw new BadRequestException('Invalid CPF format');
+    }
+
+    const cpf_hash = CryptoUtil.hashCpf(createPatientDto.cpf);
+
+    const existing = await this.patientsRepository.findOne({
+      where: { cpf_hash },
+    });
+
+    if (existing) {
+      throw new ConflictException('Patient with this CPF already registered');
+    }
+
+    const result = await this.patientsRepository.query(
+      'SELECT generate_patient_identifier() AS identifier',
+    );
+    const public_identifier = result[0]?.identifier as string;
+
+    const { cpf, ...patientData } = createPatientDto;
+    const patient = this.patientsRepository.create({
+      ...patientData,
+      cpf_hash,
+      cpf,
       public_identifier,
     });
 
     return this.patientsRepository.save(patient);
+  }
+
+  /**
+   * Garante public_identifier se ainda for nulo (idempotente; seguro com concorrência no UPDATE).
+   */
+  async ensurePublicIdentifier(patientId: string): Promise<Patient> {
+    const existing = await this.findOne(patientId);
+    if (existing.public_identifier) {
+      return existing;
+    }
+
+    const rows: { public_identifier: string }[] =
+      await this.patientsRepository.query(
+        `UPDATE patients
+         SET public_identifier = generate_patient_identifier()
+         WHERE id = $1 AND public_identifier IS NULL
+         RETURNING public_identifier`,
+        [patientId],
+      );
+
+    if (rows.length > 0) {
+      return this.findOne(patientId);
+    }
+
+    return this.findOne(patientId);
   }
 
   async findAll(): Promise<Patient[]> {
