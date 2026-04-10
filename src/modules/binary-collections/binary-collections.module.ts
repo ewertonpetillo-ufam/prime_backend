@@ -8,9 +8,20 @@ import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { Patient } from '../../entities/patient.entity';
 import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
 import { Questionnaire } from '../../entities/questionnaire.entity';
+import { ClinicalAssessment } from '../../entities/clinical-assessment.entity';
+import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BinaryCollection, Patient, ActiveTaskDefinition, Questionnaire])],
+  imports: [
+    TypeOrmModule.forFeature([
+      BinaryCollection,
+      Patient,
+      ActiveTaskDefinition,
+      Questionnaire,
+      ClinicalAssessment,
+      HoehnYahrScale,
+    ]),
+  ],
   controllers: [BinaryCollectionsController, AdminCollectionOverviewController],
   providers: [BinaryCollectionsService, AdminCollectionOverviewService],
   exports: [BinaryCollectionsService],
