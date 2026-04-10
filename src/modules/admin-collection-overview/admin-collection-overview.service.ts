@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
+import { ClinicalAssessment } from '../../entities/clinical-assessment.entity';
+import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
 import {
   EXPECTED_BINARY_FILES_TOTAL,
   expectedFilesForTaskCode,
@@ -14,7 +16,7 @@ const DEFAULT_LIMIT = 200;
 const AT_RISK_DAYS = 7;
 
 /** Identificadores públicos (paciente) excluídos do painel de coleta e da matriz. */
-const EXCLUDED_COLLECTION_PUBLIC_IDS = ['P000'] as const;
+const EXCLUDED_COLLECTION_PUBLIC_IDS = ['P000', 'P00'] as const;
 
 export type TaskColumnDto = {
   task_code: string;
@@ -33,6 +35,13 @@ export type MatrixRowDto = {
   completionPercent: number;
 };
 
+export type ClinicalStratificationKpis = {
+  pacientesPrecoces: number;
+  pacientesSaudaveis: number;
+  pacientesAvancados: number;
+  pacientesSemClassificacaoClinica: number;
+};
+
 @Injectable()
 export class AdminCollectionOverviewService {
   constructor(
@@ -42,6 +51,8 @@ export class AdminCollectionOverviewService {
     private readonly binaryRepo: Repository<BinaryCollection>,
     @InjectRepository(ActiveTaskDefinition)
     private readonly tasksRepo: Repository<ActiveTaskDefinition>,
+    @InjectRepository(ClinicalAssessment)
+    private readonly clinicalRepo: Repository<ClinicalAssessment>,
   ) {}
 
   private parseStatuses(statusesParam?: string): string[] {
@@ -171,6 +182,114 @@ export class AdminCollectionOverviewService {
       rec[code] = (rec[code] || 0) + parseInt(row.cnt, 10);
     }
     return map;
+  }
+
+  /** Um questionário por paciente: primeiro na lista já ordenada por `updated_at` DESC. */
+  private dedupeLatestQuestionnairePerPatient(
+    questionnaires: Questionnaire[],
+  ): Questionnaire[] {
+    const seen = new Set<string>();
+    const out: Questionnaire[] = [];
+    for (const q of questionnaires) {
+      if (seen.has(q.patient_id)) continue;
+      seen.add(q.patient_id);
+      out.push(q);
+    }
+    return out;
+  }
+
+  /** Mesma aproximação que o carregamento do formulário (questionnaires.service). */
+  private approximateDiseaseYears(
+    dateOfBirth: Date | undefined,
+    ageAtOnset: number | null | undefined,
+  ): number | null {
+    if (!dateOfBirth || ageAtOnset == null || Number.isNaN(ageAtOnset)) {
+      return null;
+    }
+    const refYear = new Date().getFullYear();
+    const birthYear = new Date(dateOfBirth).getFullYear();
+    const d = refYear - birthYear - ageAtOnset;
+    return Number.isFinite(d) ? d : null;
+  }
+
+  private async computeClinicalStratificationKpis(
+    questionnaires: Questionnaire[],
+  ): Promise<ClinicalStratificationKpis> {
+    const empty: ClinicalStratificationKpis = {
+      pacientesPrecoces: 0,
+      pacientesSaudaveis: 0,
+      pacientesAvancados: 0,
+      pacientesSemClassificacaoClinica: 0,
+    };
+    if (questionnaires.length === 0) return empty;
+
+    const onePerPatient = this.dedupeLatestQuestionnairePerPatient(questionnaires);
+    const qids = onePerPatient.map((q) => q.id);
+
+    const raw = await this.clinicalRepo
+      .createQueryBuilder('ca')
+      .select('ca.questionnaire_id', 'questionnaire_id')
+      .addSelect('ca.age_at_onset', 'age_at_onset')
+      .addSelect('hy.stage', 'stage')
+      .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
+      .where('ca.questionnaire_id IN (:...qids)', { qids })
+      .getRawMany();
+
+    const byQid = new Map<
+      string,
+      { age_at_onset: number | null; stage: string | number | null }
+    >();
+    for (const row of raw) {
+      const qid = String((row as { questionnaire_id: string }).questionnaire_id);
+      const ageRaw = (row as { age_at_onset: unknown }).age_at_onset;
+      const stageRaw = (row as { stage: unknown }).stage;
+      byQid.set(qid, {
+        age_at_onset:
+          ageRaw !== null && ageRaw !== undefined && !Number.isNaN(Number(ageRaw))
+            ? Number(ageRaw)
+            : null,
+        stage: stageRaw as string | number | null,
+      });
+    }
+
+    let pacientesPrecoces = 0;
+    let pacientesSaudaveis = 0;
+    let pacientesAvancados = 0;
+    let pacientesSemClassificacaoClinica = 0;
+
+    for (const q of onePerPatient) {
+      const row = byQid.get(q.id);
+      const stageVal = row?.stage;
+      const hyNum =
+        stageVal === null || stageVal === undefined
+          ? null
+          : Number.parseFloat(String(stageVal));
+      const hy = hyNum !== null && Number.isFinite(hyNum) ? hyNum : null;
+
+      const D = this.approximateDiseaseYears(
+        q.patient?.date_of_birth,
+        row?.age_at_onset ?? null,
+      );
+
+      if (D === null || hy === null) {
+        pacientesSemClassificacaoClinica++;
+        continue;
+      }
+      if (D > 5) {
+        pacientesAvancados++;
+      } else if (D < 5 && hy <= 3) {
+        pacientesPrecoces++;
+      } else {
+        pacientesSaudaveis++;
+      }
+    }
+
+    return {
+      pacientesPrecoces,
+      pacientesSaudaveis,
+      pacientesAvancados,
+      pacientesSemClassificacaoClinica,
+    };
   }
 
   private patientLabel(q: Questionnaire): string {
@@ -322,7 +441,7 @@ export class AdminCollectionOverviewService {
       ficheirosTotais: number;
       progressoMedioPercent: number;
       metaGlobalFicheiros: number;
-    };
+    } & ClinicalStratificationKpis;
     filesByTask: { task_code: string; task_name: string; count: number }[];
     questionnaires: {
       questionnaireId: string;
@@ -405,6 +524,10 @@ export class AdminCollectionOverviewService {
       }),
     );
 
+    const clinicalStrat = await this.computeClinicalStratificationKpis(
+      questionnaires,
+    );
+
     return {
       kpis: {
         protocolosNoAmbito: matrixRows.length,
@@ -412,6 +535,7 @@ export class AdminCollectionOverviewService {
         ficheirosTotais,
         progressoMedioPercent,
         metaGlobalFicheiros: EXPECTED_BINARY_FILES_TOTAL,
+        ...clinicalStrat,
       },
       filesByTask,
       questionnaires: summaryQuestionnaires,
