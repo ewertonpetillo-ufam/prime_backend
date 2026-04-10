@@ -29,6 +29,7 @@ import { SaveRbdsqDto } from './dto/save-rbdsq.dto';
 import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { SavePhysioDto } from './dto/save-physio.dto';
+import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Questionnaires')
@@ -287,6 +288,27 @@ export class QuestionnairesController {
     @CurrentUser() user: { userId: string },
   ) {
     return this.questionnairesService.savePhysioAssessment(dto, user.userId);
+  }
+
+  @Post('sleep-patient-description')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar descrição do paciente (avaliação do sono)',
+    description: 'Atualiza a descrição clínica do sono do paciente vinculada ao questionário',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Descrição do sono salva com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveSleepPatientDescription(
+    @Body() dto: SaveSleepPatientDescriptionDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveSleepPatientDescription(dto, user.userId);
   }
 
   @Post(':id/session/start')
