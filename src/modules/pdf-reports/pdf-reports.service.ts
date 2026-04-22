@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   InternalServerErrorException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -30,6 +31,32 @@ function sanitizeOriginalFileName(name: string): string {
     .replace(/_+/g, '_');
   const trimmed = base.replace(/^_|_$/g, '').slice(0, 180);
   return trimmed || 'file';
+}
+
+/** Rede / processo: MinIO inacessível (não confundir com “arquivo não existe”). */
+function isMinioConnectivityError(e: unknown): boolean {
+  const err = e as Error & { code?: string; cause?: unknown };
+  const cause = err?.cause as Error & { code?: string } | undefined;
+  const code = err?.code || cause?.code;
+  if (typeof code === 'string') {
+    return ['ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'EPIPE'].includes(
+      code,
+    );
+  }
+  const msg = (err?.message || '').toLowerCase();
+  return /connect econnrefused|econnrefused|network|timed out|getaddrinfo|fetch failed|socket hang up/i.test(msg);
+}
+
+function isStorageObjectMissing(e: unknown): boolean {
+  const err = e as {
+    name?: string
+    Code?: string
+    $metadata?: { httpStatusCode?: number }
+  };
+  if (err?.name === 'NotFound' || err?.name === 'NoSuchKey') return true;
+  if (err?.Code === 'NoSuchKey') return true;
+  if (err?.$metadata?.httpStatusCode === 404) return true;
+  return false;
 }
 
 @Injectable()
@@ -127,8 +154,23 @@ export class PdfReportsService {
       try {
         const buffer = await this.minioStorage.getObjectBuffer(report.file_path);
         return Object.assign(report, { file_data: buffer });
-      } catch {
-        throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
+      } catch (e) {
+        if (isMinioConnectivityError(e)) {
+          const msg = e instanceof Error ? e.message : 'MinIO indisponível';
+          throw new ServiceUnavailableException(
+            `Armazenamento de arquivos (MinIO) indisponível: ${msg}. Verifique MINIO_ENDPOINT e se o serviço está acessível a partir deste backend.`,
+          );
+        }
+        if (isStorageObjectMissing(e)) {
+          throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
+        }
+        const msg = e instanceof Error ? e.message : 'Falha ao ler arquivo no storage';
+        console.error('[pdf-reports] MinIO getObjectBuffer failed', {
+          reportId: id,
+          filePath: report.file_path,
+          message: msg,
+        });
+        throw new InternalServerErrorException(msg);
       }
     }
 
@@ -162,7 +204,17 @@ export class PdfReportsService {
           message: err?.message,
           code: err?.code,
         });
-        throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
+        if (isMinioConnectivityError(e)) {
+          throw new ServiceUnavailableException(
+            `Armazenamento de arquivos (MinIO) indisponível: ${err?.message || 'falha de conexão'}. Verifique se o MinIO está em execução e se MINIO_ENDPOINT é alcançável a partir deste servidor.`,
+          );
+        }
+        if (isStorageObjectMissing(e)) {
+          throw new NotFoundException(`Arquivo do relatório ${id} não encontrado no storage`);
+        }
+        throw new InternalServerErrorException(
+          err?.message || 'Falha ao abrir stream do arquivo no storage',
+        );
       }
     }
 
