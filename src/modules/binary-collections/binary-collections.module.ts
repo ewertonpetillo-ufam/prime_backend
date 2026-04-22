@@ -10,6 +10,7 @@ import { ActiveTaskDefinition } from '../../entities/active-task-definition.enti
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { ClinicalAssessment } from '../../entities/clinical-assessment.entity';
 import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
+import { PdfReport } from '../../entities/pdf-report.entity';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
       Questionnaire,
       ClinicalAssessment,
       HoehnYahrScale,
+      PdfReport,
     ]),
   ],
   controllers: [BinaryCollectionsController, AdminCollectionOverviewController],

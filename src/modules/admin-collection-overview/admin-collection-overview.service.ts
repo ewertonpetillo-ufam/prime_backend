@@ -6,6 +6,7 @@ import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
 import { ClinicalAssessment } from '../../entities/clinical-assessment.entity';
 import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
+import { PdfReport } from '../../entities/pdf-report.entity';
 import {
   EXPECTED_BINARY_FILES_TOTAL,
   expectedFilesForTaskCode,
@@ -53,6 +54,8 @@ export class AdminCollectionOverviewService {
     private readonly tasksRepo: Repository<ActiveTaskDefinition>,
     @InjectRepository(ClinicalAssessment)
     private readonly clinicalRepo: Repository<ClinicalAssessment>,
+    @InjectRepository(PdfReport)
+    private readonly pdfReportRepo: Repository<PdfReport>,
   ) {}
 
   private parseStatuses(statusesParam?: string): string[] {
@@ -441,6 +444,9 @@ export class AdminCollectionOverviewService {
       ficheirosTotais: number;
       progressoMedioPercent: number;
       metaGlobalFicheiros: number;
+      armazenamentoColetasBytes: number;
+      armazenamentoRelatoriosMinioBytes: number;
+      armazenamentoTotalBytes: number;
     } & ClinicalStratificationKpis;
     filesByTask: { task_code: string; task_name: string; count: number }[];
     questionnaires: {
@@ -503,6 +509,39 @@ export class AdminCollectionOverviewService {
           )
         : 0;
 
+    const questionnaireIds = questionnaires.map((q) => q.id);
+    const armazenamentoColetasBytes =
+      questionnaireIds.length > 0
+        ? Number(
+            (
+              await this.binaryRepo.manager.query(
+                `
+                SELECT COALESCE(SUM(bc.file_size_bytes), 0)::bigint AS total_bytes
+                FROM questionnaires q
+                INNER JOIN patients p ON p.id = q.patient_id
+                INNER JOIN binary_collections bc ON (
+                  bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
+                )
+                WHERE q.id = ANY($1::uuid[])
+                `,
+                [questionnaireIds],
+              )
+            )?.[0]?.total_bytes ?? 0,
+          )
+        : 0;
+
+    const reportsStorageRaw = await this.pdfReportRepo
+      .createQueryBuilder('pr')
+      .select('COALESCE(SUM(pr.file_size_bytes), 0)', 'total_bytes')
+      .where('pr.file_path IS NOT NULL')
+      .andWhere("TRIM(pr.file_path) <> ''")
+      .getRawOne<{ total_bytes: string | number | null }>();
+    const armazenamentoRelatoriosMinioBytes = Number(
+      reportsStorageRaw?.total_bytes ?? 0,
+    );
+    const armazenamentoTotalBytes =
+      armazenamentoColetasBytes + armazenamentoRelatoriosMinioBytes;
+
     const filesByTaskAgg: Record<string, number> = {};
     for (const col of taskColumns) {
       filesByTaskAgg[col.task_code] = 0;
@@ -535,6 +574,9 @@ export class AdminCollectionOverviewService {
         ficheirosTotais,
         progressoMedioPercent,
         metaGlobalFicheiros: EXPECTED_BINARY_FILES_TOTAL,
+        armazenamentoColetasBytes,
+        armazenamentoRelatoriosMinioBytes,
+        armazenamentoTotalBytes,
         ...clinicalStrat,
       },
       filesByTask,
