@@ -242,7 +242,11 @@ export class PdfReportsService {
     filePath: string | null | undefined,
     expiresInSeconds = 3600,
   ): Promise<string | null> {
-    if (!filePath || !this.minioStorage.isEnabled()) {
+    if (
+      !filePath ||
+      !this.minioStorage.isEnabled() ||
+      !this.minioStorage.isPresignedEnabled()
+    ) {
       return null;
     }
     try {

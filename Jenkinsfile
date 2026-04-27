@@ -67,6 +67,7 @@ pipeline {
         MINIO_BUCKET = 'prime-coleta'
         MINIO_REGION = 'us-east-1'
         MINIO_FORCE_PATH_STYLE = 'true'
+        MINIO_PRESIGNED_ENABLED = 'false'
     }
     
     triggers {
@@ -247,6 +248,7 @@ MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 MINIO_BUCKET=${MINIO_BUCKET}
 MINIO_REGION=${MINIO_REGION}
 MINIO_FORCE_PATH_STYLE=${MINIO_FORCE_PATH_STYLE}
+MINIO_PRESIGNED_ENABLED=${MINIO_PRESIGNED_ENABLED}
 EOF
                     
                     echo "✅ Arquivo .env criado"
