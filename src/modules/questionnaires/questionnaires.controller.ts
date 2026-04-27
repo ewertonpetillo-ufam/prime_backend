@@ -42,7 +42,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Save Step 1 - Demographic data',
-    description: 'Creates or updates patient and questionnaire with demographic data',
+    description:
+      'Creates or updates patient and questionnaire with demographic data',
   })
   @ApiResponse({
     status: 200,
@@ -105,7 +106,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Salvar protocolo MDS-UPDRS Parte III',
-    description: 'Persiste as pontuações motoras do protocolo UPDRS-III para um questionário',
+    description:
+      'Persiste as pontuações motoras do protocolo UPDRS-III para um questionário',
   })
   @ApiResponse({
     status: 200,
@@ -147,7 +149,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Salvar protocolo UDysRS',
-    description: 'Persiste as pontuações da Escala Unificada para Avaliação de Discinesias',
+    description:
+      'Persiste as pontuações da Escala Unificada para Avaliação de Discinesias',
   })
   @ApiResponse({
     status: 200,
@@ -231,7 +234,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Salvar protocolo RBDSQ-BR',
-    description: 'Persiste as respostas da versão brasileira do questionário REM Sleep Behavior Disorder Screening (RBDSQ-BR)',
+    description:
+      'Persiste as respostas da versão brasileira do questionário REM Sleep Behavior Disorder Screening (RBDSQ-BR)',
   })
   @ApiResponse({
     status: 200,
@@ -273,7 +277,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Salvar avaliação fisioterápica (descrição do paciente)',
-    description: 'Atualiza a descrição fisioterápica do paciente vinculada ao questionário',
+    description:
+      'Atualiza a descrição fisioterápica do paciente vinculada ao questionário',
   })
   @ApiResponse({
     status: 200,
@@ -294,7 +299,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Salvar descrição do paciente (avaliação do sono)',
-    description: 'Atualiza a descrição clínica do sono do paciente vinculada ao questionário',
+    description:
+      'Atualiza a descrição clínica do sono do paciente vinculada ao questionário',
   })
   @ApiResponse({
     status: 200,
@@ -308,7 +314,10 @@ export class QuestionnairesController {
     @Body() dto: SaveSleepPatientDescriptionDto,
     @CurrentUser() user: { userId: string },
   ) {
-    return this.questionnairesService.saveSleepPatientDescription(dto, user.userId);
+    return this.questionnairesService.saveSleepPatientDescription(
+      dto,
+      user.userId,
+    );
   }
 
   @Post(':id/session/start')
@@ -326,9 +335,7 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async startSession(
-    @Param('id') questionnaireId: string,
-  ) {
+  async startSession(@Param('id') questionnaireId: string) {
     return this.questionnairesService.startSession(questionnaireId);
   }
 
@@ -347,9 +354,7 @@ export class QuestionnairesController {
     status: 404,
     description: 'Questionário não encontrado',
   })
-  async endSession(
-    @Param('id') questionnaireId: string,
-  ) {
+  async endSession(@Param('id') questionnaireId: string) {
     return this.questionnairesService.endSession(questionnaireId);
   }
 
@@ -357,7 +362,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get reference data for questionnaires',
-    description: 'Returns all reference data needed for questionnaire forms (genders, ethnicities, education levels, etc.)',
+    description:
+      'Returns all reference data needed for questionnaire forms (genders, ethnicities, education levels, etc.)',
   })
   @ApiResponse({
     status: 200,
@@ -403,7 +409,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'DEBUG: Get binary collections debug info',
-    description: 'Returns debug information about binary collections for a questionnaire',
+    description:
+      'Returns debug information about binary collections for a questionnaire',
   })
   @ApiResponse({
     status: 200,
@@ -423,7 +430,10 @@ export class QuestionnairesController {
     summary: 'Finalize questionnaire',
     description: 'Updates questionnaire status to completed',
   })
-  @ApiResponse({ status: 200, description: 'Questionnaire finalized successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Questionnaire finalized successfully',
+  })
   @ApiResponse({ status: 404, description: 'Questionnaire not found' })
   async finalizeQuestionnaire(
     @Param('id') id: string,
@@ -436,7 +446,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Export questionnaire data',
-    description: 'Returns complete questionnaire data with all related information including binary collections',
+    description:
+      'Returns complete questionnaire data with all related information including binary collections',
   })
   @ApiResponse({
     status: 200,
@@ -454,7 +465,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Export all patient data',
-    description: 'Returns all questionnaires and binary collections for a specific patient',
+    description:
+      'Returns all questionnaires and binary collections for a specific patient',
   })
   @ApiResponse({
     status: 200,
@@ -468,21 +480,33 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Export all questionnaires data',
-    description: 'Returns all questionnaires with all related data including binary collections',
+    description:
+      'Returns all questionnaires with all related data including binary collections',
   })
   @ApiResponse({
     status: 200,
     description: 'All questionnaires data exported successfully',
   })
-  async exportAllQuestionnairesData() {
-    return this.questionnairesService.exportAllQuestionnairesData();
+  async exportAllQuestionnairesData(
+    @Query('patientStart') patientStart?: string,
+    @Query('patientEnd') patientEnd?: string,
+    @Query('dateStart') dateStart?: string,
+    @Query('dateEnd') dateEnd?: string,
+  ) {
+    return this.questionnairesService.exportAllQuestionnairesData({
+      patientStart,
+      patientEnd,
+      dateStart,
+      dateEnd,
+    });
   }
 
   @Get('statistics/last-30-days')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get questionnaire statistics for last 30 days',
-    description: 'Returns count of questionnaires grouped by date for the last 30 days',
+    description:
+      'Returns count of questionnaires grouped by date for the last 30 days',
   })
   @ApiResponse({
     status: 200,
@@ -496,7 +520,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get completed questionnaires statistics for last 30 days',
-    description: 'Returns count of completed questionnaires grouped by completion date for the last 30 days',
+    description:
+      'Returns count of completed questionnaires grouped by completion date for the last 30 days',
   })
   @ApiResponse({
     status: 200,
@@ -510,7 +535,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update medications reference table',
-    description: 'Updates medications reference table with new standard drugs and deactivates old ones',
+    description:
+      'Updates medications reference table with new standard drugs and deactivates old ones',
   })
   @ApiResponse({
     status: 200,
@@ -520,4 +546,3 @@ export class QuestionnairesController {
     return this.questionnairesService.updateMedicationsReference();
   }
 }
-

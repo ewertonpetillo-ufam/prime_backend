@@ -29,6 +29,7 @@ export class MinioStorageService {
   private readonly internalClient: S3Client;
   private readonly presignClient: S3Client;
   private readonly enabled: boolean;
+  private readonly presignedEnabled: boolean;
 
   constructor(private readonly config: ConfigService) {
     const endpoint = config.get<string>('MINIO_ENDPOINT')?.trim();
@@ -39,6 +40,7 @@ export class MinioStorageService {
     this.bucket = config.get<string>('MINIO_BUCKET')?.trim() || 'prime-coleta';
     const region = config.get<string>('MINIO_REGION')?.trim() || 'us-east-1';
     const forcePathStyle = config.get<string>('MINIO_FORCE_PATH_STYLE') !== 'false';
+    this.presignedEnabled = config.get<string>('MINIO_PRESIGNED_ENABLED') !== 'false';
 
     this.enabled = !!(endpoint && accessKey && secretKey);
 
@@ -70,6 +72,10 @@ export class MinioStorageService {
 
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  isPresignedEnabled(): boolean {
+    return this.presignedEnabled;
   }
 
   assertEnabled(): void {
@@ -168,6 +174,9 @@ export class MinioStorageService {
 
   async getPresignedGetUrl(key: string, expiresInSeconds: number): Promise<string> {
     this.assertEnabled();
+    if (!this.presignedEnabled) {
+      throw new Error('Presigned URLs disabled by environment');
+    }
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: this.normalizeObjectKey(key),
