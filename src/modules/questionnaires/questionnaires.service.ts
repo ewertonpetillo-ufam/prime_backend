@@ -376,11 +376,11 @@ export class QuestionnairesService {
   private async mapGenderToId(gender?: string): Promise<number | null> {
     if (!gender) return null;
     const mapping: Record<string, string> = {
-      'M': 'M',
-      'F': 'F',
-      'Masculino': 'M',
-      'Feminino': 'F',
-      'Outro': 'OTHER',
+      M: 'M',
+      F: 'F',
+      Masculino: 'M',
+      Feminino: 'F',
+      Outro: 'OTHER',
     };
     const code = mapping[gender] || gender;
     const genderType = await this.genderTypeRepository.findOne({
@@ -395,12 +395,12 @@ export class QuestionnairesService {
   private async mapEthnicityToId(etnia?: string): Promise<number | null> {
     if (!etnia) return null;
     const mapping: Record<string, string> = {
-      'Branco': 'WHITE',
-      'Negro': 'BLACK',
-      'Pardo': 'BROWN',
-      'Amarelo': 'ASIAN',
-      'Indígena': 'INDIGENOUS',
-      'Outro': 'OTHER',
+      Branco: 'WHITE',
+      Negro: 'BLACK',
+      Pardo: 'BROWN',
+      Amarelo: 'ASIAN',
+      Indígena: 'INDIGENOUS',
+      Outro: 'OTHER',
     };
     const code = mapping[etnia] || etnia;
     const ethnicityType = await this.ethnicityTypeRepository.findOne({
@@ -415,7 +415,7 @@ export class QuestionnairesService {
   private async mapEducationToId(education?: string): Promise<number | null> {
     if (!education) return null;
     const mapping: Record<string, string> = {
-      'Analfabeto': 'ILLITERATE',
+      Analfabeto: 'ILLITERATE',
       'Ensino Fundamental Incompleto': 'ELEMENTARY_INCOMPLETE',
       'Ensino Fundamental Completo': 'ELEMENTARY_COMPLETE',
       'Ensino Médio Incompleto': 'HIGH_SCHOOL_INCOMPLETE',
@@ -423,7 +423,7 @@ export class QuestionnairesService {
       'Ensino Superior Incompleto': 'COLLEGE_INCOMPLETE',
       'Ensino Superior Completo': 'COLLEGE_COMPLETE',
       'Pós-Graduação': 'POST_GRADUATE',
-      'Outro': 'OTHER',
+      Outro: 'OTHER',
     };
     const code = mapping[education] || education;
     const educationLevel = await this.educationLevelRepository.findOne({
@@ -435,11 +435,13 @@ export class QuestionnairesService {
   /**
    * Map frontend marital status value to marital_status_id
    */
-  private async mapMaritalStatusToId(maritalStatus?: string): Promise<number | null> {
+  private async mapMaritalStatusToId(
+    maritalStatus?: string,
+  ): Promise<number | null> {
     if (!maritalStatus) return null;
     const mapping: Record<string, string> = {
-      'Solteiro': 'SINGLE',
-      'Casado': 'MARRIED',
+      Solteiro: 'SINGLE',
+      Casado: 'MARRIED',
       'União estável': 'DOMESTIC_PARTNERSHIP',
       'Prefere não informar': 'PREFER_NOT_SAY',
     };
@@ -453,10 +455,12 @@ export class QuestionnairesService {
   /**
    * Map frontend income range value to income_range_id
    */
-  private async mapIncomeRangeToId(rendaFamiliar?: string): Promise<number | null> {
+  private async mapIncomeRangeToId(
+    rendaFamiliar?: string,
+  ): Promise<number | null> {
     if (!rendaFamiliar) return null;
     const mapping: Record<string, string> = {
-      'ate_1_salario': 'UP_TO_1',
+      ate_1_salario: 'UP_TO_1',
       '2_4_salarios': '2_TO_4',
       '4_salarios_ou_mais': '4_PLUS',
     };
@@ -494,10 +498,10 @@ export class QuestionnairesService {
    */
   private normalizeAffectedSide(side?: string): string | null {
     if (!side || side.trim() === '') return null;
-    
+
     const normalized = side.trim();
     const lower = normalized.toLowerCase();
-    
+
     // Map common variations to valid values
     if (lower === 'direito' || lower === 'd' || lower === 'right') {
       return 'Direito';
@@ -505,11 +509,16 @@ export class QuestionnairesService {
     if (lower === 'esquerdo' || lower === 'e' || lower === 'left') {
       return 'Esquerdo';
     }
-    if (lower === 'bilateral' || lower === 'b' || lower === 'ambos' || lower === 'both') {
+    if (
+      lower === 'bilateral' ||
+      lower === 'b' ||
+      lower === 'ambos' ||
+      lower === 'both'
+    ) {
       return 'Bilateral';
     }
     if (
-      lower === 'não especificado' || 
+      lower === 'não especificado' ||
       lower === 'nao especificado' ||
       lower === 'não especificado' ||
       lower === 'n/a' ||
@@ -520,14 +529,19 @@ export class QuestionnairesService {
     ) {
       return 'Não especificado';
     }
-    
+
     // If it matches one of the valid values exactly (case-insensitive), return it
-    const validValues = ['Direito', 'Esquerdo', 'Bilateral', 'Não especificado'];
-    const matched = validValues.find(v => v.toLowerCase() === lower);
+    const validValues = [
+      'Direito',
+      'Esquerdo',
+      'Bilateral',
+      'Não especificado',
+    ];
+    const matched = validValues.find((v) => v.toLowerCase() === lower);
     if (matched) {
       return matched;
     }
-    
+
     // If no match, return null (will be stored as null, which is allowed)
     return null;
   }
@@ -559,7 +573,10 @@ export class QuestionnairesService {
    * Get or create medication reference by drug name
    * Uses the same LED conversion factors as the frontend
    */
-  private async getOrCreateMedicationReference(drugName: string, customConversionFactor?: number): Promise<MedicationReference> {
+  private async getOrCreateMedicationReference(
+    drugName: string,
+    customConversionFactor?: number,
+  ): Promise<MedicationReference> {
     if (!drugName || drugName.trim() === '') {
       throw new BadRequestException('Drug name is required');
     }
@@ -571,7 +588,10 @@ export class QuestionnairesService {
 
     if (medication) {
       // Se já existe e tem fator personalizado, atualiza o fator
-      if (customConversionFactor !== undefined && medication.led_conversion_factor !== customConversionFactor) {
+      if (
+        customConversionFactor !== undefined &&
+        medication.led_conversion_factor !== customConversionFactor
+      ) {
         medication.led_conversion_factor = customConversionFactor;
         medication = await this.medicationReferenceRepository.save(medication);
       }
@@ -580,39 +600,40 @@ export class QuestionnairesService {
 
     // LED conversion factors (same as frontend)
     const LEDD_CONVERSION_FACTORS: Record<string, number> = {
-      'Amantadine': 1,
-      'Apomorphine': 10,
-      'Azilect': 100, // rasagiline
-      'Bromocriptine': 10,
-      'Cabergoline': 80,
-      'Duodopa': 1.11,
-      'Levodopa': 1,
+      Amantadine: 1,
+      Apomorphine: 10,
+      Azilect: 100, // rasagiline
+      Bromocriptine: 10,
+      Cabergoline: 80,
+      Duodopa: 1.11,
+      Levodopa: 1,
       'Levodopa CR': 0.75,
       'Levodopa with Entacapone': 1.33,
       'Levodopa with Tolcapone': 1.5,
-      'Lisuride': 100,
-      'Madopar': 1, // levodopa+benserazida
-      'Mirapex': 100, // pramipexole
-      'Pergolide': 100,
-      'Pramipexole': 100,
-      'Rasagiline': 100,
-      'Requip': 20, // ropinirole
-      'RequipXL': 20, // ropinirole CR
-      'Ropinirole': 20,
-      'RopiniroleCR': 20,
-      'Rotigotine': 30,
-      'Rytary': 0.6,
+      Lisuride: 100,
+      Madopar: 1, // levodopa+benserazida
+      Mirapex: 100, // pramipexole
+      Pergolide: 100,
+      Pramipexole: 100,
+      Rasagiline: 100,
+      Requip: 20, // ropinirole
+      RequipXL: 20, // ropinirole CR
+      Ropinirole: 20,
+      RopiniroleCR: 20,
+      Rotigotine: 30,
+      Rytary: 0.6,
       'Selegiline Oral': 10,
       'Selegiline Sublingual': 80,
-      'Sinemet': 1, // levodopa+carbidopa
+      Sinemet: 1, // levodopa+carbidopa
       'Sinemet CR': 0.75,
-      'Stalevo': 1.33,
+      Stalevo: 1.33,
     };
 
     // Usa o fator personalizado se fornecido, senão busca na tabela ou usa 1.0
-    const conversionFactor = customConversionFactor !== undefined 
-      ? customConversionFactor 
-      : (LEDD_CONVERSION_FACTORS[drugName.trim()] || 1.0);
+    const conversionFactor =
+      customConversionFactor !== undefined
+        ? customConversionFactor
+        : LEDD_CONVERSION_FACTORS[drugName.trim()] || 1.0;
 
     // Create new medication reference
     medication = this.medicationReferenceRepository.create({
@@ -627,10 +648,13 @@ export class QuestionnairesService {
   /**
    * Save Step 1: Create or update patient and questionnaire
    */
-  async saveStep1(dto: SaveStep1Dto, evaluatorId: string): Promise<{ questionnaireId: string; patientId: string }> {
+  async saveStep1(
+    dto: SaveStep1Dto,
+    evaluatorId: string,
+  ): Promise<{ questionnaireId: string; patientId: string }> {
     // Normalize CPF (remove formatting)
     const cpf = dto.cpf.replace(/\D/g, '');
-    
+
     // Try to find existing patient by CPF
     let patient: Patient;
     try {
@@ -644,17 +668,20 @@ export class QuestionnairesService {
     const gender_id = await this.mapGenderToId(dto.gender);
     const ethnicity_id = await this.mapEthnicityToId(dto.etnia);
     const education_level_id = await this.mapEducationToId(dto.education);
-    const marital_status_id = await this.mapMaritalStatusToId(dto.maritalStatus);
+    const marital_status_id = await this.mapMaritalStatusToId(
+      dto.maritalStatus,
+    );
     const income_range_id = await this.mapIncomeRangeToId(dto.rendaFamiliar);
 
     // Determine smoking status
     const is_current_smoker = dto.fumaCase === 'Sim' || dto.fumaCase === true;
-    const smoking_duration_years = is_current_smoker 
-      ? this.parseSmokingDuration(dto.smokingDuration) 
+    const smoking_duration_years = is_current_smoker
+      ? this.parseSmokingDuration(dto.smokingDuration)
       : null;
-    const years_since_quit_smoking = !is_current_smoker && dto.fumouAntes === 'Sim'
-      ? this.parseSmokingDuration(dto.stoppedSmokingDuration)
-      : null;
+    const years_since_quit_smoking =
+      !is_current_smoker && dto.fumouAntes === 'Sim'
+        ? this.parseSmokingDuration(dto.stoppedSmokingDuration)
+        : null;
     const smoked_before = is_current_smoker
       ? true
       : this.normalizeYesNoBoolean(dto.fumouAntes);
@@ -689,12 +716,12 @@ export class QuestionnairesService {
         dominant_hand: dto.dominantHand || null,
         tcle_signed,
       };
-      
+
       // Update CPF if it's missing (for existing patients that don't have it)
       if (!patient.cpf) {
         updateData.cpf = cpf;
       }
-      
+
       await this.patientsService.update(patient.id, updateData);
       // Reload patient to get updated data - relations are eager loaded in entity
       patient = await this.patientsService.findOne(patient.id);
@@ -802,13 +829,18 @@ export class QuestionnairesService {
   /**
    * Save Step 2: Save anthropometric data
    */
-  async saveStep2(dto: SaveStep2Dto, evaluatorId: string): Promise<AnthropometricData> {
+  async saveStep2(
+    dto: SaveStep2Dto,
+    evaluatorId: string,
+  ): Promise<AnthropometricData> {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     // Find or create anthropometric data
@@ -821,16 +853,32 @@ export class QuestionnairesService {
         questionnaire_id: dto.questionnaireId,
         weight_kg: dto.weight ? parseFloat(String(dto.weight)) : null,
         height_cm: dto.height ? parseFloat(String(dto.height)) : null,
-        waist_circumference_cm: dto.waistSize ? parseFloat(String(dto.waistSize)) : null,
-        hip_circumference_cm: dto.hipSize ? parseFloat(String(dto.hipSize)) : null,
-        abdominal_circumference_cm: dto.abdominal ? parseFloat(String(dto.abdominal)) : null,
+        waist_circumference_cm: dto.waistSize
+          ? parseFloat(String(dto.waistSize))
+          : null,
+        hip_circumference_cm: dto.hipSize
+          ? parseFloat(String(dto.hipSize))
+          : null,
+        abdominal_circumference_cm: dto.abdominal
+          ? parseFloat(String(dto.abdominal))
+          : null,
       });
     } else {
-      anthropometricData.weight_kg = dto.weight ? parseFloat(String(dto.weight)) : anthropometricData.weight_kg;
-      anthropometricData.height_cm = dto.height ? parseFloat(String(dto.height)) : anthropometricData.height_cm;
-      anthropometricData.waist_circumference_cm = dto.waistSize ? parseFloat(String(dto.waistSize)) : anthropometricData.waist_circumference_cm;
-      anthropometricData.hip_circumference_cm = dto.hipSize ? parseFloat(String(dto.hipSize)) : anthropometricData.hip_circumference_cm;
-      anthropometricData.abdominal_circumference_cm = dto.abdominal ? parseFloat(String(dto.abdominal)) : anthropometricData.abdominal_circumference_cm;
+      anthropometricData.weight_kg = dto.weight
+        ? parseFloat(String(dto.weight))
+        : anthropometricData.weight_kg;
+      anthropometricData.height_cm = dto.height
+        ? parseFloat(String(dto.height))
+        : anthropometricData.height_cm;
+      anthropometricData.waist_circumference_cm = dto.waistSize
+        ? parseFloat(String(dto.waistSize))
+        : anthropometricData.waist_circumference_cm;
+      anthropometricData.hip_circumference_cm = dto.hipSize
+        ? parseFloat(String(dto.hipSize))
+        : anthropometricData.hip_circumference_cm;
+      anthropometricData.abdominal_circumference_cm = dto.abdominal
+        ? parseFloat(String(dto.abdominal))
+        : anthropometricData.abdominal_circumference_cm;
     }
 
     // Atualizar passo e acumular tempo de sessão
@@ -848,13 +896,18 @@ export class QuestionnairesService {
   /**
    * Save Step 3: Save clinical assessment data
    */
-  async saveStep3(dto: SaveStep3Dto, evaluatorId: string): Promise<ClinicalAssessment> {
+  async saveStep3(
+    dto: SaveStep3Dto,
+    evaluatorId: string,
+  ): Promise<ClinicalAssessment> {
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: dto.questionnaireId },
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     // Find or create clinical assessment
@@ -870,26 +923,39 @@ export class QuestionnairesService {
         'dto.scaleHY': dto.scaleHY,
         'stage (parseFloat)': stage,
         'tipo stage': typeof stage,
-        'isNaN': isNaN(stage),
+        isNaN: isNaN(stage),
       });
-      
+
       if (!isNaN(stage)) {
         // Tentar buscar pelo stage usando query builder para lidar melhor com decimal
         const hoehnYahr = await this.hoehnYahrScaleRepository
           .createQueryBuilder('hys')
           .where('hys.stage = :stage', { stage })
           .getOne();
-        
+
         console.log('🔍 DEBUG - Hoehn-Yahr encontrado:', {
-          'hoehnYahr': hoehnYahr ? { id: hoehnYahr.id, stage: hoehnYahr.stage, tipo_stage: typeof hoehnYahr.stage } : null,
+          hoehnYahr: hoehnYahr
+            ? {
+                id: hoehnYahr.id,
+                stage: hoehnYahr.stage,
+                tipo_stage: typeof hoehnYahr.stage,
+              }
+            : null,
         });
-        
+
         if (!hoehnYahr) {
           // Se não encontrou, tentar buscar todos para debug
           const allStages = await this.hoehnYahrScaleRepository.find();
-          console.log('🔍 DEBUG - Todos os stages disponíveis:', allStages.map(h => ({ id: h.id, stage: h.stage, tipo: typeof h.stage })));
+          console.log(
+            '🔍 DEBUG - Todos os stages disponíveis:',
+            allStages.map((h) => ({
+              id: h.id,
+              stage: h.stage,
+              tipo: typeof h.stage,
+            })),
+          );
         }
-        
+
         hoehnYahrStageId = hoehnYahr?.id || null;
       } else {
         console.log('🔍 DEBUG - scaleHY não é um número válido');
@@ -915,7 +981,8 @@ export class QuestionnairesService {
     let dyskinesia_type_id: number | null = null;
     let dyskinesia_type_codes: string | null = null;
     const fogList =
-      Array.isArray((dto as any).fogClassifcationList) && (dto as any).fogClassifcationList.length > 0
+      Array.isArray((dto as any).fogClassifcationList) &&
+      (dto as any).fogClassifcationList.length > 0
         ? (dto as any).fogClassifcationList
         : dto.fogClassifcation
           ? [dto.fogClassifcation]
@@ -933,8 +1000,8 @@ export class QuestionnairesService {
     }
 
     // Parse average ON time hours
-    const average_on_time_hours = dto.durationWearingOff 
-      ? this.parseSmokingDuration(dto.durationWearingOff) 
+    const average_on_time_hours = dto.durationWearingOff
+      ? this.parseSmokingDuration(dto.durationWearingOff)
       : null;
 
     // Parse L-Dopa onset time hours
@@ -943,7 +1010,9 @@ export class QuestionnairesService {
       : null;
 
     // Normalize affected side to match database constraint
-    const normalizedAffectedSide = this.normalizeAffectedSide(dto.parkinsonSide);
+    const normalizedAffectedSide = this.normalizeAffectedSide(
+      dto.parkinsonSide,
+    );
 
     // Map surgery data
     const has_surgery_history = dto.surgery === 'Sim';
@@ -987,52 +1056,87 @@ export class QuestionnairesService {
         current_symptoms: dto.symptom,
       });
     } else {
-      clinicalAssessment.diagnostic_description = dto.diagnosticDescription || clinicalAssessment.diagnostic_description;
-      clinicalAssessment.age_at_onset = dto.onsetAge ? parseInt(String(dto.onsetAge), 10) : clinicalAssessment.age_at_onset;
-      clinicalAssessment.initial_symptom = dto.initialSympton || clinicalAssessment.initial_symptom;
-      clinicalAssessment.affected_side = normalizedAffectedSide !== null ? normalizedAffectedSide : clinicalAssessment.affected_side;
-      clinicalAssessment.phenotype_id = phenotype_id !== null ? phenotype_id : clinicalAssessment.phenotype_id;
+      clinicalAssessment.diagnostic_description =
+        dto.diagnosticDescription || clinicalAssessment.diagnostic_description;
+      clinicalAssessment.age_at_onset = dto.onsetAge
+        ? parseInt(String(dto.onsetAge), 10)
+        : clinicalAssessment.age_at_onset;
+      clinicalAssessment.initial_symptom =
+        dto.initialSympton || clinicalAssessment.initial_symptom;
+      clinicalAssessment.affected_side =
+        normalizedAffectedSide !== null
+          ? normalizedAffectedSide
+          : clinicalAssessment.affected_side;
+      clinicalAssessment.phenotype_id =
+        phenotype_id !== null ? phenotype_id : clinicalAssessment.phenotype_id;
       // Atualizar hoehn_yahr_stage_id apenas se um novo valor foi fornecido
       if (hoehnYahrStageId !== null) {
         clinicalAssessment.hoehn_yahr_stage_id = hoehnYahrStageId;
-      } else if (dto.scaleHY === '' || dto.scaleHY === null || dto.scaleHY === undefined) {
+      } else if (
+        dto.scaleHY === '' ||
+        dto.scaleHY === null ||
+        dto.scaleHY === undefined
+      ) {
         // Se scaleHY foi explicitamente enviado como vazio, limpar o campo
         clinicalAssessment.hoehn_yahr_stage_id = null;
       }
       // Caso contrário, manter o valor existente
-      clinicalAssessment.schwab_england_score = schwabEnglandScore || clinicalAssessment.schwab_england_score;
+      clinicalAssessment.schwab_england_score =
+        schwabEnglandScore || clinicalAssessment.schwab_england_score;
       clinicalAssessment.has_family_history = has_family_history;
-      clinicalAssessment.family_kinship_degree = dto.kinshipDegree || clinicalAssessment.family_kinship_degree;
-      clinicalAssessment.has_dyskinesia = dto.diskinectiaPresence || clinicalAssessment.has_dyskinesia;
-      clinicalAssessment.has_freezing_of_gait = dto.fog || clinicalAssessment.has_freezing_of_gait;
-      clinicalAssessment.has_wearing_off = dto.wearingOff || clinicalAssessment.has_wearing_off;
-      clinicalAssessment.average_on_time_hours = average_on_time_hours || clinicalAssessment.average_on_time_hours;
-      clinicalAssessment.has_delayed_on = dto.DelayOn || clinicalAssessment.has_delayed_on;
-      clinicalAssessment.ldopa_onset_time_hours = ldopa_onset_time_hours || clinicalAssessment.ldopa_onset_time_hours;
-      clinicalAssessment.assessed_on_levodopa = dto.levodopaOn || clinicalAssessment.assessed_on_levodopa;
+      clinicalAssessment.family_kinship_degree =
+        dto.kinshipDegree || clinicalAssessment.family_kinship_degree;
+      clinicalAssessment.has_dyskinesia =
+        dto.diskinectiaPresence || clinicalAssessment.has_dyskinesia;
+      clinicalAssessment.has_freezing_of_gait =
+        dto.fog || clinicalAssessment.has_freezing_of_gait;
+      clinicalAssessment.has_wearing_off =
+        dto.wearingOff || clinicalAssessment.has_wearing_off;
+      clinicalAssessment.average_on_time_hours =
+        average_on_time_hours || clinicalAssessment.average_on_time_hours;
+      clinicalAssessment.has_delayed_on =
+        dto.DelayOn || clinicalAssessment.has_delayed_on;
+      clinicalAssessment.ldopa_onset_time_hours =
+        ldopa_onset_time_hours || clinicalAssessment.ldopa_onset_time_hours;
+      clinicalAssessment.assessed_on_levodopa =
+        dto.levodopaOn || clinicalAssessment.assessed_on_levodopa;
       if (dyskinesia_type_id !== null) {
         clinicalAssessment.dyskinesia_type_id = dyskinesia_type_id;
       }
       if (dyskinesia_type_codes !== null) {
         clinicalAssessment.dyskinesia_type_codes = dyskinesia_type_codes;
       }
-      clinicalAssessment.dyskinesia_type_id = dyskinesia_type_id !== null ? dyskinesia_type_id : clinicalAssessment.dyskinesia_type_id;
-      clinicalAssessment.comorbidities = dto.comorbidities || clinicalAssessment.comorbidities;
-      clinicalAssessment.other_medications = dto.otherMedications || clinicalAssessment.other_medications;
+      clinicalAssessment.dyskinesia_type_id =
+        dyskinesia_type_id !== null
+          ? dyskinesia_type_id
+          : clinicalAssessment.dyskinesia_type_id;
+      clinicalAssessment.comorbidities =
+        dto.comorbidities || clinicalAssessment.comorbidities;
+      clinicalAssessment.other_medications =
+        dto.otherMedications || clinicalAssessment.other_medications;
       clinicalAssessment.has_surgery_history = has_surgery_history;
-      clinicalAssessment.surgery_year = surgery_year !== null ? surgery_year : clinicalAssessment.surgery_year;
-      clinicalAssessment.surgery_type_id = surgery_type_id !== null ? surgery_type_id : clinicalAssessment.surgery_type_id;
-      clinicalAssessment.surgery_target = dto.surgeryTarget || clinicalAssessment.surgery_target;
-      clinicalAssessment.disease_evolution = dto.evolution || clinicalAssessment.disease_evolution;
-      clinicalAssessment.current_symptoms = dto.symptom || clinicalAssessment.current_symptoms;
+      clinicalAssessment.surgery_year =
+        surgery_year !== null ? surgery_year : clinicalAssessment.surgery_year;
+      clinicalAssessment.surgery_type_id =
+        surgery_type_id !== null
+          ? surgery_type_id
+          : clinicalAssessment.surgery_type_id;
+      clinicalAssessment.surgery_target =
+        dto.surgeryTarget || clinicalAssessment.surgery_target;
+      clinicalAssessment.disease_evolution =
+        dto.evolution || clinicalAssessment.disease_evolution;
+      clinicalAssessment.current_symptoms =
+        dto.symptom || clinicalAssessment.current_symptoms;
     }
 
-    const savedClinicalAssessment = await this.clinicalAssessmentRepository.save(clinicalAssessment);
-    
+    const savedClinicalAssessment =
+      await this.clinicalAssessmentRepository.save(clinicalAssessment);
+
     console.log('🔍 DEBUG - Clinical assessment salvo:', {
       'savedClinicalAssessment.id': savedClinicalAssessment.id,
       'hoehn_yahr_stage_id salvo': savedClinicalAssessment.hoehn_yahr_stage_id,
-      'tipo hoehn_yahr_stage_id': typeof savedClinicalAssessment.hoehn_yahr_stage_id,
+      'tipo hoehn_yahr_stage_id':
+        typeof savedClinicalAssessment.hoehn_yahr_stage_id,
     });
 
     // Save medications if provided
@@ -1046,25 +1150,32 @@ export class QuestionnairesService {
       // Save each medication (only if array is not empty)
       for (const medDto of dto.medications) {
         // Para medicações "Outro", usar customDrugName; caso contrário, usar drug
-        const drugName = medDto.drug === 'Outro' && medDto.customDrugName 
-          ? medDto.customDrugName 
-          : medDto.drug;
-        
+        const drugName =
+          medDto.drug === 'Outro' && medDto.customDrugName
+            ? medDto.customDrugName
+            : medDto.drug;
+
         if (!drugName || !medDto.doseMg || medDto.doseMg <= 0) {
           continue; // Skip invalid medications
         }
 
         try {
           // Para medicações "Outro", usar o fator de conversão personalizado
-          const customFactor = medDto.drug === 'Outro' && medDto.customConversionFactor !== undefined
-            ? medDto.customConversionFactor
-            : undefined;
+          const customFactor =
+            medDto.drug === 'Outro' &&
+            medDto.customConversionFactor !== undefined
+              ? medDto.customConversionFactor
+              : undefined;
 
           // Get or create medication reference
-          const medicationRef = await this.getOrCreateMedicationReference(drugName, customFactor);
+          const medicationRef = await this.getOrCreateMedicationReference(
+            drugName,
+            customFactor,
+          );
 
           // Calculate doses_per_day (default to 1 if not provided)
-          const dosesPerDay = medDto.qtDose && medDto.qtDose > 0 ? medDto.qtDose : 1;
+          const dosesPerDay =
+            medDto.qtDose && medDto.qtDose > 0 ? medDto.qtDose : 1;
 
           // Create patient medication
           const patientMedication = this.patientMedicationRepository.create({
@@ -1095,7 +1206,10 @@ export class QuestionnairesService {
     return savedClinicalAssessment;
   }
 
-  async savePhysioAssessment(dto: SavePhysioDto, evaluatorId: string): Promise<ClinicalAssessment> {
+  async savePhysioAssessment(
+    dto: SavePhysioDto,
+    evaluatorId: string,
+  ): Promise<ClinicalAssessment> {
     const { questionnaireId, physioPatientDescription } = dto;
 
     const questionnaire = await this.questionnairesRepository.findOne({
@@ -1103,12 +1217,15 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
     }
 
-    let clinicalAssessment: ClinicalAssessment | null = await this.clinicalAssessmentRepository.findOne({
-      where: { questionnaire_id: questionnaireId },
-    });
+    let clinicalAssessment: ClinicalAssessment | null =
+      await this.clinicalAssessmentRepository.findOne({
+        where: { questionnaire_id: questionnaireId },
+      });
 
     if (!clinicalAssessment) {
       const payload: DeepPartial<ClinicalAssessment> = {
@@ -1144,10 +1261,12 @@ export class QuestionnairesService {
       };
       clinicalAssessment = this.clinicalAssessmentRepository.create(payload);
     } else {
-      clinicalAssessment.physio_patient_description = physioPatientDescription ?? null;
+      clinicalAssessment.physio_patient_description =
+        physioPatientDescription ?? null;
     }
 
-    const saved = await this.clinicalAssessmentRepository.save(clinicalAssessment);
+    const saved =
+      await this.clinicalAssessmentRepository.save(clinicalAssessment);
 
     // Atualizar passo (clínico) e acumular tempo de sessão
     {
@@ -1173,12 +1292,15 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
     }
 
-    let clinicalAssessment: ClinicalAssessment | null = await this.clinicalAssessmentRepository.findOne({
-      where: { questionnaire_id: questionnaireId },
-    });
+    let clinicalAssessment: ClinicalAssessment | null =
+      await this.clinicalAssessmentRepository.findOne({
+        where: { questionnaire_id: questionnaireId },
+      });
 
     if (!clinicalAssessment) {
       const payload: DeepPartial<ClinicalAssessment> = {
@@ -1214,10 +1336,12 @@ export class QuestionnairesService {
       };
       clinicalAssessment = this.clinicalAssessmentRepository.create(payload);
     } else {
-      clinicalAssessment.sleep_patient_description = sleepPatientDescription ?? null;
+      clinicalAssessment.sleep_patient_description =
+        sleepPatientDescription ?? null;
     }
 
-    const saved = await this.clinicalAssessmentRepository.save(clinicalAssessment);
+    const saved =
+      await this.clinicalAssessmentRepository.save(clinicalAssessment);
 
     {
       const currentLastStep = questionnaire.last_step ?? 0;
@@ -1239,7 +1363,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let updrsScore = await this.updrs3Repository.findOne({
@@ -1280,7 +1406,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let meemScore = await this.meemRepository.findOne({
@@ -1321,7 +1449,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let udysrsScore = await this.udysrsRepository.findOne({
@@ -1364,7 +1494,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let stopbangScore = await this.stopbangRepository.findOne({
@@ -1405,7 +1537,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let epworthScore = await this.epworthRepository.findOne({
@@ -1446,7 +1580,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let pdssScore = await this.pdss2Repository.findOne({
@@ -1487,7 +1623,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let rbdsqScore = await this.rbdsqRepository.findOne({
@@ -1527,7 +1665,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let rbdsqBrScore = await this.rbdsqBrRepository.findOne({
@@ -1569,7 +1709,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
     }
 
     const now = new Date();
@@ -1596,7 +1738,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
     }
 
     const now = new Date();
@@ -1620,7 +1764,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${dto.questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${dto.questionnaireId} not found`,
+      );
     }
 
     let fogqScore = await this.fogqRepository.findOne({
@@ -1657,44 +1803,89 @@ export class QuestionnairesService {
    */
   async getReferenceData() {
     try {
-      const [genders, ethnicities, educationLevels, maritalStatuses, incomeRanges, phenotypes, dyskinesiaTypes] = await Promise.all([
-        this.genderTypeRepository.find({ 
-          where: { active: true }, 
-          order: { id: 'ASC' } 
-        }).catch(() => []),
-        this.ethnicityTypeRepository.find({ 
-          where: { active: true }, 
-          order: { id: 'ASC' } 
-        }).catch(() => []),
-        this.educationLevelRepository.find({ 
-          where: { active: true }, 
-          order: { id: 'ASC' } 
-        }).catch(() => []),
-        this.maritalStatusTypeRepository.find({ 
-          where: { active: true }, 
-          order: { id: 'ASC' } 
-        }).catch(() => []),
-        this.incomeRangeRepository.find({ 
-          where: { active: true }, 
-          order: { id: 'ASC' } 
-        }).catch(() => []),
-        this.parkinsonPhenotypeRepository.find({ 
-          where: { active: true }, 
-          order: { id: 'ASC' } 
-        }).catch(() => []),
-        this.dyskinesiaTypeRepository.find({ 
-          order: { id: 'ASC' } 
-        }).catch(() => []),
+      const [
+        genders,
+        ethnicities,
+        educationLevels,
+        maritalStatuses,
+        incomeRanges,
+        phenotypes,
+        dyskinesiaTypes,
+      ] = await Promise.all([
+        this.genderTypeRepository
+          .find({
+            where: { active: true },
+            order: { id: 'ASC' },
+          })
+          .catch(() => []),
+        this.ethnicityTypeRepository
+          .find({
+            where: { active: true },
+            order: { id: 'ASC' },
+          })
+          .catch(() => []),
+        this.educationLevelRepository
+          .find({
+            where: { active: true },
+            order: { id: 'ASC' },
+          })
+          .catch(() => []),
+        this.maritalStatusTypeRepository
+          .find({
+            where: { active: true },
+            order: { id: 'ASC' },
+          })
+          .catch(() => []),
+        this.incomeRangeRepository
+          .find({
+            where: { active: true },
+            order: { id: 'ASC' },
+          })
+          .catch(() => []),
+        this.parkinsonPhenotypeRepository
+          .find({
+            where: { active: true },
+            order: { id: 'ASC' },
+          })
+          .catch(() => []),
+        this.dyskinesiaTypeRepository
+          .find({
+            order: { id: 'ASC' },
+          })
+          .catch(() => []),
       ]);
 
       return {
-        genders: genders.map(g => ({ value: g.code, label: g.description, code: g.code, description: g.description })),
-        ethnicities: ethnicities.map(e => ({ value: e.description, label: e.description })),
-        educationLevels: educationLevels.map(el => ({ value: el.description, label: el.description })),
-        maritalStatuses: maritalStatuses.map(ms => ({ value: ms.description, label: ms.description })),
-        incomeRanges: incomeRanges.map(ir => ({ value: ir.code, label: ir.description })),
-        phenotypes: phenotypes.map(p => ({ value: p.description, label: p.description })),
-        dyskinesiaTypes: dyskinesiaTypes.map(dt => ({ value: dt.description, label: dt.description })),
+        genders: genders.map((g) => ({
+          value: g.code,
+          label: g.description,
+          code: g.code,
+          description: g.description,
+        })),
+        ethnicities: ethnicities.map((e) => ({
+          value: e.description,
+          label: e.description,
+        })),
+        educationLevels: educationLevels.map((el) => ({
+          value: el.description,
+          label: el.description,
+        })),
+        maritalStatuses: maritalStatuses.map((ms) => ({
+          value: ms.description,
+          label: ms.description,
+        })),
+        incomeRanges: incomeRanges.map((ir) => ({
+          value: ir.code,
+          label: ir.description,
+        })),
+        phenotypes: phenotypes.map((p) => ({
+          value: p.description,
+          label: p.description,
+        })),
+        dyskinesiaTypes: dyskinesiaTypes.map((dt) => ({
+          value: dt.description,
+          label: dt.description,
+        })),
         affectedSides: [
           { value: 'Direito', label: 'Direito' },
           { value: 'Esquerdo', label: 'Esquerdo' },
@@ -1736,14 +1927,14 @@ export class QuestionnairesService {
     if (term && term.trim() !== '') {
       const termLower = term.toLowerCase().trim();
       const termDigits = term.replace(/\D/g, '');
-      
+
       // Se o termo tem dígitos, pode ser CPF - gerar hash e buscar
       if (termDigits.length > 0) {
         try {
           const cpfHash = CryptoUtil.hashCpf(termDigits);
           queryBuilder.where(
             '(LOWER(patient.full_name) LIKE :term OR patient.cpf_hash = :cpfHash)',
-            { term: `%${termLower}%`, cpfHash }
+            { term: `%${termLower}%`, cpfHash },
           );
         } catch (error) {
           // Se falhar ao gerar hash, busca apenas por nome
@@ -1760,9 +1951,9 @@ export class QuestionnairesService {
     }
 
     const questionnaires = await queryBuilder.getMany();
-    
+
     // Retornar apenas dados básicos para a listagem
-    return questionnaires.map(q => ({
+    return questionnaires.map((q) => ({
       id: q.id,
       fullName: q.patient?.full_name || '',
       cpf: q.patient?.cpf || '', // CPF em texto para exibição nas telas
@@ -1818,7 +2009,9 @@ export class QuestionnairesService {
       id: questionnaire.id,
       hasPatient: !!questionnaire.patient,
       patientId: questionnaire.patient_id,
-      patientCpfHash: questionnaire.patient?.cpf_hash ? questionnaire.patient.cpf_hash.substring(0, 8) + '...' : 'N/A',
+      patientCpfHash: questionnaire.patient?.cpf_hash
+        ? questionnaire.patient.cpf_hash.substring(0, 8) + '...'
+        : 'N/A',
     });
 
     // Carregar medicamentos e binary_collections em paralelo para melhor performance
@@ -1826,18 +2019,20 @@ export class QuestionnairesService {
       // Carregar medicamentos
       this.patientMedicationRepository
         .createQueryBuilder('pm')
-        .where('pm.questionnaire_id = :questionnaireId', { questionnaireId: id })
+        .where('pm.questionnaire_id = :questionnaireId', {
+          questionnaireId: id,
+        })
         .getMany()
         .catch(() => []),
       // Obter patient_cpf_hash (já está carregado no patient)
-      Promise.resolve(questionnaire.patient?.cpf_hash || null)
+      Promise.resolve(questionnaire.patient?.cpf_hash || null),
     ]);
 
     questionnaire.medications = medications || [];
 
     // Carregar binary_collections de forma otimizada
     questionnaire.binary_collections = [];
-    
+
     if (patientCpfHash) {
       try {
         // Query única otimizada: buscar por questionnaire_id OU patient_cpf_hash
@@ -1868,18 +2063,21 @@ export class QuestionnairesService {
             'active_task.task_name',
             'active_task.description',
           ])
-          .where('bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash', {
-            questionnaireId: id,
-            patientCpfHash,
-          })
+          .where(
+            'bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash',
+            {
+              questionnaireId: id,
+              patientCpfHash,
+            },
+          )
           .orderBy('bc.collected_at', 'DESC')
           .getMany();
-        
+
         // Remover duplicatas baseado no ID
         const uniqueCollections = Array.from(
-          new Map(allBinaryCollections.map(bc => [bc.id, bc])).values()
+          new Map(allBinaryCollections.map((bc) => [bc.id, bc])).values(),
         );
-        
+
         questionnaire.binary_collections = uniqueCollections;
       } catch (error) {
         console.error('Error loading binary collections:', error);
@@ -1896,13 +2094,13 @@ export class QuestionnairesService {
   private async formatQuestionnaireForFrontend(questionnaire: Questionnaire) {
     // Patient relations já estão carregadas via leftJoinAndSelect na query principal
     const patient = questionnaire.patient;
-    
+
     const anthropometric = questionnaire.anthropometric_data;
     const clinical = questionnaire.clinical_assessment;
     // Carregar medicamentos da tabela patient_medications
     // Garantir que os medicamentos estão disponíveis (já foram carregados no getQuestionnaireById)
     const medications = questionnaire.medications || [];
-    
+
     console.log('Formatting medications - count:', medications.length);
     if (medications.length > 0) {
       console.log('First medication raw data:', {
@@ -1933,7 +2131,7 @@ export class QuestionnairesService {
       age: patient.date_of_birth
         ? String(
             new Date().getFullYear() -
-              new Date(patient.date_of_birth).getFullYear()
+              new Date(patient.date_of_birth).getFullYear(),
           )
         : '',
       // Gender: frontend espera o code (M, F, OTHER)
@@ -1956,7 +2154,8 @@ export class QuestionnairesService {
           ? 'Sim'
           : patient.smoked_before === false
             ? 'Não'
-            : patient.years_since_quit_smoking !== null && patient.years_since_quit_smoking !== undefined
+            : patient.years_since_quit_smoking !== null &&
+                patient.years_since_quit_smoking !== undefined
               ? 'Sim'
               : patient.is_current_smoker
                 ? 'Não'
@@ -1970,27 +2169,46 @@ export class QuestionnairesService {
       // Income Range: frontend espera o code
       rendaFamiliar: patient.income_range?.code || '',
       // Campos de saúde
-      deficienciaVisual: patient.visual_impairment !== undefined && patient.visual_impairment !== null
-        ? (patient.visual_impairment ? 'Sim' : 'Não')
-        : '',
-      rouquidao: patient.hoarseness !== undefined && patient.hoarseness !== null
-        ? (patient.hoarseness ? 'Sim' : 'Não')
-        : '',
-      gagueja: patient.stuttering !== undefined && patient.stuttering !== null
-        ? (patient.stuttering ? 'Sim' : 'Não')
-        : '',
+      deficienciaVisual:
+        patient.visual_impairment !== undefined &&
+        patient.visual_impairment !== null
+          ? patient.visual_impairment
+            ? 'Sim'
+            : 'Não'
+          : '',
+      rouquidao:
+        patient.hoarseness !== undefined && patient.hoarseness !== null
+          ? patient.hoarseness
+            ? 'Sim'
+            : 'Não'
+          : '',
+      gagueja:
+        patient.stuttering !== undefined && patient.stuttering !== null
+          ? patient.stuttering
+            ? 'Sim'
+            : 'Não'
+          : '',
       canRead:
-        (patient as any).can_read !== undefined && (patient as any).can_read !== null
-          ? ((patient as any).can_read ? 'Sim' : 'Não')
+        (patient as any).can_read !== undefined &&
+        (patient as any).can_read !== null
+          ? (patient as any).can_read
+            ? 'Sim'
+            : 'Não'
           : '',
       canWrite:
-        (patient as any).can_write !== undefined && (patient as any).can_write !== null
-          ? ((patient as any).can_write ? 'Sim' : 'Não')
+        (patient as any).can_write !== undefined &&
+        (patient as any).can_write !== null
+          ? (patient as any).can_write
+            ? 'Sim'
+            : 'Não'
           : '',
       dominantHand: (patient as any).dominant_hand || '',
       tcleAssinado:
-        (patient as any).tcle_signed !== undefined && (patient as any).tcle_signed !== null
-          ? ((patient as any).tcle_signed ? 'Sim' : 'Não')
+        (patient as any).tcle_signed !== undefined &&
+        (patient as any).tcle_signed !== null
+          ? (patient as any).tcle_signed
+            ? 'Sim'
+            : 'Não'
           : '',
     };
 
@@ -2019,13 +2237,15 @@ export class QuestionnairesService {
       try {
         console.log('🔍 DEBUG - Clinical assessment encontrado:', {
           'clinical.id': clinical?.id || 'N/A',
-          'hoehn_yahr_stage_id': clinical?.hoehn_yahr_stage_id ?? null,
-          'tipo hoehn_yahr_stage_id': typeof (clinical?.hoehn_yahr_stage_id ?? null),
+          hoehn_yahr_stage_id: clinical?.hoehn_yahr_stage_id ?? null,
+          'tipo hoehn_yahr_stage_id': typeof (
+            clinical?.hoehn_yahr_stage_id ?? null
+          ),
         });
       } catch (error) {
         console.error('Erro ao logar clinical assessment:', error);
       }
-      
+
       formData.diagnosticDescription = clinical.diagnostic_description || '';
       formData.onsetAge = clinical.age_at_onset
         ? String(clinical.age_at_onset)
@@ -2034,7 +2254,7 @@ export class QuestionnairesService {
         ? String(
             new Date().getFullYear() -
               new Date(patient.date_of_birth).getFullYear() -
-              clinical.age_at_onset
+              clinical.age_at_onset,
           )
         : '0';
       formData.initialSympton = clinical.initial_symptom || '';
@@ -2042,7 +2262,7 @@ export class QuestionnairesService {
       formData.parkinsonSide = clinical.affected_side || '';
       formData.familyCase = clinical.has_family_history ? 'Sim' : 'Não';
       formData.kinshipDegree = clinical.family_kinship_degree || '';
-      
+
       // Buscar phenotype
       if (clinical.phenotype_id) {
         const phenotype = await this.parkinsonPhenotypeRepository.findOne({
@@ -2052,23 +2272,26 @@ export class QuestionnairesService {
       } else {
         formData.mainPhenotype = '';
       }
-      
+
       // IMPORTANTE: Retornar undefined quando não for explicitamente true
       // Isso permite que o frontend deixe os campos desmarcados por padrão
-      formData.levodopaOn = clinical.assessed_on_levodopa === true ? true : undefined;
+      formData.levodopaOn =
+        clinical.assessed_on_levodopa === true ? true : undefined;
       // IMPORTANTE: diskinectiaPresence deve vir APENAS do protocolo UPDRS3, não dos dados clínicos
       // O médico deve definir isso no próprio protocolo UPDRS, não nos dados clínicos
       // Por isso não definimos aqui - será definido apenas se vier do UPDRS3
       formData.diskinectiaPresence = undefined; // Sempre undefined por padrão, só será true se vier do UPDRS3
       formData.fog = clinical.has_freezing_of_gait === true ? true : undefined;
-      
+
       // Buscar dyskinesia types (lista + legado)
       let dyskinesiaDescriptions: string[] = [];
       if (clinical.dyskinesia_type_codes) {
         try {
           const parsed = JSON.parse(clinical.dyskinesia_type_codes);
           if (Array.isArray(parsed)) {
-            dyskinesiaDescriptions = parsed.filter((v) => typeof v === 'string');
+            dyskinesiaDescriptions = parsed.filter(
+              (v) => typeof v === 'string',
+            );
           }
         } catch {
           // ignora JSON inválido
@@ -2086,10 +2309,13 @@ export class QuestionnairesService {
 
       (formData as any).fogClassifcationList = dyskinesiaDescriptions;
       formData.fogClassifcation = dyskinesiaDescriptions[0] || '';
-      (formData as any).physioPatientDescription = clinical.physio_patient_description || '';
-      (formData as any).sleepPatientDescription = clinical.sleep_patient_description || '';
+      (formData as any).physioPatientDescription =
+        clinical.physio_patient_description || '';
+      (formData as any).sleepPatientDescription =
+        clinical.sleep_patient_description || '';
 
-      formData.wearingOff = clinical.has_wearing_off === true ? true : undefined;
+      formData.wearingOff =
+        clinical.has_wearing_off === true ? true : undefined;
       formData.durationWearingOff = clinical.average_on_time_hours
         ? String(clinical.average_on_time_hours)
         : '';
@@ -2097,20 +2323,28 @@ export class QuestionnairesService {
       formData.durationLDopa = clinical.ldopa_onset_time_hours
         ? String(clinical.ldopa_onset_time_hours)
         : '';
-      
+
       // Buscar Hoehn-Yahr scale (stage decimal deve bater com value do select: "2.5" não "2.5000")
       if (clinical.hoehn_yahr_stage_id != null) {
         console.log('🔍 DEBUG - Carregando scaleHY:', {
-          'hoehn_yahr_stage_id': clinical.hoehn_yahr_stage_id,
+          hoehn_yahr_stage_id: clinical.hoehn_yahr_stage_id,
         });
         const hoehnYahr = await this.hoehnYahrScaleRepository.findOne({
           where: { id: clinical.hoehn_yahr_stage_id },
         });
         console.log('🔍 DEBUG - Hoehn-Yahr carregado:', {
-          'hoehnYahr': hoehnYahr ? { id: hoehnYahr.id, stage: hoehnYahr.stage, tipo_stage: typeof hoehnYahr.stage } : null,
+          hoehnYahr: hoehnYahr
+            ? {
+                id: hoehnYahr.id,
+                stage: hoehnYahr.stage,
+                tipo_stage: typeof hoehnYahr.stage,
+              }
+            : null,
         });
         if (hoehnYahr?.stage !== null && hoehnYahr?.stage !== undefined) {
-          formData.scaleHY = this.normalizeHoehnYahrStageForFrontend(hoehnYahr.stage);
+          formData.scaleHY = this.normalizeHoehnYahrStageForFrontend(
+            hoehnYahr.stage,
+          );
           console.log('🔍 DEBUG - scaleHY definido:', {
             'formData.scaleHY': formData.scaleHY,
             'stage bruto': hoehnYahr.stage,
@@ -2121,19 +2355,23 @@ export class QuestionnairesService {
         }
       } else {
         formData.scaleHY = '';
-        console.log('🔍 DEBUG - scaleHY vazio (hoehn_yahr_stage_id não existe ou é null/undefined)');
+        console.log(
+          '🔍 DEBUG - scaleHY vazio (hoehn_yahr_stage_id não existe ou é null/undefined)',
+        );
       }
-      
+
       formData.scaleSE = clinical.schwab_england_score
         ? String(clinical.schwab_england_score)
         : '';
       formData.comorbidities = clinical.comorbidities || '';
       formData.otherMedications = clinical.other_medications || '';
-      
+
       // Campos de cirurgia
       formData.surgery = clinical.has_surgery_history ? 'Sim' : 'Não';
-      formData.surgerrYear = clinical.surgery_year ? String(clinical.surgery_year) : '';
-      
+      formData.surgerrYear = clinical.surgery_year
+        ? String(clinical.surgery_year)
+        : '';
+
       // Buscar surgery type
       if (clinical.surgery_type_id) {
         const surgeryType = await this.surgeryTypeRepository.findOne({
@@ -2143,7 +2381,7 @@ export class QuestionnairesService {
       } else {
         formData.surgeryType = '';
       }
-      
+
       formData.surgeryTarget = clinical.surgery_target || '';
       formData.evolution = clinical.disease_evolution || '';
       formData.symptom = clinical.current_symptoms || '';
@@ -2153,21 +2391,22 @@ export class QuestionnairesService {
     // Medicações - buscar dados de referência da tabela patient_medications
     if (medications && medications.length > 0) {
       console.log('🔍 Processing medications - raw count:', medications.length);
-      
+
       // Extrair IDs dos medicamentos (medication_id da tabela patient_medications)
       const medicationIds = medications
-        .map(med => med.medication_id)
-        .filter(id => id != null && id !== undefined);
-      
+        .map((med) => med.medication_id)
+        .filter((id) => id != null && id !== undefined);
+
       console.log('🔍 Medication IDs extracted:', medicationIds);
-      
+
       // Buscar referências dos medicamentos na tabela medications_reference
-      const medicationRefs = medicationIds.length > 0
-        ? await this.medicationReferenceRepository.find({
-            where: { id: In(medicationIds) },
-          })
-        : [];
-      
+      const medicationRefs =
+        medicationIds.length > 0
+          ? await this.medicationReferenceRepository.find({
+              where: { id: In(medicationIds) },
+            })
+          : [];
+
       console.log('🔍 Medication references found:', medicationRefs.length);
       if (medicationRefs.length > 0) {
         console.log('🔍 Sample medication reference:', {
@@ -2175,10 +2414,10 @@ export class QuestionnairesService {
           drug_name: medicationRefs[0].drug_name,
         });
       }
-      
+
       // Criar mapa para acesso rápido
-      const medicationMap = new Map(medicationRefs.map(ref => [ref.id, ref]));
-      
+      const medicationMap = new Map(medicationRefs.map((ref) => [ref.id, ref]));
+
       // Lista de medicações padrão (mesma do frontend - atualizada)
       const STANDARD_DRUGS = [
         'Levodopa / Carbidopa',
@@ -2196,47 +2435,52 @@ export class QuestionnairesService {
 
       // Mapeamento de nomes antigos para novos (para compatibilidade)
       const DRUG_NAME_MAPPING: Record<string, string> = {
-        'Sinemet': 'Levodopa / Carbidopa',
-        'Madopar': 'Levodopa / Benserazida',
-        'Stalevo': 'Levodopa / Carbidopa / Entacapona',
-        'Pramipexole': 'Pramipexol',
-        'Rasagiline': 'Rasagilina',
-        'Amantadine': 'Amantadina',
-        'Entacapone': 'Entacapone',
+        Sinemet: 'Levodopa / Carbidopa',
+        Madopar: 'Levodopa / Benserazida',
+        Stalevo: 'Levodopa / Carbidopa / Entacapona',
+        Pramipexole: 'Pramipexol',
+        Rasagiline: 'Rasagilina',
+        Amantadine: 'Amantadina',
+        Entacapone: 'Entacapone',
       };
 
       // Mapear medicamentos para o formato esperado pelo frontend
-      formData.medications = medications.map(med => {
+      formData.medications = medications.map((med) => {
         const medRef = medicationMap.get(med.medication_id);
         let drugName = medRef?.drug_name || '';
-        
+
         // Mapear nome antigo para novo se necessário
         if (drugName && DRUG_NAME_MAPPING[drugName]) {
           drugName = DRUG_NAME_MAPPING[drugName];
         }
-        
+
         // Converter valores decimais (podem vir como string do banco)
-        const doseMg = typeof med.dose_mg === 'string' 
-          ? parseFloat(med.dose_mg) 
-          : Number(med.dose_mg) || 0;
-        const dosesPerDay = typeof med.doses_per_day === 'string'
-          ? parseInt(med.doses_per_day, 10)
-          : Number(med.doses_per_day) || 0;
-        const conversionFactor = typeof med.led_conversion_factor === 'string'
-          ? parseFloat(med.led_conversion_factor)
-          : Number(med.led_conversion_factor) || 0;
-        
+        const doseMg =
+          typeof med.dose_mg === 'string'
+            ? parseFloat(med.dose_mg)
+            : Number(med.dose_mg) || 0;
+        const dosesPerDay =
+          typeof med.doses_per_day === 'string'
+            ? parseInt(med.doses_per_day, 10)
+            : Number(med.doses_per_day) || 0;
+        const conversionFactor =
+          typeof med.led_conversion_factor === 'string'
+            ? parseFloat(med.led_conversion_factor)
+            : Number(med.led_conversion_factor) || 0;
+
         // Calcular LED: dose_mg × led_conversion_factor × doses_per_day
         const ledValue = doseMg * conversionFactor * dosesPerDay;
-        
+
         // Verificar se é uma medicação personalizada (não está na lista padrão)
         // Se drugName estiver vazio, também considerar como custom para evitar problemas
-        const isCustomDrug = drugName ? !STANDARD_DRUGS.includes(drugName) : true;
-        
+        const isCustomDrug = drugName
+          ? !STANDARD_DRUGS.includes(drugName)
+          : true;
+
         // Garantir que o campo drug não seja vazio
         // Se for custom mas não tiver nome, usar "Outro"
-        const finalDrug = isCustomDrug ? 'Outro' : (drugName || '');
-        
+        const finalDrug = isCustomDrug ? 'Outro' : drugName || '';
+
         // Debug: log para verificar o que está sendo retornado
         if (!drugName || isCustomDrug) {
           console.log('🔍 Medication mapping:', {
@@ -2247,7 +2491,7 @@ export class QuestionnairesService {
             inStandardList: STANDARD_DRUGS.includes(drugName),
           });
         }
-        
+
         return {
           drug: finalDrug,
           doseMg: doseMg > 0 ? String(doseMg) : '',
@@ -2261,23 +2505,23 @@ export class QuestionnairesService {
       // Calcular LED total (soma de todos os medicamentos)
       formData.leddResult = String(
         Math.round(
-          medications.reduce(
-            (sum, med) => {
-              // Converter valores decimais (podem vir como string do banco)
-              const doseMg = typeof med.dose_mg === 'string' 
-                ? parseFloat(med.dose_mg) 
+          medications.reduce((sum, med) => {
+            // Converter valores decimais (podem vir como string do banco)
+            const doseMg =
+              typeof med.dose_mg === 'string'
+                ? parseFloat(med.dose_mg)
                 : Number(med.dose_mg) || 0;
-              const dosesPerDay = typeof med.doses_per_day === 'string'
+            const dosesPerDay =
+              typeof med.doses_per_day === 'string'
                 ? parseInt(med.doses_per_day, 10)
                 : Number(med.doses_per_day) || 0;
-              const conversionFactor = typeof med.led_conversion_factor === 'string'
+            const conversionFactor =
+              typeof med.led_conversion_factor === 'string'
                 ? parseFloat(med.led_conversion_factor)
                 : Number(med.led_conversion_factor) || 0;
-              return sum + (doseMg * conversionFactor * dosesPerDay);
-            },
-            0
-          )
-        )
+            return sum + doseMg * conversionFactor * dosesPerDay;
+          }, 0),
+        ),
       );
     } else {
       // Inicializar array vazio se não houver medicamentos
@@ -2286,9 +2530,15 @@ export class QuestionnairesService {
     }
 
     // Debug: verificar o que está sendo retornado
-    console.log('FormData medications before return:', formData.medications?.length || 0);
+    console.log(
+      'FormData medications before return:',
+      formData.medications?.length || 0,
+    );
     if (formData.medications && formData.medications.length > 0) {
-      console.log('Sample formatted medication:', JSON.stringify(formData.medications[0], null, 2));
+      console.log(
+        'Sample formatted medication:',
+        JSON.stringify(formData.medications[0], null, 2),
+      );
     }
 
     // Carregar protocolos do sono - STOP-Bang
@@ -2301,80 +2551,267 @@ export class QuestionnairesService {
       formData.stopbang_age = stopbang.age_over_50 ?? '';
       formData.stopbang_neck = stopbang.neck_circumference_large ?? '';
       formData.stopbang_gender = stopbang.gender_male ?? '';
-      formData.scoreStopBang = stopbang.total_score !== null ? String(stopbang.total_score) : '';
+      formData.scoreStopBang =
+        stopbang.total_score !== null ? String(stopbang.total_score) : '';
     }
 
     // Carregar protocolos do sono - Epworth
     if (questionnaire.epworth_score) {
       const epworth = questionnaire.epworth_score;
-      formData.epworth_q1 = epworth.sitting_reading !== null && epworth.sitting_reading !== undefined ? String(epworth.sitting_reading) : '';
-      formData.epworth_q2 = epworth.watching_tv !== null && epworth.watching_tv !== undefined ? String(epworth.watching_tv) : '';
-      formData.epworth_q3 = epworth.sitting_inactive_public !== null && epworth.sitting_inactive_public !== undefined ? String(epworth.sitting_inactive_public) : '';
-      formData.epworth_q4 = epworth.passenger_car !== null && epworth.passenger_car !== undefined ? String(epworth.passenger_car) : '';
-      formData.epworth_q5 = epworth.lying_down_afternoon !== null && epworth.lying_down_afternoon !== undefined ? String(epworth.lying_down_afternoon) : '';
-      formData.epworth_q6 = epworth.sitting_talking !== null && epworth.sitting_talking !== undefined ? String(epworth.sitting_talking) : '';
-      formData.epworth_q7 = epworth.sitting_after_lunch !== null && epworth.sitting_after_lunch !== undefined ? String(epworth.sitting_after_lunch) : '';
-      formData.epworth_q8 = epworth.car_stopped_traffic !== null && epworth.car_stopped_traffic !== undefined ? String(epworth.car_stopped_traffic) : '';
-      formData.scoreEpworth = epworth.total_score !== null ? String(epworth.total_score) : '';
+      formData.epworth_q1 =
+        epworth.sitting_reading !== null &&
+        epworth.sitting_reading !== undefined
+          ? String(epworth.sitting_reading)
+          : '';
+      formData.epworth_q2 =
+        epworth.watching_tv !== null && epworth.watching_tv !== undefined
+          ? String(epworth.watching_tv)
+          : '';
+      formData.epworth_q3 =
+        epworth.sitting_inactive_public !== null &&
+        epworth.sitting_inactive_public !== undefined
+          ? String(epworth.sitting_inactive_public)
+          : '';
+      formData.epworth_q4 =
+        epworth.passenger_car !== null && epworth.passenger_car !== undefined
+          ? String(epworth.passenger_car)
+          : '';
+      formData.epworth_q5 =
+        epworth.lying_down_afternoon !== null &&
+        epworth.lying_down_afternoon !== undefined
+          ? String(epworth.lying_down_afternoon)
+          : '';
+      formData.epworth_q6 =
+        epworth.sitting_talking !== null &&
+        epworth.sitting_talking !== undefined
+          ? String(epworth.sitting_talking)
+          : '';
+      formData.epworth_q7 =
+        epworth.sitting_after_lunch !== null &&
+        epworth.sitting_after_lunch !== undefined
+          ? String(epworth.sitting_after_lunch)
+          : '';
+      formData.epworth_q8 =
+        epworth.car_stopped_traffic !== null &&
+        epworth.car_stopped_traffic !== undefined
+          ? String(epworth.car_stopped_traffic)
+          : '';
+      formData.scoreEpworth =
+        epworth.total_score !== null ? String(epworth.total_score) : '';
     }
 
     // Carregar protocolos do sono - PDSS-2
     if (questionnaire.pdss2_score) {
       const pdss2 = questionnaire.pdss2_score;
-      formData.pdss2_q1 = pdss2.q1 !== null && pdss2.q1 !== undefined ? String(pdss2.q1) : '';
-      formData.pdss2_q2 = pdss2.q2 !== null && pdss2.q2 !== undefined ? String(pdss2.q2) : '';
-      formData.pdss2_q3 = pdss2.q3 !== null && pdss2.q3 !== undefined ? String(pdss2.q3) : '';
-      formData.pdss2_q4 = pdss2.q4 !== null && pdss2.q4 !== undefined ? String(pdss2.q4) : '';
-      formData.pdss2_q5 = pdss2.q5 !== null && pdss2.q5 !== undefined ? String(pdss2.q5) : '';
-      formData.pdss2_q6 = pdss2.q6 !== null && pdss2.q6 !== undefined ? String(pdss2.q6) : '';
-      formData.pdss2_q7 = pdss2.q7 !== null && pdss2.q7 !== undefined ? String(pdss2.q7) : '';
-      formData.pdss2_q8 = pdss2.q8 !== null && pdss2.q8 !== undefined ? String(pdss2.q8) : '';
-      formData.pdss2_q9 = pdss2.q9 !== null && pdss2.q9 !== undefined ? String(pdss2.q9) : '';
-      formData.pdss2_q10 = pdss2.q10 !== null && pdss2.q10 !== undefined ? String(pdss2.q10) : '';
-      formData.pdss2_q11 = pdss2.q11 !== null && pdss2.q11 !== undefined ? String(pdss2.q11) : '';
-      formData.pdss2_q12 = pdss2.q12 !== null && pdss2.q12 !== undefined ? String(pdss2.q12) : '';
-      formData.pdss2_q13 = pdss2.q13 !== null && pdss2.q13 !== undefined ? String(pdss2.q13) : '';
-      formData.pdss2_q14 = pdss2.q14 !== null && pdss2.q14 !== undefined ? String(pdss2.q14) : '';
-      formData.pdss2_q15 = pdss2.q15 !== null && pdss2.q15 !== undefined ? String(pdss2.q15) : '';
-      formData.scorePDSS2 = pdss2.total_score !== null ? String(pdss2.total_score) : '';
+      formData.pdss2_q1 =
+        pdss2.q1 !== null && pdss2.q1 !== undefined ? String(pdss2.q1) : '';
+      formData.pdss2_q2 =
+        pdss2.q2 !== null && pdss2.q2 !== undefined ? String(pdss2.q2) : '';
+      formData.pdss2_q3 =
+        pdss2.q3 !== null && pdss2.q3 !== undefined ? String(pdss2.q3) : '';
+      formData.pdss2_q4 =
+        pdss2.q4 !== null && pdss2.q4 !== undefined ? String(pdss2.q4) : '';
+      formData.pdss2_q5 =
+        pdss2.q5 !== null && pdss2.q5 !== undefined ? String(pdss2.q5) : '';
+      formData.pdss2_q6 =
+        pdss2.q6 !== null && pdss2.q6 !== undefined ? String(pdss2.q6) : '';
+      formData.pdss2_q7 =
+        pdss2.q7 !== null && pdss2.q7 !== undefined ? String(pdss2.q7) : '';
+      formData.pdss2_q8 =
+        pdss2.q8 !== null && pdss2.q8 !== undefined ? String(pdss2.q8) : '';
+      formData.pdss2_q9 =
+        pdss2.q9 !== null && pdss2.q9 !== undefined ? String(pdss2.q9) : '';
+      formData.pdss2_q10 =
+        pdss2.q10 !== null && pdss2.q10 !== undefined ? String(pdss2.q10) : '';
+      formData.pdss2_q11 =
+        pdss2.q11 !== null && pdss2.q11 !== undefined ? String(pdss2.q11) : '';
+      formData.pdss2_q12 =
+        pdss2.q12 !== null && pdss2.q12 !== undefined ? String(pdss2.q12) : '';
+      formData.pdss2_q13 =
+        pdss2.q13 !== null && pdss2.q13 !== undefined ? String(pdss2.q13) : '';
+      formData.pdss2_q14 =
+        pdss2.q14 !== null && pdss2.q14 !== undefined ? String(pdss2.q14) : '';
+      formData.pdss2_q15 =
+        pdss2.q15 !== null && pdss2.q15 !== undefined ? String(pdss2.q15) : '';
+      formData.scorePDSS2 =
+        pdss2.total_score !== null ? String(pdss2.total_score) : '';
     }
 
     // Carregar protocolos do sono - RBDSQ / RBDSQ-BR
     if (questionnaire.rbdsq_br_score) {
       // Nova versão RBDSQ-BR (preferencial)
       const rbdsq = questionnaire.rbdsq_br_score as any;
-      formData.q1RBDSQ = rbdsq.q1_realistic_dreams !== null && rbdsq.q1_realistic_dreams !== undefined ? (rbdsq.q1_realistic_dreams ? '1' : '0') : '';
-      formData.q2RBDSQ = rbdsq.q2_aggressive_dreams !== null && rbdsq.q2_aggressive_dreams !== undefined ? (rbdsq.q2_aggressive_dreams ? '1' : '0') : '';
-      formData.q3RBDSQ = rbdsq.q3_dream_enactment !== null && rbdsq.q3_dream_enactment !== undefined ? (rbdsq.q3_dream_enactment ? '1' : '0') : '';
-      formData.q4RBDSQ = rbdsq.q4_limb_movements !== null && rbdsq.q4_limb_movements !== undefined ? (rbdsq.q4_limb_movements ? '1' : '0') : '';
-      formData.q5RBDSQ = rbdsq.q5_injury_potential !== null && rbdsq.q5_injury_potential !== undefined ? (rbdsq.q5_injury_potential ? '1' : '0') : '';
-      formData.q6_1RBDSQ = rbdsq.q6_1_vocalizations !== null && rbdsq.q6_1_vocalizations !== undefined ? (rbdsq.q6_1_vocalizations ? '1' : '0') : '';
-      formData.q6_2RBDSQ = rbdsq.q6_2_fighting_movements !== null && rbdsq.q6_2_fighting_movements !== undefined ? (rbdsq.q6_2_fighting_movements ? '1' : '0') : '';
-      formData.q6_3RBDSQ = rbdsq.q6_3_complex_movements_or_falls !== null && rbdsq.q6_3_complex_movements_or_falls !== undefined ? (rbdsq.q6_3_complex_movements_or_falls ? '1' : '0') : '';
-      formData.q6_4RBDSQ = rbdsq.q6_4_objects_falling !== null && rbdsq.q6_4_objects_falling !== undefined ? (rbdsq.q6_4_objects_falling ? '1' : '0') : '';
-      formData.q7RBDSQ = rbdsq.q7_movements_cause_awakenings !== null && rbdsq.q7_movements_cause_awakenings !== undefined ? (rbdsq.q7_movements_cause_awakenings ? '1' : '0') : '';
-      formData.q8RBDSQ = rbdsq.q8_dream_recall !== null && rbdsq.q8_dream_recall !== undefined ? (rbdsq.q8_dream_recall ? '1' : '0') : '';
-      formData.q9RBDSQ = rbdsq.q9_disturbed_sleep !== null && rbdsq.q9_disturbed_sleep !== undefined ? (rbdsq.q9_disturbed_sleep ? '1' : '0') : '';
-      formData.q10RBDSQ = rbdsq.q10_neurological_disease !== null && rbdsq.q10_neurological_disease !== undefined ? (rbdsq.q10_neurological_disease ? '1' : '0') : '';
+      formData.q1RBDSQ =
+        rbdsq.q1_realistic_dreams !== null &&
+        rbdsq.q1_realistic_dreams !== undefined
+          ? rbdsq.q1_realistic_dreams
+            ? '1'
+            : '0'
+          : '';
+      formData.q2RBDSQ =
+        rbdsq.q2_aggressive_dreams !== null &&
+        rbdsq.q2_aggressive_dreams !== undefined
+          ? rbdsq.q2_aggressive_dreams
+            ? '1'
+            : '0'
+          : '';
+      formData.q3RBDSQ =
+        rbdsq.q3_dream_enactment !== null &&
+        rbdsq.q3_dream_enactment !== undefined
+          ? rbdsq.q3_dream_enactment
+            ? '1'
+            : '0'
+          : '';
+      formData.q4RBDSQ =
+        rbdsq.q4_limb_movements !== null &&
+        rbdsq.q4_limb_movements !== undefined
+          ? rbdsq.q4_limb_movements
+            ? '1'
+            : '0'
+          : '';
+      formData.q5RBDSQ =
+        rbdsq.q5_injury_potential !== null &&
+        rbdsq.q5_injury_potential !== undefined
+          ? rbdsq.q5_injury_potential
+            ? '1'
+            : '0'
+          : '';
+      formData.q6_1RBDSQ =
+        rbdsq.q6_1_vocalizations !== null &&
+        rbdsq.q6_1_vocalizations !== undefined
+          ? rbdsq.q6_1_vocalizations
+            ? '1'
+            : '0'
+          : '';
+      formData.q6_2RBDSQ =
+        rbdsq.q6_2_fighting_movements !== null &&
+        rbdsq.q6_2_fighting_movements !== undefined
+          ? rbdsq.q6_2_fighting_movements
+            ? '1'
+            : '0'
+          : '';
+      formData.q6_3RBDSQ =
+        rbdsq.q6_3_complex_movements_or_falls !== null &&
+        rbdsq.q6_3_complex_movements_or_falls !== undefined
+          ? rbdsq.q6_3_complex_movements_or_falls
+            ? '1'
+            : '0'
+          : '';
+      formData.q6_4RBDSQ =
+        rbdsq.q6_4_objects_falling !== null &&
+        rbdsq.q6_4_objects_falling !== undefined
+          ? rbdsq.q6_4_objects_falling
+            ? '1'
+            : '0'
+          : '';
+      formData.q7RBDSQ =
+        rbdsq.q7_movements_cause_awakenings !== null &&
+        rbdsq.q7_movements_cause_awakenings !== undefined
+          ? rbdsq.q7_movements_cause_awakenings
+            ? '1'
+            : '0'
+          : '';
+      formData.q8RBDSQ =
+        rbdsq.q8_dream_recall !== null && rbdsq.q8_dream_recall !== undefined
+          ? rbdsq.q8_dream_recall
+            ? '1'
+            : '0'
+          : '';
+      formData.q9RBDSQ =
+        rbdsq.q9_disturbed_sleep !== null &&
+        rbdsq.q9_disturbed_sleep !== undefined
+          ? rbdsq.q9_disturbed_sleep
+            ? '1'
+            : '0'
+          : '';
+      formData.q10RBDSQ =
+        rbdsq.q10_neurological_disease !== null &&
+        rbdsq.q10_neurological_disease !== undefined
+          ? rbdsq.q10_neurological_disease
+            ? '1'
+            : '0'
+          : '';
       formData.rbdsqNeuroDiseaseDescription =
-        rbdsq.neuro_disease_description !== null && rbdsq.neuro_disease_description !== undefined
+        rbdsq.neuro_disease_description !== null &&
+        rbdsq.neuro_disease_description !== undefined
           ? String(rbdsq.neuro_disease_description)
           : '';
-      formData.scoreRBDSQ = rbdsq.total_score !== null ? String(rbdsq.total_score) : '';
+      formData.scoreRBDSQ =
+        rbdsq.total_score !== null ? String(rbdsq.total_score) : '';
     } else if (questionnaire.rbdsq_score) {
       // Versão antiga (deprecated), mantém carregamento para compatibilidade
       const rbdsq = questionnaire.rbdsq_score;
-      formData.q1RBDSQ = rbdsq.q1_vivid_dreams !== null && rbdsq.q1_vivid_dreams !== undefined ? (rbdsq.q1_vivid_dreams ? '1' : '0') : '';
-      formData.q2RBDSQ = rbdsq.q2_aggressive_content !== null && rbdsq.q2_aggressive_content !== undefined ? (rbdsq.q2_aggressive_content ? '1' : '0') : '';
-      formData.q3RBDSQ = rbdsq.q3_dream_enactment !== null && rbdsq.q3_dream_enactment !== undefined ? (rbdsq.q3_dream_enactment ? '1' : '0') : '';
-      formData.q4RBDSQ = rbdsq.q4_limb_movements !== null && rbdsq.q4_limb_movements !== undefined ? (rbdsq.q4_limb_movements ? '1' : '0') : '';
-      formData.q5RBDSQ = rbdsq.q5_injury_potential !== null && rbdsq.q5_injury_potential !== undefined ? (rbdsq.q5_injury_potential ? '1' : '0') : '';
-      formData.q6RBDSQ = rbdsq.q6_bed_disruption !== null && rbdsq.q6_bed_disruption !== undefined ? (rbdsq.q6_bed_disruption ? '1' : '0') : '';
-      formData.q7RBDSQ = rbdsq.q7_awakening_recall !== null && rbdsq.q7_awakening_recall !== undefined ? (rbdsq.q7_awakening_recall ? '1' : '0') : '';
-      formData.q8RBDSQ = rbdsq.q8_sleep_disruption !== null && rbdsq.q8_sleep_disruption !== undefined ? (rbdsq.q8_sleep_disruption ? '1' : '0') : '';
-      formData.q9RBDSQ = rbdsq.q9_neurological_disorder !== null && rbdsq.q9_neurological_disorder !== undefined ? (rbdsq.q9_neurological_disorder ? '1' : '0') : '';
-      formData.q10RBDSQ = rbdsq.q10_rem_behavior_problem !== null && rbdsq.q10_rem_behavior_problem !== undefined ? (rbdsq.q10_rem_behavior_problem ? '1' : '0') : '';
-      formData.scoreRBDSQ = rbdsq.total_score !== null ? String(rbdsq.total_score) : '';
+      formData.q1RBDSQ =
+        rbdsq.q1_vivid_dreams !== null && rbdsq.q1_vivid_dreams !== undefined
+          ? rbdsq.q1_vivid_dreams
+            ? '1'
+            : '0'
+          : '';
+      formData.q2RBDSQ =
+        rbdsq.q2_aggressive_content !== null &&
+        rbdsq.q2_aggressive_content !== undefined
+          ? rbdsq.q2_aggressive_content
+            ? '1'
+            : '0'
+          : '';
+      formData.q3RBDSQ =
+        rbdsq.q3_dream_enactment !== null &&
+        rbdsq.q3_dream_enactment !== undefined
+          ? rbdsq.q3_dream_enactment
+            ? '1'
+            : '0'
+          : '';
+      formData.q4RBDSQ =
+        rbdsq.q4_limb_movements !== null &&
+        rbdsq.q4_limb_movements !== undefined
+          ? rbdsq.q4_limb_movements
+            ? '1'
+            : '0'
+          : '';
+      formData.q5RBDSQ =
+        rbdsq.q5_injury_potential !== null &&
+        rbdsq.q5_injury_potential !== undefined
+          ? rbdsq.q5_injury_potential
+            ? '1'
+            : '0'
+          : '';
+      formData.q6RBDSQ =
+        rbdsq.q6_bed_disruption !== null &&
+        rbdsq.q6_bed_disruption !== undefined
+          ? rbdsq.q6_bed_disruption
+            ? '1'
+            : '0'
+          : '';
+      formData.q7RBDSQ =
+        rbdsq.q7_awakening_recall !== null &&
+        rbdsq.q7_awakening_recall !== undefined
+          ? rbdsq.q7_awakening_recall
+            ? '1'
+            : '0'
+          : '';
+      formData.q8RBDSQ =
+        rbdsq.q8_sleep_disruption !== null &&
+        rbdsq.q8_sleep_disruption !== undefined
+          ? rbdsq.q8_sleep_disruption
+            ? '1'
+            : '0'
+          : '';
+      formData.q9RBDSQ =
+        rbdsq.q9_neurological_disorder !== null &&
+        rbdsq.q9_neurological_disorder !== undefined
+          ? rbdsq.q9_neurological_disorder
+            ? '1'
+            : '0'
+          : '';
+      formData.q10RBDSQ =
+        rbdsq.q10_rem_behavior_problem !== null &&
+        rbdsq.q10_rem_behavior_problem !== undefined
+          ? rbdsq.q10_rem_behavior_problem
+            ? '1'
+            : '0'
+          : '';
+      formData.scoreRBDSQ =
+        rbdsq.total_score !== null ? String(rbdsq.total_score) : '';
     }
 
     // Carregar FOGQ
@@ -2382,7 +2819,8 @@ export class QuestionnairesService {
       const fogq = questionnaire.fogq_score;
       // Os dados do FOGQ são armazenados no estado fogq, não no formData diretamente
       // Mas vamos adicionar ao formData para referência
-      formData.scoreFOGQ = fogq.total_score !== null ? String(fogq.total_score) : '';
+      formData.scoreFOGQ =
+        fogq.total_score !== null ? String(fogq.total_score) : '';
     }
 
     const updrsScoreData = this.extractScoreData(
@@ -2392,7 +2830,10 @@ export class QuestionnairesService {
     );
     if (updrsScoreData) {
       formData.updrs3Scores = updrsScoreData;
-      if (updrsScoreData.total_score !== null && updrsScoreData.total_score !== undefined) {
+      if (
+        updrsScoreData.total_score !== null &&
+        updrsScoreData.total_score !== undefined
+      ) {
         formData.scoreUPDRS3 = String(updrsScoreData.total_score);
       }
     }
@@ -2404,7 +2845,10 @@ export class QuestionnairesService {
     );
     if (meemScoreData) {
       formData.meemScores = meemScoreData;
-      if (meemScoreData.total_score !== null && meemScoreData.total_score !== undefined) {
+      if (
+        meemScoreData.total_score !== null &&
+        meemScoreData.total_score !== undefined
+      ) {
         formData.scoreMEEN = String(meemScoreData.total_score);
       }
     }
@@ -2416,7 +2860,10 @@ export class QuestionnairesService {
     );
     if (udysrsScoreData) {
       formData.udysrsScores = udysrsScoreData;
-      if (udysrsScoreData.total_score !== null && udysrsScoreData.total_score !== undefined) {
+      if (
+        udysrsScoreData.total_score !== null &&
+        udysrsScoreData.total_score !== undefined
+      ) {
         formData.scoreUDRS = String(udysrsScoreData.total_score);
       }
     }
@@ -2424,9 +2871,10 @@ export class QuestionnairesService {
     const pdfReports = Array.isArray(questionnaire.pdf_reports)
       ? await Promise.all(
           questionnaire.pdf_reports.map(async (report) => {
-            const fileDownloadUrl = await this.pdfReportsService.getPresignedDownloadUrl(
-              report.file_path,
-            );
+            const fileDownloadUrl =
+              await this.pdfReportsService.getPresignedDownloadUrl(
+                report.file_path,
+              );
             return {
               id: report.id,
               reportType: report.report_type,
@@ -2453,7 +2901,9 @@ export class QuestionnairesService {
         formData.polissonografoPdfFileName = '';
       }
 
-      const biobitReport = pdfReports.find((report) => report.reportType === 'BIOBIT');
+      const biobitReport = pdfReports.find(
+        (report) => report.reportType === 'BIOBIT',
+      );
       if (biobitReport) {
         formData.biobitPdfReportId = biobitReport.id;
         formData.biobitPdfFileName = biobitReport.fileName;
@@ -2462,7 +2912,9 @@ export class QuestionnairesService {
         formData.biobitPdfFileName = '';
       }
 
-      const delsysReport = pdfReports.find((report) => report.reportType === 'DELSYS');
+      const delsysReport = pdfReports.find(
+        (report) => report.reportType === 'DELSYS',
+      );
       if (delsysReport) {
         formData.delsysPdfReportId = delsysReport.id;
         formData.delsysPdfFileName = delsysReport.fileName;
@@ -2480,32 +2932,40 @@ export class QuestionnairesService {
     }
 
     // Processar binary collections para retornar apenas informações essenciais
-    console.log('🔍 formatQuestionnaireForFrontend - binary_collections ANTES de processar:', {
-      hasBinaryCollections: !!questionnaire.binary_collections,
-      isArray: Array.isArray(questionnaire.binary_collections),
-      rawCount: questionnaire.binary_collections?.length || 0,
-      type: typeof questionnaire.binary_collections,
-      questionnaireId: questionnaire.id,
-      sample: questionnaire.binary_collections?.[0] || null,
-    });
-    
+    console.log(
+      '🔍 formatQuestionnaireForFrontend - binary_collections ANTES de processar:',
+      {
+        hasBinaryCollections: !!questionnaire.binary_collections,
+        isArray: Array.isArray(questionnaire.binary_collections),
+        rawCount: questionnaire.binary_collections?.length || 0,
+        type: typeof questionnaire.binary_collections,
+        questionnaireId: questionnaire.id,
+        sample: questionnaire.binary_collections?.[0] || null,
+      },
+    );
+
     const binaryCollections = Array.isArray(questionnaire.binary_collections)
       ? questionnaire.binary_collections.map((bc) => ({
           id: bc.id,
           task_id: bc.task_id,
           repetitions_count: bc.repetitions_count,
           collected_at: bc.collected_at,
-          active_task: bc.active_task ? {
-            task_code: bc.active_task.task_code,
-            task_name: bc.active_task.task_name,
-          } : null,
+          active_task: bc.active_task
+            ? {
+                task_code: bc.active_task.task_code,
+                task_name: bc.active_task.task_name,
+              }
+            : null,
         }))
       : [];
-    
-    console.log('🔍 formatQuestionnaireForFrontend - binaryCollections DEPOIS de processar:', {
-      count: binaryCollections.length,
-      sample: binaryCollections[0] || null,
-    });
+
+    console.log(
+      '🔍 formatQuestionnaireForFrontend - binaryCollections DEPOIS de processar:',
+      {
+        count: binaryCollections.length,
+        sample: binaryCollections[0] || null,
+      },
+    );
 
     return {
       id: questionnaire.id,
@@ -2538,7 +2998,9 @@ export class QuestionnairesService {
     };
   }
 
-  private async areAllActiveTasksCompleted(questionnaireId: string): Promise<boolean> {
+  private async areAllActiveTasksCompleted(
+    questionnaireId: string,
+  ): Promise<boolean> {
     // Critério de conclusão das Tarefas Ativas:
     // - Para cada task_code que tenha coletas binárias (binary_collections),
     //   usamos a contagem exata de repetições por tarefa:
@@ -2554,14 +3016,23 @@ export class QuestionnairesService {
 
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: questionnaireId },
-      relations: ['binary_collections', 'binary_collections.active_task', 'patient', 'task_collections'],
+      relations: [
+        'binary_collections',
+        'binary_collections.active_task',
+        'patient',
+        'task_collections',
+      ],
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
     }
 
-    const binaryCollections = Array.isArray((questionnaire as any).binary_collections)
+    const binaryCollections = Array.isArray(
+      (questionnaire as any).binary_collections,
+    )
       ? (questionnaire as any).binary_collections
       : [];
 
@@ -2582,9 +3053,10 @@ export class QuestionnairesService {
           continue;
         }
         const current = repetitionsByTaskCode.get(taskCode) ?? 0;
-        const reps = typeof bc.repetitions_count === 'number' && bc.repetitions_count > 0
-          ? bc.repetitions_count
-          : 1;
+        const reps =
+          typeof bc.repetitions_count === 'number' && bc.repetitions_count > 0
+            ? bc.repetitions_count
+            : 1;
         repetitionsByTaskCode.set(taskCode, current + reps);
       }
 
@@ -2603,7 +3075,9 @@ export class QuestionnairesService {
       return true;
     }
 
-    const taskCollections = Array.isArray((questionnaire as any).task_collections)
+    const taskCollections = Array.isArray(
+      (questionnaire as any).task_collections,
+    )
       ? (questionnaire as any).task_collections
       : [];
 
@@ -2612,11 +3086,15 @@ export class QuestionnairesService {
     }
 
     return taskCollections.every(
-      (tc: any) => typeof tc.completion_percentage === 'number' && tc.completion_percentage >= 100,
+      (tc: any) =>
+        typeof tc.completion_percentage === 'number' &&
+        tc.completion_percentage >= 100,
     );
   }
 
-  private areAllQuestionnaireProtocolsCompleted(questionnaire: Questionnaire): boolean {
+  private areAllQuestionnaireProtocolsCompleted(
+    questionnaire: Questionnaire,
+  ): boolean {
     // Consideramos protocolos concluídos quando existem registros associados
     // às relações de score/avaliação do questionário. Como cada protocolo é salvo
     // em tabela própria, a presença do objeto já indica que o protocolo foi preenchido.
@@ -2669,7 +3147,8 @@ export class QuestionnairesService {
     }
 
     const allTasksDone = await this.areAllActiveTasksCompleted(id);
-    const allProtocolsDone = this.areAllQuestionnaireProtocolsCompleted(questionnaire);
+    const allProtocolsDone =
+      this.areAllQuestionnaireProtocolsCompleted(questionnaire);
 
     if (!allTasksDone || !allProtocolsDone) {
       throw new BadRequestException(
@@ -2689,7 +3168,7 @@ export class QuestionnairesService {
    * Convert object to CSV row
    */
   private objectToCsvRow(obj: any): string {
-    const values = Object.values(obj).map(val => {
+    const values = Object.values(obj).map((val) => {
       if (val === null || val === undefined) return '';
       const str = String(val);
       // Escape quotes and wrap in quotes if contains comma, newline, or quote
@@ -3272,16 +3751,18 @@ export class QuestionnairesService {
    */
   async exportQuestionnaireData(questionnaireId: string) {
     const questionnaire = await this.getQuestionnaireById(questionnaireId);
-    
+
     // Generate CSV files
     const csvFiles = {
-      demographicAnthropometricClinical: this.generateDemographicAnthropometricClinicalCsv(questionnaire),
-      neurologicalAssessment: this.generateNeurologicalAssessmentCsv(questionnaire),
+      demographicAnthropometricClinical:
+        this.generateDemographicAnthropometricClinicalCsv(questionnaire),
+      neurologicalAssessment:
+        this.generateNeurologicalAssessmentCsv(questionnaire),
       speechTherapy: this.generateSpeechTherapyCsv(questionnaire),
       sleepAssessment: this.generateSleepAssessmentCsv(questionnaire),
       physiotherapy: this.generatePhysiotherapyCsv(questionnaire),
     };
-    
+
     // Load PDF reports metadata only (without binary payload).
     const pdfReportsWithData = await this.pdfReportRepository
       .createQueryBuilder('report')
@@ -3295,10 +3776,11 @@ export class QuestionnairesService {
       pdfReportsWithData.map(async (report) => {
         let presigned_download_url: string | null = null;
         if (report.file_path) {
-          presigned_download_url = await this.pdfReportsService.getPresignedDownloadUrl(
-            report.file_path,
-            exportPresignedTtlSeconds,
-          );
+          presigned_download_url =
+            await this.pdfReportsService.getPresignedDownloadUrl(
+              report.file_path,
+              exportPresignedTtlSeconds,
+            );
         }
         return {
           id: report.id,
@@ -3314,7 +3796,7 @@ export class QuestionnairesService {
         };
       }),
     );
-    
+
     // Get patient CPF hash to find ALL binary collections for this patient
     // Binary collections can be linked by questionnaire_id OR by patient_cpf_hash
     // This ensures we get all collections including repetitions
@@ -3322,7 +3804,7 @@ export class QuestionnairesService {
       where: { id: questionnaireId },
       relations: ['patient'],
     });
-    
+
     const patientCpfHash = questionnaireEntity?.patient?.cpf_hash || null;
 
     // Load ALL binary collections for this patient (by questionnaire_id OR by patient_cpf_hash)
@@ -3331,11 +3813,13 @@ export class QuestionnairesService {
       .createQueryBuilder('bc')
       .leftJoinAndSelect('bc.active_task', 'active_task')
       .where('bc.questionnaire_id = :questionnaireId', { questionnaireId });
-    
+
     if (patientCpfHash) {
-      binaryCollectionsQuery.orWhere('bc.patient_cpf_hash = :patientCpfHash', { patientCpfHash });
+      binaryCollectionsQuery.orWhere('bc.patient_cpf_hash = :patientCpfHash', {
+        patientCpfHash,
+      });
     }
-    
+
     const binaryCollections = await binaryCollectionsQuery
       .orderBy('bc.collected_at', 'ASC')
       .getMany();
@@ -3390,7 +3874,7 @@ export class QuestionnairesService {
     const exportData = await Promise.all(
       questionnaires.map(async (q) => {
         return await this.exportQuestionnaireData(q.id);
-      })
+      }),
     );
 
     return exportData;
@@ -3399,15 +3883,59 @@ export class QuestionnairesService {
   /**
    * Export all questionnaires with all related data
    */
-  async exportAllQuestionnairesData() {
-    const questionnaires = await this.questionnairesRepository.find({
-      order: { created_at: 'DESC' },
-    });
+  async exportAllQuestionnairesData(filters?: {
+    patientStart?: string;
+    patientEnd?: string;
+    dateStart?: string;
+    dateEnd?: string;
+  }) {
+    const qb = this.questionnairesRepository
+      .createQueryBuilder('q')
+      .leftJoinAndSelect('q.patient', 'patient')
+      .orderBy('q.created_at', 'DESC');
+
+    const toPatientNum = (v?: string): number | null => {
+      if (!v?.trim()) return null;
+      const m = /^P?(\d{1,3})$/i.exec(v.trim());
+      return m ? parseInt(m[1], 10) : null;
+    };
+
+    const startNum = toPatientNum(filters?.patientStart);
+    const endNum = toPatientNum(filters?.patientEnd);
+    if (startNum != null && endNum != null) {
+      qb.andWhere(
+        "CAST(NULLIF(REGEXP_REPLACE(COALESCE(patient.public_identifier, ''), '[^0-9]', '', 'g'), '') AS integer) BETWEEN :startNum AND :endNum",
+        { startNum, endNum },
+      );
+    } else if (startNum != null) {
+      qb.andWhere(
+        "CAST(NULLIF(REGEXP_REPLACE(COALESCE(patient.public_identifier, ''), '[^0-9]', '', 'g'), '') AS integer) >= :startNum",
+        { startNum },
+      );
+    } else if (endNum != null) {
+      qb.andWhere(
+        "CAST(NULLIF(REGEXP_REPLACE(COALESCE(patient.public_identifier, ''), '[^0-9]', '', 'g'), '') AS integer) <= :endNum",
+        { endNum },
+      );
+    }
+
+    if (filters?.dateStart) {
+      qb.andWhere('DATE(q.created_at) >= :dateStart', {
+        dateStart: filters.dateStart,
+      });
+    }
+    if (filters?.dateEnd) {
+      qb.andWhere('DATE(q.created_at) <= :dateEnd', {
+        dateEnd: filters.dateEnd,
+      });
+    }
+
+    const questionnaires = await qb.getMany();
 
     const exportData = await Promise.all(
       questionnaires.map(async (q) => {
         return await this.exportQuestionnaireData(q.id);
-      })
+      }),
     );
 
     return exportData;
@@ -3467,7 +3995,9 @@ export class QuestionnairesService {
     });
 
     if (!questionnaire) {
-      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
     }
 
     const patient = questionnaire.patient;
@@ -3515,15 +4045,25 @@ export class QuestionnairesService {
       patient: {
         id: patient?.id,
         cpf: patientCpf ? patientCpf.replace(/\d(?=\d{4})/g, '*') : null, // Mascarado
-        cpf_hash: patientCpfHash ? patientCpfHash.substring(0, 16) + '...' : null,
-        alternative_hash: alternativeHash ? alternativeHash.substring(0, 16) + '...' : null,
+        cpf_hash: patientCpfHash
+          ? patientCpfHash.substring(0, 16) + '...'
+          : null,
+        alternative_hash: alternativeHash
+          ? alternativeHash.substring(0, 16) + '...'
+          : null,
         hash_match: patientCpfHash === alternativeHash,
       },
       binaryCollections: {
         byCpfHash: {
           count: byCpfHash.length,
-          hashes: Array.from(new Set(byCpfHash.map(bc => bc.patient_cpf_hash?.substring(0, 16) + '...'))),
-          collections: byCpfHash.slice(0, 5).map(bc => ({
+          hashes: Array.from(
+            new Set(
+              byCpfHash.map(
+                (bc) => bc.patient_cpf_hash?.substring(0, 16) + '...',
+              ),
+            ),
+          ),
+          collections: byCpfHash.slice(0, 5).map((bc) => ({
             id: bc.id,
             patient_cpf_hash: bc.patient_cpf_hash?.substring(0, 16) + '...',
             questionnaire_id: bc.questionnaire_id,
@@ -3534,7 +4074,7 @@ export class QuestionnairesService {
         },
         byQuestionnaireId: {
           count: byQuestionnaireId.length,
-          collections: byQuestionnaireId.slice(0, 5).map(bc => ({
+          collections: byQuestionnaireId.slice(0, 5).map((bc) => ({
             id: bc.id,
             patient_cpf_hash: bc.patient_cpf_hash?.substring(0, 16) + '...',
             questionnaire_id: bc.questionnaire_id,
@@ -3545,18 +4085,28 @@ export class QuestionnairesService {
         },
         allInDatabase: {
           total: allCollections.length,
-          uniqueHashes: Array.from(new Set(allCollections.map(bc => bc.patient_cpf_hash?.substring(0, 16) + '...'))).slice(0, 10),
+          uniqueHashes: Array.from(
+            new Set(
+              allCollections.map(
+                (bc) => bc.patient_cpf_hash?.substring(0, 16) + '...',
+              ),
+            ),
+          ).slice(0, 10),
         },
       },
       comparison: {
-        patientHash: patientCpfHash ? patientCpfHash.substring(0, 16) + '...' : null,
-        alternativeHash: alternativeHash ? alternativeHash.substring(0, 16) + '...' : null,
+        patientHash: patientCpfHash
+          ? patientCpfHash.substring(0, 16) + '...'
+          : null,
+        alternativeHash: alternativeHash
+          ? alternativeHash.substring(0, 16) + '...'
+          : null,
         foundByPatientHash: byCpfHash.length,
         foundByQuestionnaireId: byQuestionnaireId.length,
         foundByAlternativeHash: alternativeHash
-          ? (await this.binaryCollectionRepository.count({
+          ? await this.binaryCollectionRepository.count({
               where: { patient_cpf_hash: alternativeHash },
-            }))
+            })
           : 0,
       },
     };
@@ -3573,7 +4123,11 @@ export class QuestionnairesService {
       { name: 'Levodopa / Benserazida', factor: 1, class: 'Levodopa' },
       { name: 'Levodopa / Benserazida HBS', factor: 0.75, class: 'Levodopa' },
       { name: 'Levodopa / Benserazida DR', factor: 0.75, class: 'Levodopa' },
-      { name: 'Levodopa / Carbidopa / Entacapona', factor: 1, class: 'Levodopa' },
+      {
+        name: 'Levodopa / Carbidopa / Entacapona',
+        factor: 1,
+        class: 'Levodopa',
+      },
       { name: 'Entacapone', factor: 1, class: 'COMT Inhibitor' },
       { name: 'Rasagilina', factor: 1, class: 'MAO-B Inhibitor' },
       { name: 'Safinamida', factor: 1, class: 'MAO-B Inhibitor' },
@@ -3626,4 +4180,3 @@ export class QuestionnairesService {
     };
   }
 }
-
