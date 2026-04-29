@@ -68,6 +68,16 @@ pipeline {
         MINIO_REGION = 'us-east-1'
         MINIO_FORCE_PATH_STYLE = 'true'
         MINIO_PRESIGNED_ENABLED = 'false'
+
+        // Samsung BART / JFrog Artifactory
+        ARTIFACTORY_URL = credentials('prime-artifactory-url')
+        ARTIFACTORY_USER = credentials('prime-artifactory-user')
+        ARTIFACTORY_TOKEN = credentials('prime-artifactory-token')
+        ARTIFACTORY_REPO_PATIENTS = credentials('prime-artifactory-repo-patients')
+        ARTIFACTORY_REPO_COLLECTIONS = credentials('prime-artifactory-repo-collections')
+        ARTIFACTORY_BASE_PATH = credentials('prime-artifactory-base-path')
+        SAMSUNG_SYNC_CRON_ENABLED = credentials('prime-samsung-sync-cron-enabled')
+        SAMSUNG_SYNC_INTERVAL_MS = credentials('prime-samsung-sync-interval-ms')
     }
     
     triggers {
@@ -249,6 +259,16 @@ MINIO_BUCKET=${MINIO_BUCKET}
 MINIO_REGION=${MINIO_REGION}
 MINIO_FORCE_PATH_STYLE=${MINIO_FORCE_PATH_STYLE}
 MINIO_PRESIGNED_ENABLED=${MINIO_PRESIGNED_ENABLED}
+
+# Samsung BART / JFrog Artifactory Sync
+ARTIFACTORY_URL=${ARTIFACTORY_URL}
+ARTIFACTORY_USER=${ARTIFACTORY_USER}
+ARTIFACTORY_TOKEN=${ARTIFACTORY_TOKEN}
+ARTIFACTORY_REPO_PATIENTS=${ARTIFACTORY_REPO_PATIENTS}
+ARTIFACTORY_REPO_COLLECTIONS=${ARTIFACTORY_REPO_COLLECTIONS}
+ARTIFACTORY_BASE_PATH=${ARTIFACTORY_BASE_PATH}
+SAMSUNG_SYNC_CRON_ENABLED=${SAMSUNG_SYNC_CRON_ENABLED}
+SAMSUNG_SYNC_INTERVAL_MS=${SAMSUNG_SYNC_INTERVAL_MS}
 EOF
                     
                     echo "✅ Arquivo .env criado"
