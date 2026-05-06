@@ -3,6 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 
 type RemoteFileInfo = { sha256?: string | null };
+type ArtifactListItem = {
+  uri: string;
+  size?: number | string;
+  lastModified?: string;
+  folder?: boolean;
+};
 type RequestOptions = {
   timeoutMs?: number;
   retries?: number;
@@ -209,5 +215,71 @@ export class ArtifactoryService {
     if (!response.ok) {
       throw new Error(`Falha ao remover ${repo}/${artifactPath}: HTTP ${response.status}`);
     }
+  }
+
+  async listArtifacts(repo: string, basePath: string): Promise<
+    {
+      name: string;
+      path: string;
+      size: number;
+      last_modified: string | null;
+      download_url: string;
+    }[]
+  > {
+    this.ensureReady();
+    const cleaned = basePath.replace(/^\/+|\/+$/g, '');
+    const url = `${this.baseUrl}/api/storage/${repo}/${cleaned}?list&deep=0&listFolders=0`;
+    const response = await this.requestWithRetry(
+      url,
+      {
+        method: 'GET',
+        headers: this.authHeaders,
+      },
+      { timeoutMs: 30000, retries: 2 },
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) return [];
+      throw new Error(`Falha ao listar artefatos ${repo}/${cleaned}: HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { files?: ArtifactListItem[] };
+    const files = Array.isArray(payload.files) ? payload.files : [];
+    return files
+      .filter((item) => !item.folder)
+      .map((item) => {
+        const rawName = item.uri?.replace(/^\//, '') || '';
+        const path = `${cleaned}/${rawName}`;
+        return {
+          name: rawName,
+          path,
+          size: Number(item.size || 0),
+          last_modified: item.lastModified || null,
+          download_url: this.buildArtifactUrl(repo, path),
+        };
+      });
+  }
+
+  async downloadFile(repo: string, artifactPath: string): Promise<{
+    buffer: Buffer;
+    contentType: string;
+  }> {
+    this.ensureReady();
+    const response = await this.requestWithRetry(
+      this.buildArtifactUrl(repo, artifactPath),
+      {
+        method: 'GET',
+        headers: this.authHeaders,
+      },
+      { timeoutMs: 120000, retries: 1 },
+    );
+    if (!response.ok) {
+      throw new Error(`Falha ao baixar ${repo}/${artifactPath}: HTTP ${response.status}`);
+    }
+    const ab = await response.arrayBuffer();
+    return {
+      buffer: Buffer.from(ab),
+      contentType: response.headers.get('content-type') || 'application/octet-stream',
+    };
   }
 }

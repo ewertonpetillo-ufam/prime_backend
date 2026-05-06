@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { Worker } from 'worker_threads';
 import {
   SamsungSyncRun,
   SamsungSyncRunStatus,
@@ -10,7 +11,25 @@ import {
   SamsungSyncItemAction,
   SamsungSyncRunItem,
 } from '../../entities/samsung-sync-run-item.entity';
+import { QuestionnairesService } from '../questionnaires/questionnaires.service';
 import { ArtifactoryService } from './artifactory.service';
+import {
+  SAMSUNG_SYNC_PROGRESS_STEPS,
+  buildSamsungActiveTaskFilename,
+  extractTaskCodeFromFilename,
+  getUniqueFilename,
+  inferSamsungDevice,
+  inferSamsungProtocol,
+  isSamsungExcludedPublicIdentifier,
+  isSpeechTask,
+  samsungPdfReportDataPath,
+  sanitizeExternalDocBaseName,
+  samsungStep,
+  toDateFolder,
+  toSamsungDeviceFolder,
+  toSamsungSubjectId,
+  toStageFolder,
+} from './samsung-dataset.utils';
 
 type PendingFile = {
   id: string;
@@ -32,12 +51,53 @@ type PendingPatient = {
   files: PendingFile[];
 };
 
+type SyncRunFilters = {
+  patientStart?: string;
+  patientEnd?: string;
+  dateStart?: string;
+  dateEnd?: string;
+};
+
+type QuestionnaireExportItem = {
+  questionnaire?: {
+    id?: string;
+    createdAt?: string | Date | null;
+    public_identifier?: string | null;
+  };
+  csvFiles?: Record<string, string>;
+  pdfReports?: Array<{
+    id?: string;
+    report_type?: string;
+    file_name?: string;
+    download_path?: string;
+    presigned_download_url?: string | null;
+    [key: string]: any;
+  }>;
+  binaryCollections?: Array<{
+    id: string;
+    metadata?: Record<string, any> | null;
+    collected_at?: string | Date | null;
+    download_path?: string;
+    repetitions_count?: number;
+  }>;
+};
+
+type ZipEntry = {
+  path: string;
+  content: Buffer | string;
+};
+
+const DATASET_ROOT = 'UFAMPRIME-Dataset';
+
 @Injectable()
 export class SamsungSyncService implements OnModuleInit {
   private readonly logger = new Logger(SamsungSyncService.name);
   private readonly repoPatients: string;
   private readonly repoCollections: string;
+  private readonly repoZip: string;
   private readonly basePath: string;
+  private readonly zipBasePath: string;
+  private readonly cancelledRunIds = new Set<string>();
 
   constructor(
     @InjectDataSource() private readonly db: DataSource,
@@ -45,6 +105,7 @@ export class SamsungSyncService implements OnModuleInit {
     private readonly syncRunRepository: Repository<SamsungSyncRun>,
     @InjectRepository(SamsungSyncRunItem)
     private readonly syncRunItemRepository: Repository<SamsungSyncRunItem>,
+    private readonly questionnairesService: QuestionnairesService,
     private readonly artifactoryService: ArtifactoryService,
     private readonly configService: ConfigService,
   ) {
@@ -54,8 +115,14 @@ export class SamsungSyncService implements OnModuleInit {
     this.repoCollections =
       this.configService.get<string>('ARTIFACTORY_REPO_COLLECTIONS') ||
       this.repoPatients;
+    this.repoZip =
+      this.configService.get<string>('ARTIFACTORY_REPO_ZIP') || this.repoCollections;
     this.basePath = (
       this.configService.get<string>('ARTIFACTORY_BASE_PATH') || 'test_api'
+    ).replace(/^\/+|\/+$/g, '');
+    this.zipBasePath = (
+      this.configService.get<string>('ARTIFACTORY_ZIP_BASE_PATH') ||
+      `${this.basePath}/zip-sync`
     ).replace(/^\/+|\/+$/g, '');
   }
 
@@ -72,62 +139,40 @@ export class SamsungSyncService implements OnModuleInit {
     this.logger.log(`Scheduler de sync Samsung habilitado. intervalMs=${intervalMs}`);
     setInterval(() => {
       this.logger.log('Disparando sync Samsung por scheduler');
-      void this.runSync(null, 'scheduler');
+      void this.runSync(null, 'scheduler', {});
     }, intervalMs);
   }
 
   private toDateFolder(value: string | Date | null | undefined): string {
-    if (!value) return new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) {
-      return new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    }
-    return d.toISOString().slice(0, 10).replace(/-/g, '');
+    return toDateFolder(value);
   }
 
   private isSamsungExcludedPublicIdentifier(publicIdentifier?: string | null): boolean {
-    const normalized = (publicIdentifier || '').trim().toUpperCase();
-    return normalized === 'P000' || normalized === 'P00';
+    return isSamsungExcludedPublicIdentifier(publicIdentifier);
   }
 
   private extractTaskCodeFromFilename(fileName: string): string | null {
-    const match = /TA\d{1,2}/i.exec(fileName || '');
-    return match ? match[0].toUpperCase() : null;
+    return extractTaskCodeFromFilename(fileName);
   }
 
   private isSpeechTask(taskCode: string | null): boolean {
-    return taskCode === 'TA10' || taskCode === 'TA11' || taskCode === 'TA12';
+    return isSpeechTask(taskCode);
   }
 
   private inferSamsungProtocol(taskCode: string | null, fileName: string): 'Clinic' | 'Sleep' | 'Free-living' {
-    if (taskCode === 'TA13' || /sleep|sono|psg/i.test(fileName)) return 'Sleep';
-    return 'Clinic';
+    return inferSamsungProtocol(taskCode, fileName);
   }
 
   private inferSamsungDevice(fileName: string): string {
-    if (/baiobit|biobit/i.test(fileName)) return 'Baiobit';
-    if (/emg|delsys/i.test(fileName)) return 'EMG';
-    if (/ring/i.test(fileName)) return 'Ring';
-    if (/psg|polysomn|polisson/i.test(fileName)) return 'PSG';
-    if (/-SP-|_SP_|smartphone/i.test(fileName)) return 'SP';
-    return 'SW';
+    return inferSamsungDevice(fileName);
   }
 
   private toStageFolder(protocol: 'Clinic' | 'Sleep' | 'Free-living'): string {
-    if (protocol === 'Sleep') return '2_Sleep';
-    if (protocol === 'Free-living') return '3_Free-living';
-    return '1_In-Clinic';
+    return toStageFolder(protocol);
   }
 
   private toSamsungDeviceFolder(device: string): string {
-    const upper = device.toUpperCase();
-    if (upper === 'SW') return 'SW_Smartwatch';
-    if (upper === 'SP') return 'SP_Smartphone';
-    if (upper === 'PSG') return 'PSG';
-    if (upper === 'EMG') return 'EMG';
-    if (upper === 'RING') return 'Ring';
-    if (upper === 'BAIOBIT' || upper === 'BIOBIT') return 'Baiobit';
-    return device;
+    return toSamsungDeviceFolder(device);
   }
 
   private buildSamsungActiveTaskFilename(
@@ -137,29 +182,11 @@ export class SamsungSyncService implements OnModuleInit {
     file: PendingFile,
     device: string,
   ): string {
-    const fallback = `${file.id}.csv`;
-    const base = (rawFileName || fallback).trim().split(/[/\\]/).pop() || fallback;
-    const extMatch = base.match(/(\.[^.]+)$/i);
-    const ext = extMatch ? extMatch[1] : '.csv';
-    const stem = extMatch ? base.slice(0, -ext.length) : base;
-
-    const taskCode = this.extractTaskCodeFromFilename(stem) || 'TA0';
-    const protocol = this.inferSamsungProtocol(taskCode === 'TA0' ? null : taskCode, stem);
-    const stageLabel = protocol === 'Sleep' ? 'Stage2' : protocol === 'Free-living' ? 'Stage3' : 'Stage1';
-    const deviceCode = device.toUpperCase() === 'BAIOBIT' ? 'BAIOBIT' : device.toUpperCase();
-    const repetition =
-      Number(file?.metadata?.repetition || file?.metadata?.rep || file?.metadata?.repetitions_count || 1) || 1;
-
-    return `${collectionDate}-${subjectId}-${stageLabel}-${deviceCode}-NA-SDK-${taskCode}-Rep${Math.max(
-      1,
-      repetition,
-    )}${ext}`;
+    return buildSamsungActiveTaskFilename(rawFileName, subjectId, collectionDate, file, device);
   }
 
   private toSubjectId(publicIdentifier?: string | null): string {
-    const digits = (publicIdentifier || '').replace(/\D/g, '');
-    const num = digits ? Number(digits) : 0;
-    return `S${String(num || 0).padStart(3, '0')}`;
+    return toSamsungSubjectId(publicIdentifier);
   }
 
   private getPatientPath(patient: PendingPatient): {
@@ -174,7 +201,12 @@ export class SamsungSyncService implements OnModuleInit {
     };
   }
 
-  private getCollectionPath(patient: PendingPatient, file: PendingFile): string {
+  private getCollectionPath(
+    patient: PendingPatient,
+    file: PendingFile,
+    fixedDate?: string,
+    includeBasePath = true,
+  ): string {
     const { subjectId } = this.getPatientPath(patient);
     const originalName =
       (file.metadata?.file_name as string | undefined) || `${file.id}.csv`;
@@ -186,7 +218,7 @@ export class SamsungSyncService implements OnModuleInit {
     const stageFolder = this.toStageFolder(protocol);
     const device = this.inferSamsungDevice(originalName);
     const deviceFolder = this.toSamsungDeviceFolder(device);
-    const collectionDate = this.toDateFolder(file.collected_at || patient.sync_pending_at);
+    const collectionDate = fixedDate || this.toDateFolder(file.collected_at || patient.sync_pending_at);
     const finalName = this.buildSamsungActiveTaskFilename(
       originalName,
       subjectId,
@@ -194,7 +226,191 @@ export class SamsungSyncService implements OnModuleInit {
       file,
       device,
     );
-    return `${this.basePath}/${collectionDate}/${subjectId}/${stageFolder}/${deviceFolder}/${finalName}`;
+    const prefix = includeBasePath ? `${this.basePath}/` : '';
+    return `${prefix}${collectionDate}/${subjectId}/${stageFolder}/${deviceFolder}/${finalName}`;
+  }
+
+  private getCollectionPathInZip(
+    patient: PendingPatient,
+    file: PendingFile,
+    fixedDate: string,
+  ): string {
+    const path = this.getCollectionPath(patient, file, fixedDate, false);
+    if (!path) return '';
+    return path;
+  }
+
+  private getMetadataRootInZip(subjectId: string): string {
+    return `${DATASET_ROOT}/Metadata/${subjectId}`;
+  }
+
+  private samsungPdfReportDataPath(reportType: string | undefined): {
+    protocol: 'Clinic' | 'Sleep' | 'Free-living';
+    device: string;
+  } {
+    return samsungPdfReportDataPath(reportType);
+  }
+
+  private sanitizeExternalDocBaseName(rawName: string, cpfHash: string): string {
+    return sanitizeExternalDocBaseName(rawName, cpfHash);
+  }
+
+  private getUniqueFilename(
+    baseName: string,
+    counters: Map<string, number>,
+    scope = '',
+  ): string {
+    return getUniqueFilename(baseName, counters, scope);
+  }
+
+  private async downloadFileAsBuffer(
+    primaryUrl?: string | null,
+    fallbackUrl?: string | null,
+  ): Promise<Buffer | null> {
+    const candidates = [primaryUrl, fallbackUrl].filter(Boolean) as string[];
+    for (const url of candidates) {
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          const res = await fetch(url, { method: 'GET' });
+          if (!res.ok) break;
+          const ab = await res.arrayBuffer();
+          return Buffer.from(ab);
+        } catch (error) {
+          const retriable =
+            attempt < maxAttempts &&
+            (error instanceof TypeError ||
+              (error instanceof Error &&
+                /fetch|network|aborted|Failed to fetch|ECONNRESET|ERR_NETWORK/i.test(
+                  error.message,
+                )));
+          if (!retriable) break;
+          await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+        }
+      }
+    }
+    return null;
+  }
+
+  private async validateBartConnectivityQuick(
+    timeoutMs = 5000,
+  ): Promise<{ ok: boolean; warning?: string }> {
+    try {
+      const pingResult = await Promise.race([
+        this.artifactoryService.ping(),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+      ]);
+      if (pingResult) {
+        return { ok: true };
+      }
+      return {
+        ok: false,
+        warning: `Validação rápida do BART excedeu ${timeoutMs}ms; seguindo execução e validando novamente no upload.`,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'falha desconhecida na conectividade';
+      return {
+        ok: false,
+        warning: `Falha na validação rápida do BART (${message}); seguindo execução e validando novamente no upload.`,
+      };
+    }
+  }
+
+  private async generateZipInWorker(entries: ZipEntry[]): Promise<Buffer> {
+    const payload = entries.map((entry) => ({
+      path: entry.path,
+      contentBase64:
+        typeof entry.content === 'string'
+          ? Buffer.from(entry.content, 'utf8').toString('base64')
+          : entry.content.toString('base64'),
+      encoding: typeof entry.content === 'string' ? 'utf8' : 'binary',
+    }));
+    return new Promise<Buffer>((resolve, reject) => {
+      const workerScript = `
+const { parentPort, workerData } = require('worker_threads');
+const JSZip = require('jszip');
+(async () => {
+  const zip = new JSZip();
+  for (const entry of workerData.entries || []) {
+    const buffer = Buffer.from(entry.contentBase64, 'base64');
+    zip.file(entry.path, entry.encoding === 'utf8' ? buffer.toString('utf8') : buffer);
+  }
+  const out = await zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 },
+  });
+  parentPort.postMessage({ ok: true, zipBase64: out.toString('base64') });
+})().catch((error) => {
+  parentPort.postMessage({ ok: false, error: error instanceof Error ? error.message : String(error) });
+});
+`;
+      const worker = new Worker(workerScript, { eval: true, workerData: { entries: payload } });
+      worker.once('message', (message) => {
+        if (message?.ok && message.zipBase64) {
+          resolve(Buffer.from(message.zipBase64, 'base64'));
+          return;
+        }
+        reject(new Error(message?.error || 'Falha ao gerar ZIP na thread dedicada.'));
+      });
+      worker.once('error', reject);
+      worker.once('exit', (code) => {
+        if (code !== 0) {
+          reject(new Error(`Thread de compactação finalizou com código ${code}`));
+        }
+      });
+    });
+  }
+
+  private buildZipName(filters: SyncRunFilters | undefined, patients: PendingPatient[]): string {
+    const startFromFilter = this.parseIdentifierRange(filters?.patientStart || '');
+    const endFromFilter = this.parseIdentifierRange(filters?.patientEnd || '');
+    const firstSubject =
+      startFromFilter != null
+        ? `S${String(startFromFilter).padStart(3, '0')}`
+        : this.toSubjectId(patients[0]?.public_identifier);
+    const lastSubject =
+      endFromFilter != null
+        ? `S${String(endFromFilter).padStart(3, '0')}`
+        : this.toSubjectId(patients[patients.length - 1]?.public_identifier);
+    return `UFAMPRIME-Dataset-${firstSubject}_${lastSubject}.zip`;
+  }
+
+  private async getBinaryPayloadMap(binaryIds: string[]) {
+    if (binaryIds.length === 0) return new Map<string, Buffer>();
+    const rows = await this.db.query(
+      `
+      SELECT id, csv_data
+        FROM binary_collections
+       WHERE id = ANY($1::uuid[])
+      `,
+      [binaryIds],
+    );
+    const map = new Map<string, Buffer>();
+    for (const row of rows) {
+      if (row?.id && row?.csv_data) {
+        map.set(row.id, Buffer.from(row.csv_data));
+      }
+    }
+    return map;
+  }
+
+  private parseIdentifierRange(raw?: string): number | null {
+    if (!raw) return null;
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return null;
+    const parsed = Number(digits);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private normalizeFilters(filters?: SyncRunFilters): SyncRunFilters {
+    return {
+      patientStart: filters?.patientStart?.trim() || undefined,
+      patientEnd: filters?.patientEnd?.trim() || undefined,
+      dateStart: filters?.dateStart?.trim() || undefined,
+      dateEnd: filters?.dateEnd?.trim() || undefined,
+    };
   }
 
   private async appendRunItem(params: {
@@ -280,7 +496,23 @@ export class SamsungSyncService implements OnModuleInit {
     }));
   }
 
-  private async getPendingPatients(): Promise<PendingPatient[]> {
+  private async getPendingPatients(filters?: SyncRunFilters): Promise<PendingPatient[]> {
+    const normalized = this.normalizeFilters(filters);
+    const patientStart = this.parseIdentifierRange(normalized.patientStart);
+    const patientEnd = this.parseIdentifierRange(normalized.patientEnd);
+    if (
+      patientStart != null &&
+      patientEnd != null &&
+      Number.isFinite(patientStart) &&
+      Number.isFinite(patientEnd) &&
+      patientStart > patientEnd
+    ) {
+      throw new Error('Faixa de pacientes inválida: início maior que o fim.');
+    }
+    if (normalized.dateStart && normalized.dateEnd && normalized.dateStart > normalized.dateEnd) {
+      throw new Error('Faixa de datas inválida: início maior que o fim.');
+    }
+
     const rows = await this.db.query(`
       SELECT
         p.id,
@@ -312,9 +544,13 @@ export class SamsungSyncService implements OnModuleInit {
       WHERE (p.sync_pending = TRUE
          OR p.synced_at IS NULL)
         AND UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
+        AND ($1::int IS NULL OR COALESCE(NULLIF(regexp_replace(p.public_identifier, '\\D', '', 'g'), ''), '0')::int >= $1::int)
+        AND ($2::int IS NULL OR COALESCE(NULLIF(regexp_replace(p.public_identifier, '\\D', '', 'g'), ''), '0')::int <= $2::int)
+        AND ($3::date IS NULL OR DATE(COALESCE(p.sync_pending_at, p.synced_at, NOW())) >= $3::date)
+        AND ($4::date IS NULL OR DATE(COALESCE(p.sync_pending_at, p.synced_at, NOW())) <= $4::date)
       GROUP BY p.id
       ORDER BY p.sync_pending_at ASC NULLS LAST
-    `);
+    `, [patientStart, patientEnd, normalized.dateStart || null, normalized.dateEnd || null]);
 
     return rows.map((row: any) => ({
       ...row,
@@ -341,13 +577,22 @@ export class SamsungSyncService implements OnModuleInit {
   async runSyncAsync(
     triggeredByUserId: string | null,
     triggerType: 'manual' | 'scheduler' = 'manual',
+    filters?: SyncRunFilters,
   ) {
     this.logger.log(
       `Iniciando runSyncAsync. triggerType=${triggerType} userId=${triggeredByUserId ?? 'n/a'}`,
     );
     const run = await this.createRun(triggeredByUserId, triggerType);
+    this.cancelledRunIds.delete(run.id);
     setTimeout(() => {
-      void this.executeRun(run);
+      void this.executeRun(run, filters).catch((error) => {
+        const message = error instanceof Error ? error.message : 'Erro desconhecido';
+        if (/cancelada manualmente/i.test(message)) {
+          this.logger.warn(`Run ${run.id} interrompida por cancelamento manual.`);
+          return;
+        }
+        this.logger.error(`Falha não tratada na execução assíncrona ${run.id}: ${message}`);
+      });
     }, 0);
     return { run_id: run.id, status: 'running' as const };
   }
@@ -355,12 +600,41 @@ export class SamsungSyncService implements OnModuleInit {
   async runSync(
     triggeredByUserId: string | null,
     triggerType: 'manual' | 'scheduler' = 'manual',
+    filters?: SyncRunFilters,
   ) {
     this.logger.log(
       `Iniciando runSync. triggerType=${triggerType} userId=${triggeredByUserId ?? 'n/a'}`,
     );
     const run = await this.createRun(triggeredByUserId, triggerType);
-    return this.executeRun(run);
+    this.cancelledRunIds.delete(run.id);
+    return this.executeRun(run, filters);
+  }
+
+  async cancelRun(runId: string, requestedByUserId?: string | null) {
+    const run = await this.syncRunRepository.findOne({ where: { id: runId } });
+    if (!run) {
+      throw new Error('Execução de sincronização não encontrada');
+    }
+    if (run.status !== SamsungSyncRunStatus.RUNNING) {
+      return { run_id: runId, status: run.status, cancelled: false };
+    }
+
+    this.cancelledRunIds.add(runId);
+    const summary = {
+      ...(run.summary || {}),
+      currentStep: 'Cancelamento solicitado pelo usuário',
+      cancelRequestedAt: new Date().toISOString(),
+      cancelRequestedBy: requestedByUserId || null,
+    };
+
+    await this.syncRunRepository.update(runId, { summary });
+    return { run_id: runId, status: 'running', cancelled: true };
+  }
+
+  private ensureRunNotCancelled(runId: string) {
+    if (this.cancelledRunIds.has(runId)) {
+      throw new Error('Execução cancelada manualmente');
+    }
   }
 
   private async updateRunProgress(
@@ -373,6 +647,9 @@ export class SamsungSyncService implements OnModuleInit {
       skippedFiles: number;
       deletedFiles: number;
       errorFiles: number;
+      currentStep?: string;
+      currentStepIndex?: number;
+      stepLabels?: readonly string[];
     },
   ) {
     await this.syncRunRepository.update(runId, {
@@ -387,9 +664,22 @@ export class SamsungSyncService implements OnModuleInit {
     });
   }
 
-  private async executeRun(run: SamsungSyncRun) {
-
-    const summary = {
+  private async executeRun(run: SamsungSyncRun, filters?: SyncRunFilters) {
+    const summary: {
+      totalPatients: number;
+      syncedPatients: number;
+      erroredPatients: number;
+      uploadedFiles: number;
+      skippedFiles: number;
+      deletedFiles: number;
+      errorFiles: number;
+      zipName: string | null;
+      zipPath: string | null;
+      currentStep: string;
+      currentStepIndex: number;
+      stepLabels: readonly string[];
+      lastHeartbeatAt: string;
+    } = {
       totalPatients: 0,
       syncedPatients: 0,
       erroredPatients: 0,
@@ -397,47 +687,259 @@ export class SamsungSyncService implements OnModuleInit {
       skippedFiles: 0,
       deletedFiles: 0,
       errorFiles: 0,
+      zipName: null as string | null,
+      zipPath: null as string | null,
+      currentStep: samsungStep(0),
+      currentStepIndex: 0,
+      stepLabels: SAMSUNG_SYNC_PROGRESS_STEPS,
+      lastHeartbeatAt: new Date().toISOString(),
+    };
+
+    const setCurrentStep = async (stepIndex: number, customMessage?: string) => {
+      summary.currentStepIndex = stepIndex;
+      summary.currentStep = customMessage || samsungStep(stepIndex);
+      summary.lastHeartbeatAt = new Date().toISOString();
+      await this.updateRunProgress(run.id, summary);
+    };
+
+    let heartbeatTimer: NodeJS.Timeout | null = null;
+    const startHeartbeat = () => {
+      heartbeatTimer = setInterval(() => {
+        summary.lastHeartbeatAt = new Date().toISOString();
+        void this.updateRunProgress(run.id, summary);
+      }, 10000);
+    };
+    const stopHeartbeat = () => {
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
     };
 
     try {
-      this.logger.log(`Run ${run.id}: validando conectividade com Artifactory`);
-      await this.artifactoryService.ping();
-      this.logger.log(`Run ${run.id}: conectividade com Artifactory OK`);
-      const patients = await this.getPendingPatients();
+      await setCurrentStep(0);
+      startHeartbeat();
+      this.ensureRunNotCancelled(run.id);
+      const connectivity = await this.validateBartConnectivityQuick(5000);
+      if (!connectivity.ok && connectivity.warning) {
+        this.logger.warn(`Run ${run.id}: ${connectivity.warning}`);
+        await this.appendRunItem({
+          runId: run.id,
+          action: SamsungSyncItemAction.SKIP,
+          repo: this.repoZip,
+          path: this.zipBasePath,
+          uploaded: false,
+          message: connectivity.warning,
+        });
+      }
+      const patients = await this.getPendingPatients(filters);
+      this.ensureRunNotCancelled(run.id);
       summary.totalPatients = patients.length;
-      this.logger.log(`Run ${run.id}: ${patients.length} pacientes pendentes encontrados`);
       await this.updateRunProgress(run.id, summary);
 
-      for (const patient of patients) {
-        if (this.isSamsungExcludedPublicIdentifier(patient.public_identifier)) {
-          this.logger.log(
-            `Run ${run.id}: paciente ignorado por regra de teste (${patient.public_identifier})`,
-          );
-          continue;
-        }
-        const syncedFileIds: string[] = [];
-        try {
-          this.logger.log(
-            `Run ${run.id}: sincronizando paciente ${patient.id} (${patient.public_identifier ?? 'sem-id'})`,
-          );
+      if (patients.length === 0) {
+        await this.syncRunRepository.update(run.id, {
+          status: SamsungSyncRunStatus.SUCCESS,
+          finished_at: new Date(),
+          total_patients: 0,
+          synced_patients: 0,
+          errored_patients: 0,
+          uploaded_files: 0,
+          skipped_files: 0,
+          deleted_files: 0,
+          error_files: 0,
+          summary,
+        });
+        return { run_id: run.id, status: 'success', summary };
+      }
 
-          for (const file of patient.files || []) {
-            const artifactPath = this.getCollectionPath(patient, file);
-            if (!artifactPath) {
-              this.logger.log(
-                `Run ${run.id}: arquivo ${file.id} ignorado por regra de nomenclatura/tarefa`,
+      const zipEntries: ZipEntry[] = [];
+      const patientIdsToConfirm: string[] = [];
+      const collectionIdsToConfirm: string[] = [];
+      const zipName = this.buildZipName(filters, patients);
+      summary.zipName = zipName;
+      const zipArtifactPath = `${this.zipBasePath}/${zipName}`;
+      summary.zipPath = zipArtifactPath;
+
+      await setCurrentStep(1);
+      const exported = (await this.questionnairesService.exportAllQuestionnairesData(
+        filters,
+      )) as unknown as QuestionnaireExportItem[];
+      this.ensureRunNotCancelled(run.id);
+      const exportedBySubject = new Map<string, QuestionnaireExportItem[]>();
+      for (const item of exported || []) {
+        const publicId = item?.questionnaire?.public_identifier || '';
+        if (this.isSamsungExcludedPublicIdentifier(publicId)) continue;
+        const subjectId = this.toSubjectId(publicId);
+        const current = exportedBySubject.get(subjectId) || [];
+        current.push(item);
+        exportedBySubject.set(subjectId, current);
+      }
+      for (const [subjectId, items] of exportedBySubject.entries()) {
+        items.sort((a, b) => {
+          const aTs = new Date(a?.questionnaire?.createdAt || 0).getTime();
+          const bTs = new Date(b?.questionnaire?.createdAt || 0).getTime();
+          return aTs - bTs;
+        });
+        exportedBySubject.set(subjectId, items);
+      }
+
+      for (const patient of patients) {
+        this.ensureRunNotCancelled(run.id);
+        if (this.isSamsungExcludedPublicIdentifier(patient.public_identifier)) continue;
+        try {
+          let patientHasCriticalError = false;
+          const subjectId = this.toSubjectId(patient.public_identifier);
+          const subjectExportItems = exportedBySubject.get(subjectId) || [];
+          const metadataRoot = this.getMetadataRootInZip(subjectId);
+
+          await setCurrentStep(2, `${samsungStep(2)} (${subjectId})`);
+          const pdfNameCounters = new Map<string, number>();
+          const activeTaskNameCounters = new Map<string, number>();
+          const includedCollectionIds = new Set<string>();
+          let latestPatientDate = this.toDateFolder(patient.sync_pending_at);
+          for (const exportedItem of subjectExportItems) {
+            this.ensureRunNotCancelled(run.id);
+            const patientDate = this.toDateFolder(
+              exportedItem?.questionnaire?.createdAt || patient.sync_pending_at,
+            );
+            latestPatientDate = patientDate;
+            const metadataCsvPrefix = `METADATA-${patientDate}-${subjectId}`;
+            zipEntries.push({
+              path: `${metadataRoot}/${metadataCsvPrefix}-01_demographic_anthropometric_clinical.csv`,
+              content: exportedItem?.csvFiles?.demographicAnthropometricClinical || '',
+            });
+            zipEntries.push({
+              path: `${metadataRoot}/${metadataCsvPrefix}-02_neurological_assessment_updrs.csv`,
+              content: exportedItem?.csvFiles?.neurologicalAssessment || '',
+            });
+            zipEntries.push({
+              path: `${metadataRoot}/${metadataCsvPrefix}-03_speech_therapy.csv`,
+              content: exportedItem?.csvFiles?.speechTherapy || '',
+            });
+            zipEntries.push({
+              path: `${metadataRoot}/${metadataCsvPrefix}-04_sleep_assessment.csv`,
+              content: exportedItem?.csvFiles?.sleepAssessment || '',
+            });
+            zipEntries.push({
+              path: `${metadataRoot}/${metadataCsvPrefix}-05_physiotherapy.csv`,
+              content: exportedItem?.csvFiles?.physiotherapy || '',
+            });
+
+            await setCurrentStep(3, `${samsungStep(3)} (${subjectId})`);
+            const pdfReports = Array.isArray(exportedItem?.pdfReports)
+              ? exportedItem.pdfReports
+              : [];
+            for (const report of pdfReports) {
+              this.ensureRunNotCancelled(run.id);
+              const { protocol, device } = this.samsungPdfReportDataPath(report?.report_type);
+              const stageFolder = this.toStageFolder(protocol);
+              const deviceFolderName = this.toSamsungDeviceFolder(device);
+              const isExternalDevice = ['Baiobit', 'EMG', 'Ring', 'PSG'].includes(device);
+              const baseFileName = isExternalDevice
+                ? this.sanitizeExternalDocBaseName(
+                    report?.file_name || 'relatorio.pdf',
+                    (exportedItem as any)?.questionnaire?.cpfHash || '',
+                  )
+                : report?.file_name || 'relatorio.pdf';
+              const uniqueFileName = this.getUniqueFilename(
+                baseFileName,
+                pdfNameCounters,
+                `${stageFolder}/${deviceFolderName}`,
               );
+              const pdfBuffer = await this.downloadFileAsBuffer(
+                report?.presigned_download_url || report?.download_path,
+                report?.download_path,
+              );
+              if (!pdfBuffer) {
+                patientHasCriticalError = true;
+                summary.errorFiles += 1;
+                await this.appendRunItem({
+                  runId: run.id,
+                  patientId: patient.id,
+                  action: SamsungSyncItemAction.ERROR,
+                  repo: this.repoCollections,
+                  path: `${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFileName}`,
+                  uploaded: false,
+                  error: 'Falha ao baixar PDF externo para inclusão no ZIP',
+                });
+                continue;
+              }
+              zipEntries.push({
+                path: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFileName}`,
+                content: pdfBuffer,
+              });
+              summary.uploadedFiles += 1;
+            }
+
+            await setCurrentStep(4, `${samsungStep(4)} (${subjectId})`);
+            const exportBinaryIds = (exportedItem?.binaryCollections || [])
+              .map((bc) => bc?.id)
+              .filter((id): id is string => Boolean(id));
+            const binaryPayloadMap = await this.getBinaryPayloadMap(exportBinaryIds);
+            for (const collection of exportedItem?.binaryCollections || []) {
+              this.ensureRunNotCancelled(run.id);
+              const fileName = (collection?.metadata?.file_name || '').toString();
+              if (!fileName) continue;
+              const taskCode = this.extractTaskCodeFromFilename(fileName);
+              if (this.isSpeechTask(taskCode)) {
+                summary.skippedFiles += 1;
+                continue;
+              }
+              const protocol = this.inferSamsungProtocol(taskCode, fileName);
+              const device = this.inferSamsungDevice(fileName);
+              const stageFolder = this.toStageFolder(protocol);
+              const deviceFolderName = this.toSamsungDeviceFolder(device);
+              const finalName = this.buildSamsungActiveTaskFilename(
+                fileName,
+                subjectId,
+                patientDate,
+                collection as any,
+                device,
+              );
+              const uniqueFinalName = this.getUniqueFilename(
+                finalName,
+                activeTaskNameCounters,
+                `${stageFolder}/${deviceFolderName}`,
+              );
+              const payload = binaryPayloadMap.get(collection.id);
+              if (!payload) {
+                patientHasCriticalError = true;
+                summary.errorFiles += 1;
+                await this.appendRunItem({
+                  runId: run.id,
+                  patientId: patient.id,
+                  collectionId: collection.id,
+                  action: SamsungSyncItemAction.ERROR,
+                  repo: this.repoCollections,
+                  path: `${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFinalName}`,
+                  uploaded: false,
+                  error: 'Payload da tarefa ativa não encontrado para inclusão no ZIP',
+                });
+                continue;
+              }
+              zipEntries.push({
+                path: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFinalName}`,
+                content: payload,
+              });
+              summary.uploadedFiles += 1;
+              includedCollectionIds.add(collection.id);
+            }
+          }
+
+          const pendingFileIds = (patient.files || [])
+            .map((file) => file?.id)
+            .filter((id): id is string => Boolean(id));
+          const patientBinaryPayloadMap = await this.getBinaryPayloadMap(pendingFileIds);
+          for (const file of patient.files || []) {
+            this.ensureRunNotCancelled(run.id);
+            const artifactPath = this.getCollectionPath(patient, file, latestPatientDate, true);
+            if (!artifactPath) {
+              summary.skippedFiles += 1;
               continue;
             }
             if (file.deleted_pending) {
-              this.logger.log(`Run ${run.id}: removendo artefato ${artifactPath}`);
-              await this.artifactoryService.deleteFile(
-                this.repoCollections,
-                artifactPath,
-              );
-              syncedFileIds.push(file.id);
               summary.deletedFiles += 1;
-
               await this.appendRunItem({
                 runId: run.id,
                 patientId: patient.id,
@@ -445,69 +947,53 @@ export class SamsungSyncService implements OnModuleInit {
                 action: SamsungSyncItemAction.DELETE,
                 repo: this.repoCollections,
                 path: artifactPath,
-                uploaded: true,
-                message: 'Arquivo removido no destino',
+                uploaded: false,
+                message: 'Arquivo marcado para remoção após upload do ZIP',
               });
               continue;
             }
-
-            if (!file.csv_data) continue;
-
-            this.logger.log(
-              `Run ${run.id}: enviando/checando arquivo ${file.id} para ${artifactPath}`,
-            );
-            const upload = await this.artifactoryService.uploadIfChanged(
-              this.repoCollections,
-              artifactPath,
-              file.csv_data,
-              file.file_hash,
-              'application/octet-stream',
-            );
-
-            if (upload.uploaded) {
-              await this.db.query(
-                `
-                UPDATE binary_collections
-                   SET file_hash = $1
-                 WHERE id = $2
-                `,
-                [upload.sha256, file.id],
-              );
-              summary.uploadedFiles += 1;
-            } else {
-              summary.skippedFiles += 1;
+            const payload = patientBinaryPayloadMap.get(file.id) || file.csv_data;
+            if (!payload) {
+              patientHasCriticalError = true;
+              summary.errorFiles += 1;
+              await this.appendRunItem({
+                runId: run.id,
+                patientId: patient.id,
+                collectionId: file.id,
+                action: SamsungSyncItemAction.ERROR,
+                repo: this.repoCollections,
+                path: artifactPath,
+                uploaded: false,
+                error: 'Payload pendente não encontrado para confirmação de sincronização',
+              });
+              continue;
             }
-
-            syncedFileIds.push(file.id);
-
-            await this.appendRunItem({
-              runId: run.id,
-              patientId: patient.id,
-              collectionId: file.id,
-              action: upload.uploaded
-                ? SamsungSyncItemAction.UPLOAD
-                : SamsungSyncItemAction.SKIP,
-              repo: this.repoCollections,
-              path: artifactPath,
-              sha256: upload.sha256,
-              uploaded: upload.uploaded,
-              message: upload.uploaded ? 'Arquivo enviado' : 'Arquivo sem mudanças',
-            });
+            if (!includedCollectionIds.has(file.id)) {
+              const zipPath = this.getCollectionPathInZip(patient, file, latestPatientDate);
+              if (!zipPath) {
+                summary.skippedFiles += 1;
+              } else {
+                zipEntries.push({
+                  path: `${DATASET_ROOT}/${zipPath}`,
+                  content: payload,
+                });
+                summary.uploadedFiles += 1;
+                includedCollectionIds.add(file.id);
+              }
+            }
+            collectionIdsToConfirm.push(file.id);
           }
 
-          await this.confirmPatientSync(patient.id, syncedFileIds);
-          this.logger.log(
-            `Run ${run.id}: paciente ${patient.id} confirmado com ${syncedFileIds.length} itens`,
-          );
-          summary.syncedPatients += 1;
+          if (patientHasCriticalError) summary.erroredPatients += 1;
+          else {
+            summary.syncedPatients += 1;
+            patientIdsToConfirm.push(patient.id);
+          }
           await this.updateRunProgress(run.id, summary);
         } catch (error) {
           summary.erroredPatients += 1;
-          const message =
-            error instanceof Error ? error.message : 'Erro desconhecido';
-          this.logger.error(
-            `Falha ao sincronizar paciente ${patient.id}: ${message}`,
-          );
+          summary.errorFiles += 1;
+          const message = error instanceof Error ? error.message : 'Erro desconhecido';
           await this.appendRunItem({
             runId: run.id,
             patientId: patient.id,
@@ -517,10 +1003,37 @@ export class SamsungSyncService implements OnModuleInit {
             uploaded: false,
             error: message,
           });
-          summary.errorFiles += 1;
           await this.updateRunProgress(run.id, summary);
         }
       }
+
+      await setCurrentStep(5);
+      this.ensureRunNotCancelled(run.id);
+      const zipBuffer = await this.generateZipInWorker(zipEntries);
+      await setCurrentStep(6);
+      this.ensureRunNotCancelled(run.id);
+      const zipSha256 = await this.artifactoryService.uploadFile(
+        this.repoZip,
+        zipArtifactPath,
+        zipBuffer,
+        'application/zip',
+      );
+      await this.appendRunItem({
+        runId: run.id,
+        action: SamsungSyncItemAction.UPLOAD,
+        repo: this.repoZip,
+        path: zipArtifactPath,
+        sha256: zipSha256,
+        uploaded: true,
+        message: `ZIP ${zipName} enviado com sucesso`,
+      });
+
+      await setCurrentStep(7);
+      this.ensureRunNotCancelled(run.id);
+      if (patientIdsToConfirm.length > 0 || collectionIdsToConfirm.length > 0) {
+        await this.confirmBatchSync(patientIdsToConfirm, collectionIdsToConfirm);
+      }
+      await setCurrentStep(8, 'Sincronização concluída');
 
       await this.syncRunRepository.update(run.id, {
         status: SamsungSyncRunStatus.SUCCESS,
@@ -534,18 +1047,12 @@ export class SamsungSyncService implements OnModuleInit {
         error_files: summary.errorFiles,
         summary,
       });
-      this.logger.log(
-        `Run ${run.id} concluído com sucesso. pacientes=${summary.totalPatients} uploaded=${summary.uploadedFiles} skipped=${summary.skippedFiles} deleted=${summary.deletedFiles} errors=${summary.errorFiles}`,
-      );
-
-      return {
-        run_id: run.id,
-        status: 'success',
-        summary,
-      };
+      stopHeartbeat();
+      this.cancelledRunIds.delete(run.id);
+      return { run_id: run.id, status: 'success', summary };
     } catch (error) {
+      stopHeartbeat();
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
-      this.logger.error(`Run ${run.id} falhou: ${message}`);
       await this.syncRunRepository.update(run.id, {
         status: SamsungSyncRunStatus.FAILED,
         finished_at: new Date(),
@@ -559,41 +1066,78 @@ export class SamsungSyncService implements OnModuleInit {
         summary,
         error_message: message,
       });
+      this.cancelledRunIds.delete(run.id);
       throw error;
     }
   }
 
   private async confirmPatientSync(patientId: string, collectionIds: string[]) {
-    await this.db.query(
-      `
-      UPDATE patients
-         SET sync_pending = FALSE,
-             synced_at = NOW()
-       WHERE id = $1
-      `,
-      [patientId],
-    );
+    return this.confirmBatchSync([patientId], collectionIds);
+  }
 
-    if (collectionIds.length === 0) return;
+  private async confirmBatchSync(patientIds: string[], collectionIds: string[]) {
+    if (patientIds.length > 0) {
+      await this.db.query(
+        `
+        UPDATE patients
+           SET sync_pending = FALSE,
+               synced_at = NOW()
+         WHERE id = ANY($1::uuid[])
+        `,
+        [patientIds],
+      );
+    }
 
-    await this.db.query(
-      `
-      UPDATE binary_collections
-         SET file_sync_pending = FALSE,
-             file_synced_at = NOW()
-       WHERE id = ANY($1::uuid[])
-         AND deleted_pending = FALSE
-      `,
-      [collectionIds],
-    );
+    if (collectionIds.length > 0) {
+      await this.db.query(
+        `
+        UPDATE binary_collections
+           SET file_sync_pending = FALSE,
+               file_synced_at = NOW()
+         WHERE id = ANY($1::uuid[])
+           AND deleted_pending = FALSE
+        `,
+        [collectionIds],
+      );
+    }
 
     await this.db.query(
       `
       DELETE FROM binary_collections
-       WHERE id = ANY($1::uuid[])
+       WHERE patient_cpf_hash IN (
+          SELECT cpf_hash
+            FROM patients
+           WHERE id = ANY($1::uuid[])
+       )
          AND deleted_pending = TRUE
       `,
-      [collectionIds],
+      [patientIds],
+    );
+  }
+
+  async listZipArtifacts() {
+    return this.artifactoryService.listArtifacts(this.repoZip, this.zipBasePath);
+  }
+
+  async downloadZipArtifact(name: string) {
+    const safeName = (name || '').split('/').pop() || '';
+    if (!safeName.endsWith('.zip')) {
+      throw new Error('Artefato inválido');
+    }
+    return this.artifactoryService.downloadFile(
+      this.repoZip,
+      `${this.zipBasePath}/${safeName}`,
+    );
+  }
+
+  async deleteZipArtifact(name: string) {
+    const safeName = (name || '').split('/').pop() || '';
+    if (!safeName.endsWith('.zip')) {
+      throw new Error('Artefato inválido');
+    }
+    await this.artifactoryService.deleteFile(
+      this.repoZip,
+      `${this.zipBasePath}/${safeName}`,
     );
   }
 }
