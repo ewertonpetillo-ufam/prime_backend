@@ -49,6 +49,18 @@ export class BinaryCollection {
   @Column({ type: 'varchar', length: 64, nullable: true })
   file_checksum: string;
 
+  @Column({ type: 'boolean', default: false })
+  file_sync_pending: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  file_hash: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  file_synced_at: Date | null;
+
+  @Column({ type: 'boolean', default: false })
+  deleted_pending: boolean;
+
   @Column({
     type: 'varchar',
     length: 50,

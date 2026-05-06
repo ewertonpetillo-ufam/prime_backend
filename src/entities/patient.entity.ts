@@ -104,6 +104,18 @@ export class Patient {
   @Column({ type: 'boolean', default: true })
   active: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  sync_pending: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  sync_pending_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  synced_at: Date | null;
+
+  @Column({ type: 'bigint', default: 0 })
+  sync_version: string;
+
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
