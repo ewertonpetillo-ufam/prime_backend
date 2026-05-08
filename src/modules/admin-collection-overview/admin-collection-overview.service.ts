@@ -43,6 +43,11 @@ export type ClinicalStratificationKpis = {
   pacientesSemClassificacaoClinica: number;
 };
 
+export type GenderKpis = {
+  pacientesHomens: number;
+  pacientesMulheres: number;
+};
+
 @Injectable()
 export class AdminCollectionOverviewService {
   constructor(
@@ -295,6 +300,45 @@ export class AdminCollectionOverviewService {
     };
   }
 
+  private async computeGenderKpis(
+    questionnaires: Questionnaire[],
+  ): Promise<GenderKpis> {
+    if (questionnaires.length === 0) {
+      return { pacientesHomens: 0, pacientesMulheres: 0 };
+    }
+
+    const onePerPatient = this.dedupeLatestQuestionnairePerPatient(questionnaires);
+    const qids = onePerPatient.map((q) => q.id);
+    if (qids.length === 0) {
+      return { pacientesHomens: 0, pacientesMulheres: 0 };
+    }
+
+    const raw = await this.questionnairesRepo.manager.query(
+      `
+      SELECT
+        COALESCE(gt.code, '') AS gender_code,
+        COUNT(*)::int AS total
+      FROM questionnaires q
+      INNER JOIN patients p ON p.id = q.patient_id
+      LEFT JOIN gender_types gt ON gt.id = p.gender_id
+      WHERE q.id = ANY($1::uuid[])
+      GROUP BY COALESCE(gt.code, '')
+      `,
+      [qids],
+    );
+
+    let pacientesHomens = 0;
+    let pacientesMulheres = 0;
+    for (const row of raw as { gender_code: string; total: string | number }[]) {
+      const code = String(row.gender_code || '').trim().toUpperCase();
+      const total = Number(row.total || 0);
+      if (code === 'M') pacientesHomens += total;
+      if (code === 'F') pacientesMulheres += total;
+    }
+
+    return { pacientesHomens, pacientesMulheres };
+  }
+
   private patientLabel(q: Questionnaire): string {
     const pid = q.patient?.public_identifier?.trim();
     if (pid) return pid;
@@ -447,7 +491,8 @@ export class AdminCollectionOverviewService {
       armazenamentoColetasBytes: number;
       armazenamentoRelatoriosMinioBytes: number;
       armazenamentoTotalBytes: number;
-    } & ClinicalStratificationKpis;
+    } & ClinicalStratificationKpis &
+      GenderKpis;
     filesByTask: { task_code: string; task_name: string; count: number }[];
     questionnaires: {
       questionnaireId: string;
@@ -566,6 +611,7 @@ export class AdminCollectionOverviewService {
     const clinicalStrat = await this.computeClinicalStratificationKpis(
       questionnaires,
     );
+    const genderKpis = await this.computeGenderKpis(questionnaires);
 
     return {
       kpis: {
@@ -578,6 +624,7 @@ export class AdminCollectionOverviewService {
         armazenamentoRelatoriosMinioBytes,
         armazenamentoTotalBytes,
         ...clinicalStrat,
+        ...genderKpis,
       },
       filesByTask,
       questionnaires: summaryQuestionnaires,

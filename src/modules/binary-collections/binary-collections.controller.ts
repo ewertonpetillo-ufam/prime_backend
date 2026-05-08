@@ -317,4 +317,19 @@ export class BinaryCollectionsController {
   async getBinaryCollectionsByTask() {
     return this.binaryCollectionsService.getBinaryCollectionsByTask();
   }
+
+  @Get('statistics/data-size')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get binary data size statistics',
+    description:
+      'Returns average and total size of binary collections data (excluding test patients).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Data size statistics retrieved successfully',
+  })
+  async getBinaryCollectionsDataSizeStats() {
+    return this.binaryCollectionsService.getBinaryCollectionsDataSizeStats();
+  }
 }
