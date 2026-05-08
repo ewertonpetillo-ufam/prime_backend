@@ -22,3 +22,5 @@ node_modules
 .sonarlint
 .scannerwork.env
 .scannerwork
+.env
+node_modules
