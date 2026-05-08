@@ -15,6 +15,8 @@ type UploadCsvResponse = Omit<BinaryCollection, 'csv_data' | 'task_id'> & {
   task_code: string;
 };
 
+const EXCLUDED_COLLECTION_PUBLIC_IDS = ['P000', 'P00'] as const;
+
 function anonymizeCpfPrefixInFilename(fileName: string, cpfHash?: string | null): string {
   const shortHash = (cpfHash || '').substring(0, 8);
   if (!fileName) return shortHash || 'arquivo';
@@ -304,15 +306,23 @@ export class BinaryCollectionsService {
    * Returns count of binary collections grouped by collection date (day)
    */
   async getBinaryCollectionsStatisticsLast30Days() {
+    const excludedPids = [...EXCLUDED_COLLECTION_PUBLIC_IDS].map((id) =>
+      id.toUpperCase(),
+    );
     const collections = await this.binaryCollectionsRepository
       .createQueryBuilder('bc')
+      .innerJoin('patients', 'p', 'p.cpf_hash = bc.patient_cpf_hash')
       .select([
-        "TO_CHAR(DATE_TRUNC('day', bc.collected_at), 'YYYY-MM-DD') as date",
+        "TO_CHAR(DATE_TRUNC('day', bc.uploaded_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') as date",
         'COUNT(*)::int as count',
       ])
       .where('bc.deleted_pending = FALSE')
-      .groupBy("DATE_TRUNC('day', bc.collected_at)")
-      .orderBy("DATE_TRUNC('day', bc.collected_at)", 'ASC')
+      .andWhere(
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excludedPids))',
+        { excludedPids },
+      )
+      .groupBy("DATE_TRUNC('day', bc.uploaded_at AT TIME ZONE 'America/Sao_Paulo')")
+      .orderBy("DATE_TRUNC('day', bc.uploaded_at AT TIME ZONE 'America/Sao_Paulo')", 'ASC')
       .getRawMany();
 
     return collections.map((c: any) => ({
@@ -326,9 +336,13 @@ export class BinaryCollectionsService {
    * Returns count of binary collections for each task
    */
   async getBinaryCollectionsByTask() {
+    const excludedPids = [...EXCLUDED_COLLECTION_PUBLIC_IDS].map((id) =>
+      id.toUpperCase(),
+    );
     const collections = await this.binaryCollectionsRepository
       .createQueryBuilder('bc')
       .leftJoinAndSelect('bc.active_task', 'active_task')
+      .innerJoin('patients', 'p', 'p.cpf_hash = bc.patient_cpf_hash')
       .select([
         'active_task.id as task_id',
         'active_task.task_code as task_code',
@@ -337,6 +351,10 @@ export class BinaryCollectionsService {
       ])
       .where('bc.task_id IS NOT NULL')
       .andWhere('bc.deleted_pending = FALSE')
+      .andWhere(
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excludedPids))',
+        { excludedPids },
+      )
       .groupBy('active_task.id, active_task.task_code, active_task.task_name')
       .orderBy('COUNT(*)', 'DESC')
       .getRawMany();
@@ -347,5 +365,33 @@ export class BinaryCollectionsService {
       task_name: c.task_name || 'Tarefa Desconhecida',
       count: parseInt(c.count) || 0,
     }));
+  }
+
+  async getBinaryCollectionsDataSizeStats() {
+    const excludedPids = [...EXCLUDED_COLLECTION_PUBLIC_IDS].map((id) =>
+      id.toUpperCase(),
+    );
+    const row = await this.binaryCollectionsRepository
+      .createQueryBuilder('bc')
+      .innerJoin('patients', 'p', 'p.cpf_hash = bc.patient_cpf_hash')
+      .select('COALESCE(SUM(bc.file_size_bytes), 0)', 'total_bytes')
+      .addSelect('COALESCE(AVG(bc.file_size_bytes), 0)', 'average_bytes')
+      .addSelect('COUNT(*)::int', 'total_records')
+      .where('bc.deleted_pending = FALSE')
+      .andWhere(
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excludedPids))',
+        { excludedPids },
+      )
+      .getRawOne<{
+        total_bytes: string | number | null;
+        average_bytes: string | number | null;
+        total_records: string | number | null;
+      }>();
+
+    return {
+      totalBytes: Number(row?.total_bytes ?? 0),
+      averageBytes: Number(row?.average_bytes ?? 0),
+      totalRecords: Number(row?.total_records ?? 0),
+    };
   }
 }

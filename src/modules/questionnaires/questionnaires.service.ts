@@ -3946,15 +3946,21 @@ export class QuestionnairesService {
    * Returns count of questionnaires grouped by creation date (day)
    */
   async getQuestionnaireStatisticsLast30Days() {
+    const excludedPids = ['P000', 'P00'];
     // Apesar do nome do método/rota, aqui buscamos todo o histórico agrupado por dia.
     const questionnaires = await this.questionnairesRepository
       .createQueryBuilder('q')
+      .leftJoin('q.patient', 'patient')
       .select([
-        "TO_CHAR(DATE_TRUNC('day', q.created_at), 'YYYY-MM-DD') as date",
+        "TO_CHAR(DATE_TRUNC('day', q.created_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') as date",
         'COUNT(*)::int as count',
       ])
-      .groupBy("DATE_TRUNC('day', q.created_at)")
-      .orderBy("DATE_TRUNC('day', q.created_at)", 'ASC')
+      .where(
+        '(patient.public_identifier IS NULL OR UPPER(TRIM(patient.public_identifier)) NOT IN (:...excludedPids))',
+        { excludedPids },
+      )
+      .groupBy("DATE_TRUNC('day', q.created_at AT TIME ZONE 'America/Sao_Paulo')")
+      .orderBy("DATE_TRUNC('day', q.created_at AT TIME ZONE 'America/Sao_Paulo')", 'ASC')
       .getRawMany();
 
     return questionnaires.map((q: any) => ({
@@ -3968,15 +3974,21 @@ export class QuestionnairesService {
    * Returns count of completed questionnaires grouped by completion date (day)
    */
   async getCompletedQuestionnairesStatisticsLast30Days() {
+    const excludedPids = ['P000', 'P00'];
     const questionnaires = await this.questionnairesRepository
       .createQueryBuilder('q')
+      .leftJoin('q.patient', 'patient')
       .select([
-        "TO_CHAR(DATE_TRUNC('day', q.completed_at), 'YYYY-MM-DD') as date",
+        "TO_CHAR(DATE_TRUNC('day', q.completed_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') as date",
         'COUNT(*)::int as count',
       ])
       .where('q.completed_at IS NOT NULL')
-      .groupBy("DATE_TRUNC('day', q.completed_at)")
-      .orderBy("DATE_TRUNC('day', q.completed_at)", 'ASC')
+      .andWhere(
+        '(patient.public_identifier IS NULL OR UPPER(TRIM(patient.public_identifier)) NOT IN (:...excludedPids))',
+        { excludedPids },
+      )
+      .groupBy("DATE_TRUNC('day', q.completed_at AT TIME ZONE 'America/Sao_Paulo')")
+      .orderBy("DATE_TRUNC('day', q.completed_at AT TIME ZONE 'America/Sao_Paulo')", 'ASC')
       .getRawMany();
 
     return questionnaires.map((q: any) => ({
