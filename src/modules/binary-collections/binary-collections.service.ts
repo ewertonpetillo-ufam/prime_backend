@@ -15,6 +15,16 @@ type UploadCsvResponse = Omit<BinaryCollection, 'csv_data' | 'task_id'> & {
   task_code: string;
 };
 
+function anonymizeCpfPrefixInFilename(fileName: string, cpfHash?: string | null): string {
+  const shortHash = (cpfHash || '').substring(0, 8);
+  if (!fileName) return shortHash || 'arquivo';
+  if (!shortHash) return fileName;
+  const idx = fileName.indexOf('_');
+  if (idx === -1) return `${shortHash}_${fileName}`;
+  const rest = fileName.substring(idx + 1);
+  return `${shortHash}_${rest}`;
+}
+
 @Injectable()
 export class BinaryCollectionsService {
   constructor(
@@ -123,6 +133,7 @@ export class BinaryCollectionsService {
 
   async findAll(): Promise<BinaryCollection[]> {
     return this.binaryCollectionsRepository.find({
+      where: { deleted_pending: false },
       select: [
         'id',
         'questionnaire_id',
@@ -145,7 +156,7 @@ export class BinaryCollectionsService {
 
   async findOne(id: string): Promise<BinaryCollection> {
     const collection = await this.binaryCollectionsRepository.findOne({
-      where: { id },
+      where: { id, deleted_pending: false },
     });
 
     if (!collection) {
@@ -171,7 +182,7 @@ export class BinaryCollectionsService {
 
     // Find all binary collections for this patient
     const collections = await this.binaryCollectionsRepository.find({
-      where: { patient_cpf_hash: cpf_hash },
+      where: { patient_cpf_hash: cpf_hash, deleted_pending: false },
       select: [
         'id',
         'questionnaire_id',
@@ -210,7 +221,7 @@ export class BinaryCollectionsService {
     id: string,
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const collection = await this.binaryCollectionsRepository.findOne({
-      where: { id },
+      where: { id, deleted_pending: false },
       select: ['id', 'csv_data', 'metadata', 'patient_cpf_hash'],
     });
 
@@ -224,22 +235,11 @@ export class BinaryCollectionsService {
       );
     }
 
-    let filename =
-      collection.metadata?.file_name || `binary-collection-${id}.bin`;
+    const originalFilename =
+      (collection.metadata?.file_name as string) || `binary-collection-${id}.bin`;
 
     const cpfHash = collection.patient_cpf_hash;
-
-    if (cpfHash) {
-      // Try to resolve patient and use their public_identifier if available
-      const patient = await this.patientsRepository.findOne({
-        where: { cpf_hash: cpfHash },
-      });
-
-      const idPaciente =
-        patient?.public_identifier || `binary-collection-${id}`;
-
-      filename = `Dados_Paciente_${idPaciente}_${cpfHash}.csv`;
-    }
+    const filename = anonymizeCpfPrefixInFilename(originalFilename, cpfHash);
 
     const contentType =
       (collection.metadata?.file_format as string) || 'application/octet-stream';
@@ -279,17 +279,20 @@ export class BinaryCollectionsService {
     if (patientCpfHash) {
       const count = await this.binaryCollectionsRepository
         .createQueryBuilder('bc')
-        .where('bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash', {
+        .where(
+          '(bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash) AND bc.deleted_pending = FALSE',
+          {
           questionnaireId,
           patientCpfHash,
-        })
+          },
+        )
         .getCount();
 
       return count;
     } else {
       // If no patient CPF hash, only count by questionnaire_id
       const count = await this.binaryCollectionsRepository.count({
-        where: { questionnaire_id: questionnaireId },
+        where: { questionnaire_id: questionnaireId, deleted_pending: false },
       });
 
       return count;
@@ -307,6 +310,7 @@ export class BinaryCollectionsService {
         "TO_CHAR(DATE_TRUNC('day', bc.collected_at), 'YYYY-MM-DD') as date",
         'COUNT(*)::int as count',
       ])
+      .where('bc.deleted_pending = FALSE')
       .groupBy("DATE_TRUNC('day', bc.collected_at)")
       .orderBy("DATE_TRUNC('day', bc.collected_at)", 'ASC')
       .getRawMany();
@@ -332,6 +336,7 @@ export class BinaryCollectionsService {
         'COUNT(*)::int as count',
       ])
       .where('bc.task_id IS NOT NULL')
+      .andWhere('bc.deleted_pending = FALSE')
       .groupBy('active_task.id, active_task.task_code, active_task.task_name')
       .orderBy('COUNT(*)', 'DESC')
       .getRawMany();
