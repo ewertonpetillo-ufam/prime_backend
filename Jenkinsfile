@@ -78,6 +78,12 @@ pipeline {
         ARTIFACTORY_BASE_PATH = credentials('prime-artifactory-base-path')
         SAMSUNG_SYNC_CRON_ENABLED = credentials('prime-samsung-sync-cron-enabled')
         SAMSUNG_SYNC_INTERVAL_MS = credentials('prime-samsung-sync-interval-ms')
+
+        // Redis (BullMQ) — filas assíncronas de export ZIP e sync BART
+        REDIS_HOST = credentials('prime-redis-host')
+        REDIS_PORT = credentials('prime-redis-port')
+        REDIS_PASSWORD = credentials('prime-redis-password')
+        REDIS_DB = credentials('prime-redis-db')
     }
     
     triggers {
@@ -269,6 +275,12 @@ ARTIFACTORY_REPO_COLLECTIONS=${ARTIFACTORY_REPO_COLLECTIONS}
 ARTIFACTORY_BASE_PATH=${ARTIFACTORY_BASE_PATH}
 SAMSUNG_SYNC_CRON_ENABLED=${SAMSUNG_SYNC_CRON_ENABLED}
 SAMSUNG_SYNC_INTERVAL_MS=${SAMSUNG_SYNC_INTERVAL_MS}
+
+# Redis (BullMQ)
+REDIS_HOST=${REDIS_HOST}
+REDIS_PORT=${REDIS_PORT}
+REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_DB=${REDIS_DB}
 EOF
                     
                     echo "✅ Arquivo .env criado"

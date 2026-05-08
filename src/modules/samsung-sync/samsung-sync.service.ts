@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { Worker } from 'worker_threads';
+import archiver = require('archiver');
 import {
   SamsungSyncRun,
   SamsungSyncRunStatus,
@@ -12,6 +12,7 @@ import {
   SamsungSyncRunItem,
 } from '../../entities/samsung-sync-run-item.entity';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';
+import { MinioStorageService } from '../storage/minio-storage.service';
 import { ArtifactoryService } from './artifactory.service';
 import {
   SAMSUNG_SYNC_PROGRESS_STEPS,
@@ -64,12 +65,14 @@ type QuestionnaireExportItem = {
     id?: string;
     createdAt?: string | Date | null;
     public_identifier?: string | null;
+    patient?: { public_identifier?: string | null } | null;
   };
   csvFiles?: Record<string, string>;
   pdfReports?: Array<{
     id?: string;
     report_type?: string;
     file_name?: string;
+    file_path?: string | null;
     download_path?: string;
     presigned_download_url?: string | null;
     [key: string]: any;
@@ -84,12 +87,8 @@ type QuestionnaireExportItem = {
   }>;
 };
 
-type ZipEntry = {
-  path: string;
-  content: Buffer | string;
-};
 
-const DATASET_ROOT = 'UFAMPRIME-Dataset';
+// DATASET_ROOT is now computed per-run from the ZIP name (see executeRun)
 
 @Injectable()
 export class SamsungSyncService implements OnModuleInit {
@@ -110,6 +109,7 @@ export class SamsungSyncService implements OnModuleInit {
     private readonly questionnairesService: QuestionnairesService,
     private readonly artifactoryService: ArtifactoryService,
     private readonly configService: ConfigService,
+    private readonly minioService: MinioStorageService,
   ) {
     this.repoPatients =
       this.configService.get<string>('ARTIFACTORY_REPO_PATIENTS') ||
@@ -124,7 +124,7 @@ export class SamsungSyncService implements OnModuleInit {
     ).replace(/^\/+|\/+$/g, '');
     this.zipBasePath = (
       this.configService.get<string>('ARTIFACTORY_ZIP_BASE_PATH') ||
-      `${this.basePath}/zip-sync`
+      this.basePath
     ).replace(/^\/+|\/+$/g, '');
   }
 
@@ -272,10 +272,6 @@ export class SamsungSyncService implements OnModuleInit {
     return path;
   }
 
-  private getMetadataRootInZip(subjectId: string): string {
-    return `${DATASET_ROOT}/Metadata/${subjectId}`;
-  }
-
   private samsungPdfReportDataPath(reportType: string | undefined): {
     protocol: 'Clinic' | 'Sleep' | 'Free-living';
     device: string;
@@ -349,50 +345,23 @@ export class SamsungSyncService implements OnModuleInit {
     }
   }
 
-  private async generateZipInWorker(entries: ZipEntry[]): Promise<Buffer> {
-    const payload = entries.map((entry) => ({
-      path: entry.path,
-      contentBase64:
-        typeof entry.content === 'string'
-          ? Buffer.from(entry.content, 'utf8').toString('base64')
-          : entry.content.toString('base64'),
-      encoding: typeof entry.content === 'string' ? 'utf8' : 'binary',
-    }));
-    return new Promise<Buffer>((resolve, reject) => {
-      const workerScript = `
-const { parentPort, workerData } = require('worker_threads');
-const JSZip = require('jszip');
-(async () => {
-  const zip = new JSZip();
-  for (const entry of workerData.entries || []) {
-    const buffer = Buffer.from(entry.contentBase64, 'base64');
-    zip.file(entry.path, entry.encoding === 'utf8' ? buffer.toString('utf8') : buffer);
-  }
-  const out = await zip.generateAsync({
-    type: 'nodebuffer',
-    compression: 'DEFLATE',
-    compressionOptions: { level: 6 },
-  });
-  parentPort.postMessage({ ok: true, zipBase64: out.toString('base64') });
-})().catch((error) => {
-  parentPort.postMessage({ ok: false, error: error instanceof Error ? error.message : String(error) });
-});
-`;
-      const worker = new Worker(workerScript, { eval: true, workerData: { entries: payload } });
-      worker.once('message', (message) => {
-        if (message?.ok && message.zipBase64) {
-          resolve(Buffer.from(message.zipBase64, 'base64'));
-          return;
-        }
-        reject(new Error(message?.error || 'Falha ao gerar ZIP na thread dedicada.'));
-      });
-      worker.once('error', reject);
-      worker.once('exit', (code) => {
-        if (code !== 0) {
-          reject(new Error(`Thread de compactação finalizou com código ${code}`));
+  private generateZipBuffer(): {
+    archive: archiver.Archiver;
+    result: Promise<Buffer>;
+  } {
+    const arc = archiver('zip', { zlib: { level: 1 } });
+    const chunks: Buffer[] = [];
+    const result = new Promise<Buffer>((resolve, reject) => {
+      arc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      arc.on('end', () => resolve(Buffer.concat(chunks)));
+      arc.on('error', reject);
+      arc.on('warning', (err: any) => {
+        if (err.code !== 'ENOENT') {
+          this.logger.warn(`[Archiver] ${String(err.message)}`);
         }
       });
     });
+    return { archive: arc, result };
   }
 
   private buildZipName(filters: SyncRunFilters | undefined, patients: PendingPatient[]): string {
@@ -406,7 +375,7 @@ const JSZip = require('jszip');
       endFromFilter != null
         ? `S${String(endFromFilter).padStart(3, '0')}`
         : this.toSubjectId(patients[patients.length - 1]?.public_identifier);
-    return `UFAMPRIME-Dataset-${firstSubject}_${lastSubject}.zip`;
+    return `SRBR-M_UFAMPRIME_${firstSubject}-${lastSubject}.zip`;
   }
 
   private async getBinaryPayloadMap(binaryIds: string[]) {
@@ -785,13 +754,18 @@ const JSZip = require('jszip');
         return { run_id: run.id, status: 'success', summary };
       }
 
-      const zipEntries: ZipEntry[] = [];
       const patientIdsToConfirm: string[] = [];
       const collectionIdsToConfirm: string[] = [];
       const zipName = this.buildZipName(filters, patients);
+      const DATASET_ROOT = zipName.replace(/\.zip$/i, ''); // e.g. "SRBR-M_UFAMPRIME_S001-S012"
       summary.zipName = zipName;
       const zipArtifactPath = `${this.zipBasePath}/${zipName}`;
       summary.zipPath = zipArtifactPath;
+
+      // Streaming ZIP — archiver compresses and outputs chunks incrementally;
+      // files are GC-eligible after append, avoiding the 4-5× memory spike of
+      // the previous JSZip-in-worker-thread approach.
+      const { archive, result: archiveFinished } = this.generateZipBuffer();
 
       await setCurrentStep(1);
       const exported = (await this.questionnairesService.exportAllQuestionnairesData(
@@ -800,7 +774,11 @@ const JSZip = require('jszip');
       this.ensureRunNotCancelled(run.id);
       const exportedBySubject = new Map<string, QuestionnaireExportItem[]>();
       for (const item of exported || []) {
-        const publicId = item?.questionnaire?.public_identifier || '';
+        // public_identifier está no patient relacionado; o campo no questionnaire pode ser nulo
+        const publicId =
+          item?.questionnaire?.patient?.public_identifier ||
+          item?.questionnaire?.public_identifier ||
+          '';
         if (this.isSamsungExcludedPublicIdentifier(publicId)) continue;
         const subjectId = this.toSubjectId(publicId);
         const current = exportedBySubject.get(subjectId) || [];
@@ -823,7 +801,19 @@ const JSZip = require('jszip');
           let patientHasCriticalError = false;
           const subjectId = this.toSubjectId(patient.public_identifier);
           const subjectExportItems = exportedBySubject.get(subjectId) || [];
-          const metadataRoot = this.getMetadataRootInZip(subjectId);
+          if (subjectExportItems.length === 0) {
+            this.logger.warn(`[Run ${run.id}] Paciente ${subjectId} sem questionário — metadata e PDFs omitidos`);
+            await this.appendRunItem({
+              runId: run.id,
+              patientId: patient.id,
+              action: SamsungSyncItemAction.SKIP,
+              repo: this.repoCollections,
+              path: `Metadata/${subjectId}/`,
+              uploaded: false,
+              message: 'Paciente sem questionário exportável — metadata/PDFs omitidos',
+            });
+          }
+          const metadataRoot = `${DATASET_ROOT}/Metadata/${subjectId}`;
 
           await setCurrentStep(2, `${samsungStep(2)} (${subjectId})`);
           const pdfNameCounters = new Map<string, number>();
@@ -837,26 +827,32 @@ const JSZip = require('jszip');
             );
             latestPatientDate = patientDate;
             const metadataCsvPrefix = `METADATA-${patientDate}-${subjectId}`;
-            zipEntries.push({
-              path: `${metadataRoot}/${metadataCsvPrefix}-01_demographic_anthropometric_clinical.csv`,
-              content: exportedItem?.csvFiles?.demographicAnthropometricClinical || '',
-            });
-            zipEntries.push({
-              path: `${metadataRoot}/${metadataCsvPrefix}-02_neurological_assessment_updrs.csv`,
-              content: exportedItem?.csvFiles?.neurologicalAssessment || '',
-            });
-            zipEntries.push({
-              path: `${metadataRoot}/${metadataCsvPrefix}-03_speech_therapy.csv`,
-              content: exportedItem?.csvFiles?.speechTherapy || '',
-            });
-            zipEntries.push({
-              path: `${metadataRoot}/${metadataCsvPrefix}-04_sleep_assessment.csv`,
-              content: exportedItem?.csvFiles?.sleepAssessment || '',
-            });
-            zipEntries.push({
-              path: `${metadataRoot}/${metadataCsvPrefix}-05_physiotherapy.csv`,
-              content: exportedItem?.csvFiles?.physiotherapy || '',
-            });
+            const metadataCsvPaths = [
+              `${metadataRoot}/${metadataCsvPrefix}-01_demographic_anthropometric_clinical.csv`,
+              `${metadataRoot}/${metadataCsvPrefix}-02_neurological_assessment_updrs.csv`,
+              `${metadataRoot}/${metadataCsvPrefix}-03_speech_therapy.csv`,
+              `${metadataRoot}/${metadataCsvPrefix}-04_sleep_assessment.csv`,
+              `${metadataRoot}/${metadataCsvPrefix}-05_physiotherapy.csv`,
+            ];
+            const metadataCsvContents = [
+              exportedItem?.csvFiles?.demographicAnthropometricClinical || '',
+              exportedItem?.csvFiles?.neurologicalAssessment || '',
+              exportedItem?.csvFiles?.speechTherapy || '',
+              exportedItem?.csvFiles?.sleepAssessment || '',
+              exportedItem?.csvFiles?.physiotherapy || '',
+            ];
+            for (let csvIdx = 0; csvIdx < metadataCsvPaths.length; csvIdx++) {
+              archive.append(metadataCsvContents[csvIdx] || '', { name: metadataCsvPaths[csvIdx] });
+              await this.appendRunItem({
+                runId: run.id,
+                patientId: patient.id,
+                action: SamsungSyncItemAction.METADATA,
+                repo: this.repoCollections,
+                path: metadataCsvPaths[csvIdx],
+                uploaded: false,
+                message: 'CSV de metadata adicionado ao ZIP',
+              });
+            }
 
             await setCurrentStep(3, `${samsungStep(3)} (${subjectId})`);
             const pdfReports = Array.isArray(exportedItem?.pdfReports)
@@ -879,10 +875,12 @@ const JSZip = require('jszip');
                 pdfNameCounters,
                 `${stageFolder}/${deviceFolderName}`,
               );
-              const pdfBuffer = await this.downloadFileAsBuffer(
-                report?.presigned_download_url || report?.download_path,
-                report?.download_path,
-              );
+              const pdfBuffer = report?.file_path
+                ? await this.minioService.getObjectBuffer(report.file_path as string).catch((err: Error) => {
+                    this.logger.warn(`[Run ${run.id}] PDF ${String(report.file_path)} não encontrado no MinIO: ${err.message}`);
+                    return null;
+                  })
+                : null;
               if (!pdfBuffer) {
                 patientHasCriticalError = true;
                 summary.errorFiles += 1;
@@ -897,9 +895,8 @@ const JSZip = require('jszip');
                 });
                 continue;
               }
-              zipEntries.push({
-                path: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFileName}`,
-                content: pdfBuffer,
+              archive.append(pdfBuffer, {
+                name: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFileName}`,
               });
               summary.uploadedFiles += 1;
             }
@@ -969,9 +966,8 @@ const JSZip = require('jszip');
                 });
                 continue;
               }
-              zipEntries.push({
-                path: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${finalName}`,
-                content: payload,
+              archive.append(payload, {
+                name: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${finalName}`,
               });
               summary.uploadedFiles += 1;
               includedCollectionIds.add(collection.id);
@@ -1024,10 +1020,7 @@ const JSZip = require('jszip');
               if (!zipPath) {
                 summary.skippedFiles += 1;
               } else {
-                zipEntries.push({
-                  path: `${DATASET_ROOT}/${zipPath}`,
-                  content: payload,
-                });
+                archive.append(payload, { name: `${DATASET_ROOT}/${zipPath}` });
                 summary.uploadedFiles += 1;
                 includedCollectionIds.add(file.id);
               }
@@ -1060,7 +1053,8 @@ const JSZip = require('jszip');
 
       await setCurrentStep(5);
       this.ensureRunNotCancelled(run.id);
-      const zipBuffer = await this.generateZipInWorker(zipEntries);
+      await archive.finalize();
+      const zipBuffer = await archiveFinished;
       await setCurrentStep(6);
       this.ensureRunNotCancelled(run.id);
       const zipSha256 = await this.artifactoryService.uploadFile(

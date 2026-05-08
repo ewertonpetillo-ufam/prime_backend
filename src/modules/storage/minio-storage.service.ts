@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import * as http from 'node:http';
@@ -170,6 +171,26 @@ export class MinioStorageService {
       }),
     );
     return out.Body as Readable;
+  }
+
+  /**
+   * Faz upload de um Readable stream para o MinIO via multipart upload.
+   * Não requer ContentLength antecipado — compatível com streams on-the-fly (archiver, etc.).
+   */
+  async putObjectStream(key: string, stream: Readable, contentType: string): Promise<void> {
+    this.assertEnabled();
+    const upload = new Upload({
+      client: this.internalClient,
+      queueSize: 4,
+      partSize: 10 * 1024 * 1024, // 10 MB por parte
+      params: {
+        Bucket: this.bucket,
+        Key: this.normalizeObjectKey(key),
+        Body: stream,
+        ContentType: contentType,
+      },
+    });
+    await upload.done();
   }
 
   async getPresignedGetUrl(key: string, expiresInSeconds: number): Promise<string> {
