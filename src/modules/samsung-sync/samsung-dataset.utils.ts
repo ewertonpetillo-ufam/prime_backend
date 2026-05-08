@@ -43,6 +43,20 @@ export const extractTaskCodeFromFilename = (fileName: string): string | null => 
 export const isSpeechTask = (taskCode: string | null): boolean =>
   taskCode === 'TA10' || taskCode === 'TA11' || taskCode === 'TA12';
 
+export const isSamsungSmartphoneTask = (taskCode: string | null): boolean =>
+  (() => {
+    if (!taskCode) return false;
+    const match = /^TA0*(\d{1,2})$/i.exec(taskCode.trim());
+    if (!match) return false;
+    const normalized = `TA${Number(match[1])}`;
+    return (
+      normalized === 'TA6' ||
+      normalized === 'TA7' ||
+      normalized === 'TA8' ||
+      normalized === 'TA9'
+    );
+  })();
+
 export const inferSamsungProtocol = (
   taskCode: string | null,
   fileName: string,
@@ -51,19 +65,22 @@ export const inferSamsungProtocol = (
   return 'Clinic';
 };
 
-export const inferSamsungDevice = (fileName: string): string => {
+export const inferSamsungDevice = (fileName: string, taskCode?: string | null): string => {
   if (/baiobit|biobit/i.test(fileName)) return 'Baiobit';
   if (/emg|delsys/i.test(fileName)) return 'EMG';
   if (/ring/i.test(fileName)) return 'Ring';
   if (/psg|polysomn|polisson/i.test(fileName)) return 'PSG';
-  if (/-SP-|_SP_|smartphone/i.test(fileName)) return 'SP';
+  const normalizedTaskCode = taskCode || extractTaskCodeFromFilename(fileName);
+  if (isSamsungSmartphoneTask(normalizedTaskCode)) {
+    return 'SP';
+  }
   return 'SW';
 };
 
 export const toSamsungDeviceFolder = (device: string): string => {
   const upper = device.toUpperCase();
-  if (upper === 'SW') return 'SW_Smartwatch';
-  if (upper === 'SP') return 'SP_Smartphone';
+  if (upper === 'SW') return 'SW';
+  if (upper === 'SP') return 'SP';
   if (upper === 'PSG') return 'PSG';
   if (upper === 'EMG') return 'EMG';
   if (upper === 'RING') return 'Ring';
@@ -83,17 +100,22 @@ export const buildSamsungActiveTaskFilename = (
   collectionDate: string,
   file: { id: string; metadata?: Record<string, any> | null },
   device: string,
+  trustedTaskCode?: string | null,
 ): string => {
   const fallback = `${file.id}.csv`;
   const base = (rawFileName || fallback).trim().split(/[/\\]/).pop() || fallback;
   const extMatch = base.match(/(\.[^.]+)$/i);
   const ext = extMatch ? extMatch[1] : '.csv';
   const stem = extMatch ? base.slice(0, -ext.length) : base;
-  const taskCode = extractTaskCodeFromFilename(stem) || 'TA0';
+  const taskCode = trustedTaskCode
+    ? trustedTaskCode.toUpperCase().replace(/^TA0*(\d{1,2})$/i, (_m, n) => `TA${Number(n)}`)
+    : extractTaskCodeFromFilename(stem) || 'TA0';
   const protocol = inferSamsungProtocol(taskCode === 'TA0' ? null : taskCode, stem);
   const stageLabel =
     protocol === 'Sleep' ? 'Stage2' : protocol === 'Free-living' ? 'Stage3' : 'Stage1';
-  const deviceCode = device.toUpperCase() === 'BAIOBIT' ? 'BAIOBIT' : device.toUpperCase();
+  const isSmartphoneActiveTask = isSamsungSmartphoneTask(taskCode);
+  const resolvedDevice = isSmartphoneActiveTask ? 'SP' : device.toUpperCase();
+  const deviceCode = resolvedDevice === 'BAIOBIT' ? 'BAIOBIT' : resolvedDevice;
   const repetition =
     Number(
       file?.metadata?.repetition ||
