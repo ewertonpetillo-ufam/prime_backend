@@ -21,6 +21,7 @@ import {
   inferSamsungDevice,
   inferSamsungProtocol,
   isSamsungExcludedPublicIdentifier,
+  isSamsungSmartphoneTask,
   isSpeechTask,
   samsungPdfReportDataPath,
   sanitizeExternalDocBaseName,
@@ -79,6 +80,7 @@ type QuestionnaireExportItem = {
     collected_at?: string | Date | null;
     download_path?: string;
     repetitions_count?: number;
+    active_task?: { task_code?: string | null } | null;
   }>;
 };
 
@@ -159,12 +161,16 @@ export class SamsungSyncService implements OnModuleInit {
     return isSpeechTask(taskCode);
   }
 
+  private isSamsungSmartphoneTask(taskCode: string | null): boolean {
+    return isSamsungSmartphoneTask(taskCode);
+  }
+
   private inferSamsungProtocol(taskCode: string | null, fileName: string): 'Clinic' | 'Sleep' | 'Free-living' {
     return inferSamsungProtocol(taskCode, fileName);
   }
 
-  private inferSamsungDevice(fileName: string): string {
-    return inferSamsungDevice(fileName);
+  private inferSamsungDevice(fileName: string, taskCode?: string | null): string {
+    return inferSamsungDevice(fileName, taskCode);
   }
 
   private toStageFolder(protocol: 'Clinic' | 'Sleep' | 'Free-living'): string {
@@ -181,8 +187,16 @@ export class SamsungSyncService implements OnModuleInit {
     collectionDate: string,
     file: PendingFile,
     device: string,
+    trustedTaskCode?: string | null,
   ): string {
-    return buildSamsungActiveTaskFilename(rawFileName, subjectId, collectionDate, file, device);
+    return buildSamsungActiveTaskFilename(
+      rawFileName,
+      subjectId,
+      collectionDate,
+      file,
+      device,
+      trustedTaskCode,
+    );
   }
 
   private toSubjectId(publicIdentifier?: string | null): string {
@@ -201,6 +215,22 @@ export class SamsungSyncService implements OnModuleInit {
     };
   }
 
+  private resolveTaskCode(
+    metadata: Record<string, any> | null | undefined,
+    activeTask: { task_code?: string | null } | null | undefined,
+    fileName: string,
+  ): string | null {
+    const fromActiveTask = activeTask?.task_code;
+    if (typeof fromActiveTask === 'string' && fromActiveTask.trim()) {
+      return fromActiveTask.trim().toUpperCase();
+    }
+    const fromMetadata = metadata?.task_code;
+    if (typeof fromMetadata === 'string' && fromMetadata.trim()) {
+      return fromMetadata.trim().toUpperCase();
+    }
+    return this.extractTaskCodeFromFilename(fileName);
+  }
+
   private getCollectionPath(
     patient: PendingPatient,
     file: PendingFile,
@@ -210,13 +240,14 @@ export class SamsungSyncService implements OnModuleInit {
     const { subjectId } = this.getPatientPath(patient);
     const originalName =
       (file.metadata?.file_name as string | undefined) || `${file.id}.csv`;
-    const taskCode = this.extractTaskCodeFromFilename(originalName);
+    const taskCode = this.resolveTaskCode(file.metadata, null, originalName);
     if (this.isSpeechTask(taskCode)) {
       return '';
     }
-    const protocol = this.inferSamsungProtocol(taskCode, originalName);
+    const isSmartphoneTask = this.isSamsungSmartphoneTask(taskCode);
+    const protocol = isSmartphoneTask ? 'Clinic' : this.inferSamsungProtocol(taskCode, originalName);
     const stageFolder = this.toStageFolder(protocol);
-    const device = this.inferSamsungDevice(originalName);
+    const device = isSmartphoneTask ? 'SP' : this.inferSamsungDevice(originalName, taskCode);
     const deviceFolder = this.toSamsungDeviceFolder(device);
     const collectionDate = fixedDate || this.toDateFolder(file.collected_at || patient.sync_pending_at);
     const finalName = this.buildSamsungActiveTaskFilename(
@@ -225,6 +256,7 @@ export class SamsungSyncService implements OnModuleInit {
       collectionDate,
       file,
       device,
+      taskCode,
     );
     const prefix = includeBasePath ? `${this.basePath}/` : '';
     return `${prefix}${collectionDate}/${subjectId}/${stageFolder}/${deviceFolder}/${finalName}`;
@@ -795,7 +827,7 @@ const JSZip = require('jszip');
 
           await setCurrentStep(2, `${samsungStep(2)} (${subjectId})`);
           const pdfNameCounters = new Map<string, number>();
-          const activeTaskNameCounters = new Map<string, number>();
+          const activeTaskRepCounters = new Map<string, number>();
           const includedCollectionIds = new Set<string>();
           let latestPatientDate = this.toDateFolder(patient.sync_pending_at);
           for (const exportedItem of subjectExportItems) {
@@ -873,35 +905,54 @@ const JSZip = require('jszip');
             }
 
             await setCurrentStep(4, `${samsungStep(4)} (${subjectId})`);
-            const exportBinaryIds = (exportedItem?.binaryCollections || [])
+            const exportedBinaryCollections = (exportedItem?.binaryCollections || [])
+              .slice()
+              .sort((a, b) => {
+                const ta = new Date(a?.collected_at || 0).getTime();
+                const tb = new Date(b?.collected_at || 0).getTime();
+                if (ta !== tb) return ta - tb;
+                return String(a?.id || '').localeCompare(String(b?.id || ''));
+              });
+            const exportBinaryIds = exportedBinaryCollections
               .map((bc) => bc?.id)
               .filter((id): id is string => Boolean(id));
             const binaryPayloadMap = await this.getBinaryPayloadMap(exportBinaryIds);
-            for (const collection of exportedItem?.binaryCollections || []) {
+            for (const collection of exportedBinaryCollections) {
               this.ensureRunNotCancelled(run.id);
               const fileName = (collection?.metadata?.file_name || '').toString();
               if (!fileName) continue;
-              const taskCode = this.extractTaskCodeFromFilename(fileName);
+              const taskCode = this.resolveTaskCode(
+                collection?.metadata,
+                collection?.active_task,
+                fileName,
+              );
               if (this.isSpeechTask(taskCode)) {
                 summary.skippedFiles += 1;
                 continue;
               }
-              const protocol = this.inferSamsungProtocol(taskCode, fileName);
-              const device = this.inferSamsungDevice(fileName);
+              const isSmartphoneTask = this.isSamsungSmartphoneTask(taskCode);
+              const protocol = isSmartphoneTask
+                ? 'Clinic'
+                : this.inferSamsungProtocol(taskCode, fileName);
+              const device = isSmartphoneTask ? 'SP' : this.inferSamsungDevice(fileName, taskCode);
               const stageFolder = this.toStageFolder(protocol);
               const deviceFolderName = this.toSamsungDeviceFolder(device);
-              const finalName = this.buildSamsungActiveTaskFilename(
+              const tentativeName = this.buildSamsungActiveTaskFilename(
                 fileName,
                 subjectId,
                 patientDate,
                 collection as any,
                 device,
+                taskCode,
               );
-              const uniqueFinalName = this.getUniqueFilename(
-                finalName,
-                activeTaskNameCounters,
-                `${stageFolder}/${deviceFolderName}`,
-              );
+              const extMatch = tentativeName.match(/(\.[^.]+)$/i);
+              const ext = extMatch ? extMatch[1] : '.csv';
+              const stem = extMatch ? tentativeName.slice(0, -ext.length) : tentativeName;
+              const stemWithoutRep = stem.replace(/-Rep\d+$/i, '');
+              const repKey = `${stageFolder}/${deviceFolderName}/${stemWithoutRep}`;
+              const nextRep = (activeTaskRepCounters.get(repKey) ?? 0) + 1;
+              activeTaskRepCounters.set(repKey, nextRep);
+              const finalName = `${stemWithoutRep}-Rep${nextRep}${ext}`;
               const payload = binaryPayloadMap.get(collection.id);
               if (!payload) {
                 patientHasCriticalError = true;
@@ -912,14 +963,14 @@ const JSZip = require('jszip');
                   collectionId: collection.id,
                   action: SamsungSyncItemAction.ERROR,
                   repo: this.repoCollections,
-                  path: `${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFinalName}`,
+                  path: `${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${finalName}`,
                   uploaded: false,
                   error: 'Payload da tarefa ativa não encontrado para inclusão no ZIP',
                 });
                 continue;
               }
               zipEntries.push({
-                path: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFinalName}`,
+                path: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${finalName}`,
                 content: payload,
               });
               summary.uploadedFiles += 1;
