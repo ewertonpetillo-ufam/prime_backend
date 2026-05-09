@@ -3807,6 +3807,11 @@ export class QuestionnairesService {
 
     const patientCpfHash = questionnaireEntity?.patient?.cpf_hash || null;
 
+    // Attach patient so callers can access public_identifier and cpf_hash via questionnaire.patient
+    if (questionnaireEntity?.patient) {
+      (questionnaire as any).patient = questionnaireEntity.patient;
+    }
+
     // Load ALL binary collections for this patient (by questionnaire_id OR by patient_cpf_hash)
     // This ensures we get all collections including repetitions
     const binaryCollectionsQuery = this.binaryCollectionRepository
