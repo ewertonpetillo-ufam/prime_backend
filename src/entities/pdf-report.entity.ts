@@ -36,6 +36,12 @@ export class PdfReport {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   uploaded_at: Date;
 
+  @Column({ type: 'boolean', default: true })
+  file_sync_pending: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  file_synced_at: Date | null;
+
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
