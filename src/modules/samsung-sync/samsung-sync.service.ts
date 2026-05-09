@@ -794,6 +794,9 @@ export class SamsungSyncService implements OnModuleInit {
         exportedBySubject.set(subjectId, items);
       }
 
+      /** Evita contar 2× o mesmo skip de fala (export do questionário + loop patient.files). */
+      const speechSkipCountedIds = new Set<string>();
+
       for (const patient of patients) {
         this.ensureRunNotCancelled(run.id);
         if (this.isSamsungExcludedPublicIdentifier(patient.public_identifier)) continue;
@@ -924,7 +927,15 @@ export class SamsungSyncService implements OnModuleInit {
                 fileName,
               );
               if (this.isSpeechTask(taskCode)) {
-                summary.skippedFiles += 1;
+                const cid = collection.id;
+                if (cid) {
+                  if (!speechSkipCountedIds.has(cid)) {
+                    speechSkipCountedIds.add(cid);
+                    summary.skippedFiles += 1;
+                  }
+                } else {
+                  summary.skippedFiles += 1;
+                }
                 continue;
               }
               const isSmartphoneTask = this.isSamsungSmartphoneTask(taskCode);
@@ -982,7 +993,15 @@ export class SamsungSyncService implements OnModuleInit {
             this.ensureRunNotCancelled(run.id);
             const artifactPath = this.getCollectionPath(patient, file, latestPatientDate, true);
             if (!artifactPath) {
-              summary.skippedFiles += 1;
+              const fid = file.id;
+              if (fid) {
+                if (!speechSkipCountedIds.has(fid)) {
+                  speechSkipCountedIds.add(fid);
+                  summary.skippedFiles += 1;
+                }
+              } else {
+                summary.skippedFiles += 1;
+              }
               continue;
             }
             if (file.deleted_pending) {
