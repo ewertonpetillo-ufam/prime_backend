@@ -35,3 +35,26 @@ export function sumExpectedForTaskCodes(taskCodes: string[]): number {
     0,
   );
 }
+
+/**
+ * Estágios de protocolo PRIME (pastas Samsung: 1_In-Clinic, 2_Sleep, 3_Free-living).
+ * Free-living: TA6–TA9 (tarefas de smartphone, uso típico fora do laboratório).
+ */
+export type CollectionProtocolStage = 'in_clinic' | 'sleep' | 'free_living';
+
+export function collectionProtocolStageForTaskCode(
+  taskCode: string,
+): CollectionProtocolStage {
+  if (taskCode === 'TA13') return 'sleep';
+  if (['TA6', 'TA7', 'TA8', 'TA9'].includes(taskCode)) return 'free_living';
+  return 'in_clinic';
+}
+
+export function taskCodesInProtocolStage(
+  stage: CollectionProtocolStage,
+  taskCodes: string[],
+): string[] {
+  return taskCodes.filter(
+    (c) => collectionProtocolStageForTaskCode(c) === stage,
+  );
+}

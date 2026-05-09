@@ -9,12 +9,20 @@ import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
 import { PdfReport } from '../../entities/pdf-report.entity';
 import {
   EXPECTED_BINARY_FILES_TOTAL,
+  CollectionProtocolStage,
   expectedFilesForTaskCode,
   sumExpectedForTaskCodes,
+  taskCodesInProtocolStage,
 } from './expected-binary-files.constants';
 
 const DEFAULT_LIMIT = 200;
 const AT_RISK_DAYS = 7;
+
+const PROTOCOL_STAGES: CollectionProtocolStage[] = [
+  'in_clinic',
+  'sleep',
+  'free_living',
+];
 
 /** Identificadores públicos (paciente) excluídos do painel de coleta e da matriz. */
 const EXCLUDED_COLLECTION_PUBLIC_IDS = ['P000', 'P00'] as const;
@@ -354,6 +362,46 @@ export class AdminCollectionOverviewService {
     return q.id.slice(0, 8);
   }
 
+  private computeProtocolStageTotals(
+    matrixRows: MatrixRowDto[],
+    taskCodes: string[],
+  ): Record<
+    CollectionProtocolStage,
+    { ficheiros: number; meta: number; progressoPercent: number }
+  > {
+    const n = matrixRows.length;
+    const out: Record<
+      CollectionProtocolStage,
+      { ficheiros: number; meta: number; progressoPercent: number }
+    > = {
+      in_clinic: { ficheiros: 0, meta: 0, progressoPercent: 0 },
+      sleep: { ficheiros: 0, meta: 0, progressoPercent: 0 },
+      free_living: { ficheiros: 0, meta: 0, progressoPercent: 0 },
+    };
+
+    for (const stage of PROTOCOL_STAGES) {
+      const codes = taskCodesInProtocolStage(stage, taskCodes);
+      const metaPerPatient = sumExpectedForTaskCodes(codes);
+      out[stage].meta = n * metaPerPatient;
+      let fich = 0;
+      for (const row of matrixRows) {
+        for (const code of codes) {
+          fich += row.countsByTask[code] ?? 0;
+        }
+      }
+      out[stage].ficheiros = fich;
+      out[stage].progressoPercent =
+        out[stage].meta > 0
+          ? Math.min(
+              100,
+              Math.round((fich / out[stage].meta) * 1000) / 10,
+            )
+          : 0;
+    }
+
+    return out;
+  }
+
   private buildMatrixRows(
     questionnaires: Questionnaire[],
     byQ: Map<string, Record<string, number>>,
@@ -488,6 +536,15 @@ export class AdminCollectionOverviewService {
       ficheirosTotais: number;
       progressoMedioPercent: number;
       metaGlobalFicheiros: number;
+      ficheirosProtocoloInClinic: number;
+      metaProtocoloInClinic: number;
+      progressoProtocoloInClinicPercent: number;
+      ficheirosProtocoloSleep: number;
+      metaProtocoloSleep: number;
+      progressoProtocoloSleepPercent: number;
+      ficheirosProtocoloFreeLiving: number;
+      metaProtocoloFreeLiving: number;
+      progressoProtocoloFreeLivingPercent: number;
       armazenamentoColetasBytes: number;
       armazenamentoRelatoriosMinioBytes: number;
       armazenamentoTotalBytes: number;
@@ -613,6 +670,11 @@ export class AdminCollectionOverviewService {
     );
     const genderKpis = await this.computeGenderKpis(questionnaires);
 
+    const protocolTotals = this.computeProtocolStageTotals(
+      matrixRows,
+      taskCodes,
+    );
+
     return {
       kpis: {
         protocolosNoAmbito: matrixRows.length,
@@ -620,6 +682,17 @@ export class AdminCollectionOverviewService {
         ficheirosTotais,
         progressoMedioPercent,
         metaGlobalFicheiros: EXPECTED_BINARY_FILES_TOTAL,
+        ficheirosProtocoloInClinic: protocolTotals.in_clinic.ficheiros,
+        metaProtocoloInClinic: protocolTotals.in_clinic.meta,
+        progressoProtocoloInClinicPercent:
+          protocolTotals.in_clinic.progressoPercent,
+        ficheirosProtocoloSleep: protocolTotals.sleep.ficheiros,
+        metaProtocoloSleep: protocolTotals.sleep.meta,
+        progressoProtocoloSleepPercent: protocolTotals.sleep.progressoPercent,
+        ficheirosProtocoloFreeLiving: protocolTotals.free_living.ficheiros,
+        metaProtocoloFreeLiving: protocolTotals.free_living.meta,
+        progressoProtocoloFreeLivingPercent:
+          protocolTotals.free_living.progressoPercent,
         armazenamentoColetasBytes,
         armazenamentoRelatoriosMinioBytes,
         armazenamentoTotalBytes,
