@@ -3791,6 +3791,7 @@ export class QuestionnairesService {
           uploaded_at: report.uploaded_at,
           notes: report.notes,
           file_path: report.file_path,
+          file_sync_pending: report.file_sync_pending,
           download_path: `/api/pdf-reports/${report.id}`,
           presigned_download_url,
         };
@@ -3855,6 +3856,8 @@ export class QuestionnairesService {
         processing_error: collection.processing_error,
         active_task: collection.active_task,
         mime_type: mimeType,
+        file_sync_pending: collection.file_sync_pending,
+        deleted_pending: collection.deleted_pending,
         download_path: `/api/binary-collections/${collection.id}/download`,
       };
     });

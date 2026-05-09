@@ -50,6 +50,7 @@ type PendingPatient = {
   public_identifier: string | null;
   sync_version: string;
   sync_pending_at: string | null;
+  synced_at: string | Date | null;
   files: PendingFile[];
 };
 
@@ -73,6 +74,7 @@ type QuestionnaireExportItem = {
     report_type?: string;
     file_name?: string;
     file_path?: string | null;
+    file_sync_pending?: boolean;
     download_path?: string;
     presigned_download_url?: string | null;
     [key: string]: any;
@@ -84,6 +86,8 @@ type QuestionnaireExportItem = {
     download_path?: string;
     repetitions_count?: number;
     active_task?: { task_code?: string | null } | null;
+    file_sync_pending?: boolean;
+    deleted_pending?: boolean;
   }>;
 };
 
@@ -452,17 +456,55 @@ export class SamsungSyncService implements OnModuleInit {
         p.sync_pending_at,
         p.synced_at,
         COUNT(bc.*) FILTER (
-          WHERE bc.file_sync_pending = TRUE
-             OR bc.deleted_pending = TRUE
-             OR p.synced_at IS NULL
-        )::int AS pending_files
+          WHERE bc.id IS NOT NULL
+            AND (bc.file_sync_pending = TRUE OR bc.deleted_pending = TRUE)
+        )::int AS pending_files,
+        COALESCE((
+          SELECT COUNT(*)::int
+            FROM pdf_reports pr
+            JOIN questionnaires q ON q.id = pr.questionnaire_id
+           WHERE q.patient_id = p.id
+             AND pr.file_sync_pending = TRUE
+        ), 0) AS pending_pdf_reports
       FROM patients p
       LEFT JOIN binary_collections bc ON bc.patient_cpf_hash = p.cpf_hash
-      WHERE (p.sync_pending = TRUE
-         OR p.synced_at IS NULL)
-        AND UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
+      WHERE UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
+        AND (
+          p.synced_at IS NULL
+          OR EXISTS (
+            SELECT 1
+              FROM binary_collections bc2
+             WHERE bc2.patient_cpf_hash = p.cpf_hash
+               AND (bc2.file_sync_pending = TRUE OR bc2.deleted_pending = TRUE)
+          )
+          OR EXISTS (
+            SELECT 1
+              FROM pdf_reports pr2
+              JOIN questionnaires q2 ON q2.id = pr2.questionnaire_id
+             WHERE q2.patient_id = p.id
+               AND pr2.file_sync_pending = TRUE
+          )
+          OR (
+            p.synced_at IS NOT NULL
+            AND NOT EXISTS (
+              SELECT 1
+                FROM binary_collections bc3
+               WHERE bc3.patient_cpf_hash = p.cpf_hash
+                 AND (bc3.file_sync_pending = TRUE OR bc3.deleted_pending = TRUE)
+            )
+            AND NOT EXISTS (
+              SELECT 1
+                FROM pdf_reports pr3
+                JOIN questionnaires q3 ON q3.id = pr3.questionnaire_id
+               WHERE q3.patient_id = p.id
+                 AND pr3.file_sync_pending = TRUE
+            )
+          )
+        )
       GROUP BY p.id
-      ORDER BY p.sync_pending_at ASC NULLS LAST
+      ORDER BY p.sync_pending DESC,
+               p.sync_pending_at ASC NULLS LAST,
+               p.synced_at DESC NULLS LAST
     `);
     return rows;
   }
@@ -497,6 +539,14 @@ export class SamsungSyncService implements OnModuleInit {
     }));
   }
 
+  private patientHadPriorBartSync(patient: PendingPatient): boolean {
+    const v = patient.synced_at;
+    if (v == null) return false;
+    if (typeof v === 'string') return v.trim().length > 0;
+    if (v instanceof Date) return !Number.isNaN(v.getTime());
+    return true;
+  }
+
   private async getPendingPatients(filters?: SyncRunFilters): Promise<PendingPatient[]> {
     const normalized = this.normalizeFilters(filters);
     const patientStart = this.parseIdentifierRange(normalized.patientStart);
@@ -521,6 +571,7 @@ export class SamsungSyncService implements OnModuleInit {
         p.public_identifier,
         p.sync_version,
         p.sync_pending_at,
+        p.synced_at,
         COALESCE(
           json_agg(
             json_build_object(
@@ -542,9 +593,23 @@ export class SamsungSyncService implements OnModuleInit {
         ) AS files
       FROM patients p
       LEFT JOIN binary_collections bc ON bc.patient_cpf_hash = p.cpf_hash
-      WHERE (p.sync_pending = TRUE
-         OR p.synced_at IS NULL)
-        AND UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
+      WHERE UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
+        AND (
+          p.synced_at IS NULL
+          OR EXISTS (
+            SELECT 1
+              FROM binary_collections bc2
+             WHERE bc2.patient_cpf_hash = p.cpf_hash
+               AND (bc2.file_sync_pending = TRUE OR bc2.deleted_pending = TRUE)
+          )
+          OR EXISTS (
+            SELECT 1
+              FROM pdf_reports pr2
+              JOIN questionnaires q2 ON q2.id = pr2.questionnaire_id
+             WHERE q2.patient_id = p.id
+               AND pr2.file_sync_pending = TRUE
+          )
+        )
         AND ($1::int IS NULL OR COALESCE(NULLIF(regexp_replace(p.public_identifier, '\\D', '', 'g'), ''), '0')::int >= $1::int)
         AND ($2::int IS NULL OR COALESCE(NULLIF(regexp_replace(p.public_identifier, '\\D', '', 'g'), ''), '0')::int <= $2::int)
         AND ($3::date IS NULL OR DATE(COALESCE(p.sync_pending_at, p.synced_at, NOW())) >= $3::date)
@@ -756,6 +821,7 @@ export class SamsungSyncService implements OnModuleInit {
 
       const patientIdsToConfirm: string[] = [];
       const collectionIdsToConfirm: string[] = [];
+      const pdfReportIdsByPatient = new Map<string, Set<string>>();
       const zipName = this.buildZipName(filters, patients);
       const DATASET_ROOT = zipName.replace(/\.zip$/i, ''); // e.g. "SRBR-M_UFAMPRIME_S001-S012"
       summary.zipName = zipName;
@@ -802,6 +868,7 @@ export class SamsungSyncService implements OnModuleInit {
         if (this.isSamsungExcludedPublicIdentifier(patient.public_identifier)) continue;
         try {
           let patientHasCriticalError = false;
+          const patientEverSynced = this.patientHadPriorBartSync(patient);
           const subjectId = this.toSubjectId(patient.public_identifier);
           const subjectExportItems = exportedBySubject.get(subjectId) || [];
           if (subjectExportItems.length === 0) {
@@ -863,6 +930,12 @@ export class SamsungSyncService implements OnModuleInit {
               : [];
             for (const report of pdfReports) {
               this.ensureRunNotCancelled(run.id);
+              if (
+                patientEverSynced &&
+                report.file_sync_pending !== true
+              ) {
+                continue;
+              }
               const { protocol, device } = this.samsungPdfReportDataPath(report?.report_type);
               const stageFolder = this.toStageFolder(protocol);
               const deviceFolderName = this.toSamsungDeviceFolder(device);
@@ -902,6 +975,14 @@ export class SamsungSyncService implements OnModuleInit {
                 name: `${DATASET_ROOT}/${patientDate}/${subjectId}/${stageFolder}/${deviceFolderName}/${uniqueFileName}`,
               });
               summary.uploadedFiles += 1;
+              if (report?.id) {
+                let set = pdfReportIdsByPatient.get(patient.id);
+                if (!set) {
+                  set = new Set<string>();
+                  pdfReportIdsByPatient.set(patient.id, set);
+                }
+                set.add(String(report.id));
+              }
             }
 
             await setCurrentStep(4, `${samsungStep(4)} (${subjectId})`);
@@ -919,6 +1000,13 @@ export class SamsungSyncService implements OnModuleInit {
             const binaryPayloadMap = await this.getBinaryPayloadMap(exportBinaryIds);
             for (const collection of exportedBinaryCollections) {
               this.ensureRunNotCancelled(run.id);
+              if (
+                patientEverSynced &&
+                collection.deleted_pending !== true &&
+                collection.file_sync_pending !== true
+              ) {
+                continue;
+              }
               const fileName = (collection?.metadata?.file_name || '').toString();
               if (!fileName) continue;
               const taskCode = this.resolveTaskCode(
@@ -1094,8 +1182,19 @@ export class SamsungSyncService implements OnModuleInit {
 
       await setCurrentStep(7);
       this.ensureRunNotCancelled(run.id);
-      if (patientIdsToConfirm.length > 0 || collectionIdsToConfirm.length > 0) {
-        await this.confirmBatchSync(patientIdsToConfirm, collectionIdsToConfirm);
+      const pdfReportIdsToConfirm = patientIdsToConfirm.flatMap((pid) =>
+        Array.from(pdfReportIdsByPatient.get(pid) ?? []),
+      );
+      if (
+        patientIdsToConfirm.length > 0 ||
+        collectionIdsToConfirm.length > 0 ||
+        pdfReportIdsToConfirm.length > 0
+      ) {
+        await this.confirmBatchSync(
+          patientIdsToConfirm,
+          collectionIdsToConfirm,
+          pdfReportIdsToConfirm,
+        );
       }
       await setCurrentStep(8, 'Sincronização concluída');
 
@@ -1136,10 +1235,14 @@ export class SamsungSyncService implements OnModuleInit {
   }
 
   private async confirmPatientSync(patientId: string, collectionIds: string[]) {
-    return this.confirmBatchSync([patientId], collectionIds);
+    return this.confirmBatchSync([patientId], collectionIds, []);
   }
 
-  private async confirmBatchSync(patientIds: string[], collectionIds: string[]) {
+  private async confirmBatchSync(
+    patientIds: string[],
+    collectionIds: string[],
+    pdfReportIds: string[],
+  ) {
     if (patientIds.length > 0) {
       await this.db.query(
         `
@@ -1162,6 +1265,18 @@ export class SamsungSyncService implements OnModuleInit {
            AND deleted_pending = FALSE
         `,
         [collectionIds],
+      );
+    }
+
+    if (pdfReportIds.length > 0) {
+      await this.db.query(
+        `
+        UPDATE pdf_reports
+           SET file_sync_pending = FALSE,
+               file_synced_at = NOW()
+         WHERE id = ANY($1::uuid[])
+        `,
+        [pdfReportIds],
       );
     }
 
