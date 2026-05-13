@@ -46,5 +46,11 @@ export class SaveStep2Dto {
   @IsOptional()
   @Min(0)
   abdominal?: number;
+
+  @ApiPropertyOptional({ description: 'Neck circumference in cm', example: 38 })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  neckCircumference?: number;
 }
 

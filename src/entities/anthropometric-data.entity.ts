@@ -54,6 +54,9 @@ export class AnthropometricData {
   @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
   abdominal_circumference_cm: number;
 
+  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
+  neck_circumference_cm: number;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

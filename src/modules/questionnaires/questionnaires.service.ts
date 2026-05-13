@@ -686,6 +686,12 @@ export class QuestionnairesService {
       ? true
       : this.normalizeYesNoBoolean(dto.fumouAntes);
     const tcle_signed = this.normalizeYesNoBoolean(dto.tcleAssinado);
+    const isHealthyControl = dto.isHealthyControl === true;
+    const companionPhone = isHealthyControl
+      ? null
+      : dto.phoneNumberContact && String(dto.phoneNumberContact).trim() !== ''
+        ? dto.phoneNumberContact
+        : null;
 
     // Create or update patient
     if (patient) {
@@ -698,7 +704,7 @@ export class QuestionnairesService {
         nationality: dto.nationality || 'Brasileiro',
         email: dto.email,
         phone_primary: dto.phoneNumber,
-        phone_secondary: dto.phoneNumberContact,
+        phone_secondary: companionPhone,
         education_level_id,
         education_other: dto.educationOther,
         marital_status_id,
@@ -739,7 +745,7 @@ export class QuestionnairesService {
         nationality: dto.nationality || 'Brasileiro',
         email: dto.email,
         phone_primary: dto.phoneNumber,
-        phone_secondary: dto.phoneNumberContact,
+        phone_secondary: companionPhone,
         education_level_id,
         education_other: dto.educationOther,
         marital_status_id,
@@ -774,6 +780,7 @@ export class QuestionnairesService {
         // Update existing questionnaire (even if it's completed, we're editing it)
         questionnaire.collection_date = new Date(dto.dataColeta);
         questionnaire.status = 'in_progress';
+        questionnaire.is_healthy_control = isHealthyControl;
         // Nunca reduzir o last_step ao editar passos anteriores
         const currentLastStep = questionnaire.last_step ?? 0;
         questionnaire.last_step = Math.max(currentLastStep, 1);
@@ -805,12 +812,14 @@ export class QuestionnairesService {
         collection_date: new Date(dto.dataColeta),
         status: 'in_progress',
         last_step: 1,
+        is_healthy_control: isHealthyControl,
       });
       questionnaire = await this.questionnairesRepository.save(questionnaire);
     } else if (!dto.questionnaireId) {
       // Update existing questionnaire (only if we didn't already update it above)
       questionnaire.collection_date = new Date(dto.dataColeta);
       questionnaire.status = 'in_progress';
+      questionnaire.is_healthy_control = isHealthyControl;
       // Nunca reduzir o last_step ao editar passos anteriores
       const currentLastStep = questionnaire.last_step ?? 0;
       questionnaire.last_step = Math.max(currentLastStep, 1);
@@ -862,6 +871,9 @@ export class QuestionnairesService {
         abdominal_circumference_cm: dto.abdominal
           ? parseFloat(String(dto.abdominal))
           : null,
+        neck_circumference_cm: dto.neckCircumference
+          ? parseFloat(String(dto.neckCircumference))
+          : null,
       });
     } else {
       anthropometricData.weight_kg = dto.weight
@@ -879,6 +891,9 @@ export class QuestionnairesService {
       anthropometricData.abdominal_circumference_cm = dto.abdominal
         ? parseFloat(String(dto.abdominal))
         : anthropometricData.abdominal_circumference_cm;
+      anthropometricData.neck_circumference_cm = dto.neckCircumference
+        ? parseFloat(String(dto.neckCircumference))
+        : anthropometricData.neck_circumference_cm;
     }
 
     // Atualizar passo e acumular tempo de sessão
@@ -2146,7 +2161,9 @@ export class QuestionnairesService {
       maritalStatus: patient.marital_status?.description || '',
       occupation: patient.occupation || '',
       phoneNumber: patient.phone_primary || '',
-      phoneNumberContact: patient.phone_secondary || '',
+      phoneNumberContact: questionnaire.is_healthy_control
+        ? ''
+        : patient.phone_secondary || '',
       email: patient.email || '',
       fumaCase: patient.is_current_smoker ? 'Sim' : 'Não',
       fumouAntes:
@@ -2210,6 +2227,7 @@ export class QuestionnairesService {
             ? 'Sim'
             : 'Não'
           : '',
+      isHealthyControl: questionnaire.is_healthy_control === true,
     };
 
     // Dados antropométricos
@@ -2229,6 +2247,9 @@ export class QuestionnairesService {
         : '';
       formData.abdominal = anthropometric.abdominal_circumference_cm
         ? String(anthropometric.abdominal_circumference_cm)
+        : '';
+      formData.neckCircumference = anthropometric.neck_circumference_cm
+        ? String(anthropometric.neck_circumference_cm)
         : '';
     }
 
@@ -3214,6 +3235,7 @@ export class QuestionnairesService {
       'waist_circumference_cm',
       'hip_circumference_cm',
       'abdominal_circumference_cm',
+      'neck_circumference_cm',
       'diagnostic_description',
       'onset_age',
       'parkinson_onset_type',
@@ -3270,6 +3292,7 @@ export class QuestionnairesService {
       data.data?.waistSize || '',
       data.data?.hipSize || '',
       data.data?.abdominal || '',
+      data.data?.neckCircumference || '',
       data.data?.diagnosticDescription || '',
       data.data?.onsetAge || '',
       data.data?.parkinsonOnset || '',

@@ -1,11 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsString,
   IsEmail,
   IsOptional,
   IsNotEmpty,
   IsDateString,
-  IsInt,
   IsBoolean,
   MaxLength,
   Matches,
@@ -160,5 +160,15 @@ export class SaveStep1Dto {
   @IsString()
   @IsOptional()
   dominantHand?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Paciente saudável (controle sem DP): desativa telefone de acompanhante e protocolos PDSS-2/RBDSQ-BR',
+    example: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  isHealthyControl?: boolean;
 }
 
