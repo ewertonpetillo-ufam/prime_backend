@@ -1,10 +1,7 @@
 /**
- * Meta de ficheiros por tarefa (CSV/WAV) conforme protocolo PRIME (total 112 sem TA17).
- * Usado para KPIs e formatação da matriz.
+ * Meta de ficheiros por tarefa (CSV/WAV) conforme protocolo PRIME.
+ * TA15: até 8 ficheiros por paciente (antes 12). Usado para KPIs e formatação da matriz.
  */
-export const EXPECTED_BINARY_FILES_TOTAL = 112;
-
-/** Metas por task_code em active_task_definitions */
 export const EXPECTED_BINARY_FILES_BY_TASK: Record<string, number> = {
   TA1: 4,
   TA2: 4,
@@ -20,10 +17,15 @@ export const EXPECTED_BINARY_FILES_BY_TASK: Record<string, number> = {
   TA12: 6,
   TA13: 3,
   TA14: 12,
-  TA15: 12,
+  TA15: 8,
   TA16: 36,
   TA17: 0,
 };
+
+/** Total de ficheiros binários esperados por paciente (soma das metas por TA). */
+export const EXPECTED_BINARY_FILES_TOTAL = Object.values(
+  EXPECTED_BINARY_FILES_BY_TASK,
+).reduce((sum, n) => sum + n, 0);
 
 export function expectedFilesForTaskCode(taskCode: string): number {
   return EXPECTED_BINARY_FILES_BY_TASK[taskCode] ?? 0;
@@ -37,16 +39,20 @@ export function sumExpectedForTaskCodes(taskCodes: string[]): number {
 }
 
 /**
- * Estágios de protocolo PRIME (pastas Samsung: 1_In-Clinic, 2_Sleep, 3_Free-living).
- * Free-living: TA6–TA9 (tarefas de smartphone, uso típico fora do laboratório).
+ * Estágios de protocolo PRIME (alinhamento operacional ao painel de coleta).
+ * In-clinic: todas as TAs ativas exceto sono (TA13) e exceto estágio «livre» ainda não mapeado.
+ * Sleep: TA13. «Free-living» / fora do consultório: reservado — preencher códigos quando existir meta e nomenclatura.
  */
 export type CollectionProtocolStage = 'in_clinic' | 'sleep' | 'free_living';
+
+/** TAs do protocolo fora do consultório (antigo free-living). Lista vazia até implementação e nomenclatura definitivas. */
+export const FREE_LIVING_PROTOCOL_TASK_CODES: string[] = [];
 
 export function collectionProtocolStageForTaskCode(
   taskCode: string,
 ): CollectionProtocolStage {
   if (taskCode === 'TA13') return 'sleep';
-  if (['TA6', 'TA7', 'TA8', 'TA9'].includes(taskCode)) return 'free_living';
+  if (FREE_LIVING_PROTOCOL_TASK_CODES.includes(taskCode)) return 'free_living';
   return 'in_clinic';
 }
 

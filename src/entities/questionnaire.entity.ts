@@ -65,6 +65,10 @@ export class Questionnaire {
   @Column({ type: 'integer', default: 0 })
   collection_time_seconds: number;
 
+  /** Controle saudável (sem DP): protocolos PDSS-2 e RBDSQ-BR não se aplicam */
+  @Column({ type: 'boolean', default: false })
+  is_healthy_control: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   current_session_started_at: Date | null;
 
