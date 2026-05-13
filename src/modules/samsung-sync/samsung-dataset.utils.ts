@@ -1,5 +1,10 @@
 export type SamsungProtocol = 'Clinic' | 'Sleep' | 'Free-living';
 
+/**
+ * Nomenclatura de CSV de tarefas ativas (lateralidade, INERTIAL/SDK, STA, Rep):
+ * manter alinhado com prime/lib/samsungActiveTaskFilename.ts
+ */
+
 export const SAMSUNG_SYNC_PROGRESS_STEPS = [
   'Validando conectividade com o BART',
   'Carregando exportação Samsung',
@@ -40,22 +45,24 @@ export const extractTaskCodeFromFilename = (fileName: string): string | null => 
   return match ? match[0].toUpperCase() : null;
 };
 
+export const normalizeSamsungTa = (token: string): string => {
+  const m = /^TA0*(\d{1,2})$/i.exec(token.trim());
+  return m ? `TA${parseInt(m[1], 10)}` : token.toUpperCase();
+};
+
+const normalizeSamsungSta = (token: string): string => {
+  const m = /^STA0*(\d{1,2})$/i.exec(token.trim());
+  return m ? `STA${parseInt(m[1], 10)}` : token.toUpperCase();
+};
+
 export const isSpeechTask = (taskCode: string | null): boolean =>
   taskCode === 'TA10' || taskCode === 'TA11' || taskCode === 'TA12';
 
-export const isSamsungSmartphoneTask = (taskCode: string | null): boolean =>
-  (() => {
-    if (!taskCode) return false;
-    const match = /^TA0*(\d{1,2})$/i.exec(taskCode.trim());
-    if (!match) return false;
-    const normalized = `TA${Number(match[1])}`;
-    return (
-      normalized === 'TA6' ||
-      normalized === 'TA7' ||
-      normalized === 'TA8' ||
-      normalized === 'TA9'
-    );
-  })();
+export const isSamsungSmartphoneTask = (taskCode: string | null): boolean => {
+  if (!taskCode) return false;
+  const normalized = normalizeSamsungTa(taskCode);
+  return normalized === 'TA6' || normalized === 'TA7' || normalized === 'TA8' || normalized === 'TA9';
+};
 
 export const inferSamsungProtocol = (
   taskCode: string | null,
@@ -94,36 +101,126 @@ export const toStageFolder = (protocol: SamsungProtocol): string => {
   return '1_In-Clinic';
 };
 
+export type SamsungActiveTaskFileContext = {
+  id?: string;
+  metadata?: Record<string, unknown> | null;
+  repetitions_count?: number;
+};
+
+const removeCpfFromFilenameString = (s: string): string => {
+  let t = s.replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, '');
+  t = t.replace(/\b\d{11}\b/g, '');
+  return t.replace(/[-_]{2,}/g, '_').replace(/^[-_]+|[-_]+$/g, '');
+};
+
+const removeTrailingIdNoise = (s: string): string => {
+  let t = s.replace(/[-_]ReS\d+(-\d{8,})?$/i, '');
+  t = t.replace(/ReS\d+$/i, '');
+  t = t.replace(/[-_](\d{10,})$/g, '');
+  return t.replace(/^[-_]+|[-_]+$/g, '');
+};
+
+const parseSamsungRepetition = (rawFullName: string, ctx: SamsungActiveTaskFileContext): number => {
+  const m = /Rep[_\s-]?(\d{1,3})/i.exec(rawFullName);
+  if (m) return Math.max(1, parseInt(m[1], 10));
+  const meta = ctx?.metadata;
+  if (meta?.repetition != null && String(meta.repetition).match(/^\d+$/)) {
+    return Math.max(1, parseInt(String(meta.repetition), 10));
+  }
+  if (meta?.rep != null && String(meta.rep).match(/^\d+$/)) {
+    return Math.max(1, parseInt(String(meta.rep), 10));
+  }
+  if (typeof ctx?.repetitions_count === 'number' && ctx.repetitions_count >= 1) {
+    return Math.max(1, ctx.repetitions_count);
+  }
+  return 1;
+};
+
+const toProtocolLabel = (protocol: SamsungProtocol): string => {
+  if (protocol === 'Sleep') return 'Stage2';
+  if (protocol === 'Free-living') return 'Stage3';
+  return 'Stage1';
+};
+
+const toSamsungDeviceCode = (device: string): string => {
+  const upper = device.toUpperCase();
+  if (upper === 'SW' || upper === 'SP' || upper === 'EMG' || upper === 'PSG') return upper;
+  if (upper === 'RING') return 'RING';
+  if (upper === 'BAIOBIT' || upper === 'BIOBIT') return 'BAIOBIT';
+  return upper;
+};
+
+const inferDataTypeFromFilename = (
+  fileName: string,
+): 'INERTIAL' | 'SDK' | 'SDK_PPG' | 'SDK_Others' => {
+  if (/(^|[-_\s])(NATIVO|INERTIAL|ACC|GR|GYRO|MAG|IMU)($|[-_\s])/i.test(fileName)) {
+    return 'INERTIAL';
+  }
+  const hasSdk = /(^|[-_\s])(SDK)($|[-_\s])/i.test(fileName);
+  if (hasSdk && /(^|[-_\s])(PPG)($|[-_\s])/i.test(fileName)) return 'SDK_PPG';
+  if (hasSdk && /(^|[-_\s])(EDA|IBI|HR)($|[-_\s])/i.test(fileName)) return 'SDK_Others';
+  if (hasSdk) return 'SDK';
+  return 'SDK_Others';
+};
+
+const parseSpecificityToken = (fileName: string): string => {
+  if (/(^|[-_\s])(LD|RIGHT|DIREITO|DIREITA)($|[-_\s])/i.test(fileName)) return 'R';
+  if (/(^|[-_\s])(LE|LEFT|ESQUERDO|ESQUERDA)($|[-_\s])/i.test(fileName)) return 'L';
+  return 'NA';
+};
+
+const parseSubtaskToken = (fileName: string): string => {
+  const match = /(?:^|[-_\s])STA0*(\d{1,2})(?:$|[-_\s])/i.exec(fileName);
+  if (!match) return '';
+  return `[${normalizeSamsungSta(`STA${match[1]}`)}]`;
+};
+
+const mustIncludeStaInFilename = (taskCode: string): boolean =>
+  ['TA8', 'TA10', 'TA11', 'TA12', 'TA16'].includes(taskCode);
+
 export const buildSamsungActiveTaskFilename = (
   rawFileName: string,
   subjectId: string,
   collectionDate: string,
-  file: { id: string; metadata?: Record<string, any> | null },
+  file: SamsungActiveTaskFileContext & { id: string },
   device: string,
   trustedTaskCode?: string | null,
 ): string => {
   const fallback = `${file.id}.csv`;
-  const base = (rawFileName || fallback).trim().split(/[/\\]/).pop() || fallback;
+  const base = (rawFileName || '').trim().split(/[/\\]/).pop() || fallback;
   const extMatch = base.match(/(\.[^.]+)$/i);
   const ext = extMatch ? extMatch[1] : '.csv';
-  const stem = extMatch ? base.slice(0, -ext.length) : base;
+  const stemFull = extMatch ? base.slice(0, -ext.length) : base;
+  const cleaned = removeTrailingIdNoise(removeCpfFromFilenameString(stemFull));
+
+  const taskMatch = /TA\d{1,2}/i.exec(cleaned);
   const taskCode = trustedTaskCode
-    ? trustedTaskCode.toUpperCase().replace(/^TA0*(\d{1,2})$/i, (_m, n) => `TA${Number(n)}`)
-    : extractTaskCodeFromFilename(stem) || 'TA0';
-  const protocol = inferSamsungProtocol(taskCode === 'TA0' ? null : taskCode, stem);
-  const stageLabel =
-    protocol === 'Sleep' ? 'Stage2' : protocol === 'Free-living' ? 'Stage3' : 'Stage1';
-  const isSmartphoneActiveTask = isSamsungSmartphoneTask(taskCode);
-  const resolvedDevice = isSmartphoneActiveTask ? 'SP' : device.toUpperCase();
-  const deviceCode = resolvedDevice === 'BAIOBIT' ? 'BAIOBIT' : resolvedDevice;
-  const repetition =
-    Number(
-      file?.metadata?.repetition ||
-        file?.metadata?.rep ||
-        file?.metadata?.repetitions_count ||
-        1,
-    ) || 1;
-  return `${collectionDate}-${subjectId}-${stageLabel}-${deviceCode}-NA-SDK-${taskCode}-Rep${Math.max(1, repetition)}${ext}`;
+    ? normalizeSamsungTa(trustedTaskCode)
+    : taskMatch
+      ? normalizeSamsungTa(taskMatch[0])
+      : 'TA0';
+  const subtask = parseSubtaskToken(cleaned);
+  const repetition = parseSamsungRepetition(stemFull, file);
+  const protocol = inferSamsungProtocol(taskCode === 'TA0' ? null : taskCode, cleaned);
+  const protocolLabel = toProtocolLabel(protocol);
+  const specificity = parseSpecificityToken(cleaned);
+  const dataType = inferDataTypeFromFilename(cleaned);
+  const resolvedDevice = isSamsungSmartphoneTask(taskCode) ? 'SP' : device;
+  const deviceCode = toSamsungDeviceCode(resolvedDevice);
+
+  const orderedParts = [
+    collectionDate,
+    subjectId,
+    protocolLabel,
+    deviceCode,
+    specificity,
+    dataType,
+    taskCode,
+  ];
+  if (subtask && mustIncludeStaInFilename(taskCode)) orderedParts.push(subtask);
+  orderedParts.push(`Rep${repetition}`);
+
+  return `${orderedParts.join('-')}${ext}`;
 };
 
 export const samsungPdfReportDataPath = (reportType: string | undefined) => {
