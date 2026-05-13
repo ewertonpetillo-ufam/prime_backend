@@ -274,6 +274,12 @@ export class AdminCollectionOverviewService {
     let pacientesSemClassificacaoClinica = 0;
 
     for (const q of onePerPatient) {
+      // Grupo de controle: contagem em «Saudável» (is_healthy_control no questionário).
+      if (q.is_healthy_control === true) {
+        pacientesSaudaveis++;
+        continue;
+      }
+
       const row = byQid.get(q.id);
       const stageVal = row?.stage;
       const hyNum =
@@ -291,12 +297,14 @@ export class AdminCollectionOverviewService {
         pacientesSemClassificacaoClinica++;
         continue;
       }
-      if (D > 5) {
+      // Avançado: tempo de doença (anos) >= 5. Precoce: < 5 anos e Hoehn-Yahr <= 3.
+      if (D >= 5) {
         pacientesAvancados++;
       } else if (D < 5 && hy <= 3) {
         pacientesPrecoces++;
       } else {
-        pacientesSaudaveis++;
+        // Ex.: doença < 5 anos com HY > 3 — fora dos cortes operacionais acima.
+        pacientesSemClassificacaoClinica++;
       }
     }
 
