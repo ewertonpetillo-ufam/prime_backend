@@ -26,8 +26,9 @@ import { UploadPdfReportDto } from './dto/upload-pdf-report.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 import { Response } from 'express';
 
-const MAX_UPLOAD_FILE_SIZE_BYTES =
-  Number(process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 50 * 1024 * 1024);
+const MAX_UPLOAD_FILE_SIZE_BYTES = Number(
+  process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 700 * 1024 * 1024,
+);
 
 @ApiTags('PDF Reports')
 @ApiBearerAuth('JWT-auth')
