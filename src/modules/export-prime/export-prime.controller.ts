@@ -65,13 +65,25 @@ export class ExportPrimeController {
     if (!job) {
       return {
         status: 'error',
-        error: 'Processo não encontrado. O servidor pode ter sido reiniciado. Tente novamente.',
+        error:
+          'Exportação interrompida: o servidor reiniciou ou o job expirou. Inicie uma nova exportação.',
         progress: 0,
         step: '',
       };
     }
 
     const state = await job.getState();
+
+    if (state === 'failed') {
+      return {
+        status: 'error',
+        error:
+          job.failedReason ??
+          'Exportação falhou (memória insuficiente ou erro no servidor). Tente novamente com menos pacientes ou após o redeploy.',
+        progress: 0,
+        step: '',
+      };
+    }
 
     const statusMap: Record<string, string> = {
       waiting: 'pending',

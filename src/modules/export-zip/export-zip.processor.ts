@@ -35,7 +35,10 @@ interface ExportZipJobData {
   };
 }
 
-@Processor(EXPORT_ZIP_QUEUE)
+@Processor(EXPORT_ZIP_QUEUE, {
+  concurrency: 1,
+  lockDuration: 2 * 60 * 60 * 1000,
+})
 export class ExportZipProcessor extends WorkerHost {
   private readonly logger = new Logger(ExportZipProcessor.name);
 
@@ -63,7 +66,17 @@ export class ExportZipProcessor extends WorkerHost {
     // 1. Busca dados de todos os questionários
     await this.updateStep(job, 2, 'Consultando banco de dados...');
     this.logger.log(`[Job ${job.id}] Buscando dados dos questionários...`);
-    const allData: any[] = await this.questionnairesService.exportAllQuestionnairesData(filters);
+    const questionnaireIds =
+      await this.questionnairesService.listQuestionnaireIdsForExport(filters);
+
+    const allData: any[] = [];
+    for (const questionnaireId of questionnaireIds) {
+      allData.push(
+        await this.questionnairesService.exportQuestionnaireData(questionnaireId, {
+          skipPresignedUrls: true,
+        }),
+      );
+    }
 
     const filteredData = allData.filter(
       (item: any) =>

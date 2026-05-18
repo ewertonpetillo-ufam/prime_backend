@@ -1,5 +1,5 @@
 import archiver = require('archiver');
-import pLimit from 'p-limit';
+import { finished } from 'stream/promises';
 import { BinaryCollectionsService } from '../binary-collections/binary-collections.service';
 import { MinioStorageService } from '../storage/minio-storage.service';
 import {
@@ -7,6 +7,29 @@ import {
   getUniqueFilenameUfam,
   ufamPrimePdfReportZipPath,
 } from './ufam-prime-dataset.utils';
+
+/** Acima disso, MinIO → ZIP via stream (evita buffer de centenas de MiB na RAM). */
+const STREAM_PDF_THRESHOLD_BYTES = 10 * 1024 * 1024;
+
+async function appendMinioObjectToArchive(
+  archive: archiver.Archiver,
+  minioService: MinioStorageService,
+  filePath: string,
+  zipEntryName: string,
+  fileSizeBytes?: number | null,
+): Promise<void> {
+  const useStream = (fileSizeBytes ?? 0) > STREAM_PDF_THRESHOLD_BYTES;
+
+  if (useStream) {
+    const stream = await minioService.getObjectStream(filePath);
+    archive.append(stream, { name: zipEntryName });
+    await finished(stream);
+    return;
+  }
+
+  const buffer = await minioService.getObjectBuffer(filePath);
+  archive.append(buffer, { name: zipEntryName });
+}
 
 /**
  * Monta no archive a pasta de um paciente no formato UFAM/PRIME (bulk),
@@ -18,7 +41,6 @@ export async function appendUfamBulkPatientToArchive(
   deps: {
     minioService: MinioStorageService;
     binaryCollectionsService: BinaryCollectionsService;
-    pdfLimit: ReturnType<typeof pLimit>;
     onPdfError?: (reportId: string, message: string) => void;
     onBinaryError?: (collectionId: string, message: string) => void;
   },
@@ -50,26 +72,28 @@ export async function appendUfamBulkPatientToArchive(
   const pdfReports: any[] = Array.isArray(item?.pdfReports) ? item.pdfReports : [];
   const pdfNameCounters = new Map<string, number>();
 
-  await Promise.all(
-    pdfReports
-      .filter((r: any) => Boolean(r?.id) && Boolean(r?.file_path))
-      .map((report: any) =>
-        deps.pdfLimit(async () => {
-          try {
-            const relPath = ufamPrimePdfReportZipPath(report.report_type);
-            const baseName = report.file_name || 'relatorio.pdf';
-            const uniqueName = getUniqueFilenameUfam(baseName, pdfNameCounters, relPath);
-            const pdfBuffer = await deps.minioService.getObjectBuffer(report.file_path);
-            archive.append(pdfBuffer, {
-              name: `${folderName}/${relPath}/${uniqueName}`,
-            });
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            deps.onPdfError?.(String(report.id), message);
-          }
-        }),
-      ),
-  );
+  // Um PDF por vez — EDF de polissonografia pode ter 400–600 MiB
+  for (const report of pdfReports) {
+    if (!report?.id || !report?.file_path) continue;
+
+    try {
+      const relPath = ufamPrimePdfReportZipPath(report.report_type);
+      const baseName = report.file_name || 'relatorio.pdf';
+      const uniqueName = getUniqueFilenameUfam(baseName, pdfNameCounters, relPath);
+      const entryName = `${folderName}/${relPath}/${uniqueName}`;
+
+      await appendMinioObjectToArchive(
+        archive,
+        deps.minioService,
+        report.file_path,
+        entryName,
+        report.file_size_bytes,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      deps.onPdfError?.(String(report.id), message);
+    }
+  }
 
   const binaryCollections: any[] = Array.isArray(item?.binaryCollections)
     ? item.binaryCollections
