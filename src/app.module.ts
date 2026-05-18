@@ -17,6 +17,7 @@ import { PdfReportsModule } from './modules/pdf-reports/pdf-reports.module';
 import { SamsungSyncModule } from './modules/samsung-sync/samsung-sync.module';
 import { QueuesModule } from './modules/queues/queues.module';
 import { ExportZipModule } from './modules/export-zip/export-zip.module';
+import { ExportPrimeModule } from './modules/export-prime/export-prime.module';
 import { BartSyncModule } from './modules/bart-sync/bart-sync.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -49,6 +50,7 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
     SamsungSyncModule,
     QueuesModule,
     ExportZipModule,
+    ExportPrimeModule,
     BartSyncModule,
   ],
   controllers: [AppController],
