@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, DeepPartial } from 'typeorm';
+import { Repository, In, DeepPartial, SelectQueryBuilder } from 'typeorm';
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { Patient } from '../../entities/patient.entity';
 import { AnthropometricData } from '../../entities/anthropometric-data.entity';
@@ -2437,7 +2437,9 @@ export class QuestionnairesService {
       }
 
       // Criar mapa para acesso rápido
-      const medicationMap = new Map(medicationRefs.map((ref) => [ref.id, ref]));
+      const medicationMap = new Map<number, MedicationReference>(
+        medicationRefs.map((ref) => [ref.id, ref]),
+      );
 
       // Lista de medicações padrão (mesma do frontend - atualizada)
       const STANDARD_DRUGS = [
@@ -3772,7 +3774,10 @@ export class QuestionnairesService {
   /**
    * Export questionnaire data with all related data including binary collections
    */
-  async exportQuestionnaireData(questionnaireId: string) {
+  async exportQuestionnaireData(
+    questionnaireId: string,
+    options?: { skipPresignedUrls?: boolean },
+  ) {
     const questionnaire = await this.getQuestionnaireById(questionnaireId);
 
     // Generate CSV files
@@ -3795,17 +3800,8 @@ export class QuestionnairesService {
     /** TTL longo: montagem do ZIP no browser pode demorar (vários arquivos grandes). */
     const exportPresignedTtlSeconds = 4 * 60 * 60;
 
-    const pdfReports = await Promise.all(
-      pdfReportsWithData.map(async (report) => {
-        let presigned_download_url: string | null = null;
-        if (report.file_path) {
-          presigned_download_url =
-            await this.pdfReportsService.getPresignedDownloadUrl(
-              report.file_path,
-              exportPresignedTtlSeconds,
-            );
-        }
-        return {
+    const pdfReports = options?.skipPresignedUrls
+      ? pdfReportsWithData.map((report) => ({
           id: report.id,
           report_type: report.report_type,
           file_name: report.file_name,
@@ -3816,10 +3812,33 @@ export class QuestionnairesService {
           file_path: report.file_path,
           file_sync_pending: report.file_sync_pending,
           download_path: `/api/pdf-reports/${report.id}`,
-          presigned_download_url,
-        };
-      }),
-    );
+          presigned_download_url: null as string | null,
+        }))
+      : await Promise.all(
+          pdfReportsWithData.map(async (report) => {
+            let presigned_download_url: string | null = null;
+            if (report.file_path) {
+              presigned_download_url =
+                await this.pdfReportsService.getPresignedDownloadUrl(
+                  report.file_path,
+                  exportPresignedTtlSeconds,
+                );
+            }
+            return {
+              id: report.id,
+              report_type: report.report_type,
+              file_name: report.file_name,
+              file_size_bytes: report.file_size_bytes,
+              mime_type: report.mime_type,
+              uploaded_at: report.uploaded_at,
+              notes: report.notes,
+              file_path: report.file_path,
+              file_sync_pending: report.file_sync_pending,
+              download_path: `/api/pdf-reports/${report.id}`,
+              presigned_download_url,
+            };
+          }),
+        );
 
     // Get patient CPF hash to find ALL binary collections for this patient
     // Binary collections can be linked by questionnaire_id OR by patient_cpf_hash
@@ -3914,17 +3933,15 @@ export class QuestionnairesService {
   /**
    * Export all questionnaires with all related data
    */
-  async exportAllQuestionnairesData(filters?: {
-    patientStart?: string;
-    patientEnd?: string;
-    dateStart?: string;
-    dateEnd?: string;
-  }) {
-    const qb = this.questionnairesRepository
-      .createQueryBuilder('q')
-      .leftJoinAndSelect('q.patient', 'patient')
-      .orderBy('q.created_at', 'DESC');
-
+  private applyExportFiltersToQuestionnaireQuery(
+    qb: SelectQueryBuilder<Questionnaire>,
+    filters?: {
+      patientStart?: string;
+      patientEnd?: string;
+      dateStart?: string;
+      dateEnd?: string;
+    },
+  ): void {
     const toPatientNum = (v?: string): number | null => {
       if (!v?.trim()) return null;
       const m = /^P?(\d{1,3})$/i.exec(v.trim());
@@ -3960,12 +3977,38 @@ export class QuestionnairesService {
         dateEnd: filters.dateEnd,
       });
     }
+  }
 
-    const questionnaires = await qb.getMany();
+  /** IDs para export em massa (ZIP) — evita carregar todos os pacientes na memória de uma vez. */
+  async listQuestionnaireIdsForExport(filters?: {
+    patientStart?: string;
+    patientEnd?: string;
+    dateStart?: string;
+    dateEnd?: string;
+  }): Promise<string[]> {
+    const qb = this.questionnairesRepository
+      .createQueryBuilder('q')
+      .leftJoin('q.patient', 'patient')
+      .select('q.id', 'id')
+      .orderBy('q.created_at', 'DESC');
+
+    this.applyExportFiltersToQuestionnaireQuery(qb, filters);
+
+    const rows = await qb.getRawMany<{ id: string }>();
+    return rows.map((row) => row.id);
+  }
+
+  async exportAllQuestionnairesData(filters?: {
+    patientStart?: string;
+    patientEnd?: string;
+    dateStart?: string;
+    dateEnd?: string;
+  }) {
+    const questionnaireIds = await this.listQuestionnaireIdsForExport(filters);
 
     const exportData = await Promise.all(
-      questionnaires.map(async (q) => {
-        return await this.exportQuestionnaireData(q.id);
+      questionnaireIds.map(async (id) => {
+        return await this.exportQuestionnaireData(id);
       }),
     );
 

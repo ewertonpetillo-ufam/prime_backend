@@ -17,7 +17,7 @@ services:
     env_file:
       - .env
     environment:
-      - NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=2048}
+      - NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=4096}
       # 700 MiB — arquivos EDF de polissonografia costumam ter 400–600 MiB
       - UPLOAD_MAX_FILE_SIZE_BYTES=${UPLOAD_MAX_FILE_SIZE_BYTES:-734003200}
       # MinIO: no servidor, a API S3 costuma estar só em 127.0.0.1 no host — o backend no Docker
@@ -83,8 +83,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 3G
+          cpus: '2'
+          memory: 6G
         reservations:
           cpus: '0.5'
           memory: 512M
