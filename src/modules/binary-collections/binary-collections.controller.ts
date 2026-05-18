@@ -28,8 +28,9 @@ import {
 import { BinaryCollectionsService } from './binary-collections.service';
 import { UploadBinaryDto } from './dto/upload-binary.dto';
 
-const MAX_UPLOAD_FILE_SIZE_BYTES =
-  Number(process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 50 * 1024 * 1024);
+const MAX_UPLOAD_FILE_SIZE_BYTES = Number(
+  process.env.UPLOAD_MAX_FILE_SIZE_BYTES || 700 * 1024 * 1024,
+);
 
 @ApiTags('Binary Collections')
 @ApiBearerAuth('JWT-auth')

@@ -457,6 +457,7 @@ export class SamsungSyncService implements OnModuleInit {
         p.synced_at,
         COUNT(bc.*) FILTER (
           WHERE bc.id IS NOT NULL
+            AND NOT binary_collection_is_samsung_speech_excluded(bc.task_id, bc.metadata)
             AND (bc.file_sync_pending = TRUE OR bc.deleted_pending = TRUE)
         )::int AS pending_files,
         COALESCE((
@@ -468,6 +469,7 @@ export class SamsungSyncService implements OnModuleInit {
         ), 0) AS pending_pdf_reports
       FROM patients p
       LEFT JOIN binary_collections bc ON bc.patient_cpf_hash = p.cpf_hash
+        AND NOT binary_collection_is_samsung_speech_excluded(bc.task_id, bc.metadata)
       WHERE UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
         AND (
           p.synced_at IS NULL
@@ -475,6 +477,7 @@ export class SamsungSyncService implements OnModuleInit {
             SELECT 1
               FROM binary_collections bc2
              WHERE bc2.patient_cpf_hash = p.cpf_hash
+               AND NOT binary_collection_is_samsung_speech_excluded(bc2.task_id, bc2.metadata)
                AND (bc2.file_sync_pending = TRUE OR bc2.deleted_pending = TRUE)
           )
           OR EXISTS (
@@ -490,6 +493,7 @@ export class SamsungSyncService implements OnModuleInit {
               SELECT 1
                 FROM binary_collections bc3
                WHERE bc3.patient_cpf_hash = p.cpf_hash
+                 AND NOT binary_collection_is_samsung_speech_excluded(bc3.task_id, bc3.metadata)
                  AND (bc3.file_sync_pending = TRUE OR bc3.deleted_pending = TRUE)
             )
             AND NOT EXISTS (
@@ -585,14 +589,18 @@ export class SamsungSyncService implements OnModuleInit {
               'collected_at', bc.collected_at
             )
           ) FILTER (
-            WHERE bc.file_sync_pending = TRUE
-               OR bc.deleted_pending = TRUE
-               OR p.synced_at IS NULL
+            WHERE bc.id IS NOT NULL
+              AND (
+                bc.file_sync_pending = TRUE
+                OR bc.deleted_pending = TRUE
+                OR p.synced_at IS NULL
+              )
           ),
           '[]'::json
         ) AS files
       FROM patients p
       LEFT JOIN binary_collections bc ON bc.patient_cpf_hash = p.cpf_hash
+        AND NOT binary_collection_is_samsung_speech_excluded(bc.task_id, bc.metadata)
       WHERE UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
         AND (
           p.synced_at IS NULL
@@ -600,6 +608,7 @@ export class SamsungSyncService implements OnModuleInit {
             SELECT 1
               FROM binary_collections bc2
              WHERE bc2.patient_cpf_hash = p.cpf_hash
+               AND NOT binary_collection_is_samsung_speech_excluded(bc2.task_id, bc2.metadata)
                AND (bc2.file_sync_pending = TRUE OR bc2.deleted_pending = TRUE)
           )
           OR EXISTS (

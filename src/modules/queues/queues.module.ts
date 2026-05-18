@@ -3,6 +3,7 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 export const EXPORT_ZIP_QUEUE = 'export-zip';
+export const EXPORT_PRIME_QUEUE = 'export-prime';
 export const BART_SYNC_QUEUE = 'bart-sync';
 
 @Global()
@@ -24,6 +25,7 @@ export const BART_SYNC_QUEUE = 'bart-sync';
       inject: [ConfigService],
     }),
     BullModule.registerQueue({ name: EXPORT_ZIP_QUEUE }),
+    BullModule.registerQueue({ name: EXPORT_PRIME_QUEUE }),
     BullModule.registerQueue({ name: BART_SYNC_QUEUE }),
   ],
   exports: [BullModule],
