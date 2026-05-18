@@ -44,7 +44,9 @@ function isMinioConnectivityError(e: unknown): boolean {
     );
   }
   const msg = (err?.message || '').toLowerCase();
-  return /connect econnrefused|econnrefused|network|timed out|getaddrinfo|fetch failed|socket hang up/i.test(msg);
+  return /connect econnrefused|econnrefused|network|timed out|timeout exceeded|getaddrinfo|fetch failed|socket hang up/i.test(
+    msg,
+  );
 }
 
 function isStorageObjectMissing(e: unknown): boolean {
@@ -113,6 +115,11 @@ export class PdfReportsService {
         code: err.code,
         name: err.name,
       });
+      if (isMinioConnectivityError(e)) {
+        throw new ServiceUnavailableException(
+          `Armazenamento de arquivos (MinIO) indisponível: ${msg}. Verifique MINIO_ENDPOINT e se o serviço MinIO está acessível a partir do container do backend.`,
+        );
+      }
       throw new InternalServerErrorException(msg);
     }
 

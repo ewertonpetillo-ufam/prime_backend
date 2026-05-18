@@ -18,7 +18,7 @@ export const getDatabaseConfig = (
     extra: {
       // Connection pool settings
       max: 20,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 30_000,
     },
   };
 };

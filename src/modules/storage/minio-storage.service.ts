@@ -16,7 +16,7 @@ import { Readable } from 'stream';
 /** HTTP(S) com timeouts relaxados e keep-alive — reduz ECONNRESET em túnel SSH / rede lenta. */
 function createS3NodeHttpHandler(): NodeHttpHandler {
   return new NodeHttpHandler({
-    connectionTimeout: 60_000,
+    connectionTimeout: 120_000,
     requestTimeout: 0,
     socketTimeout: 0,
     httpAgent: new http.Agent({ keepAlive: true, keepAliveMsecs: 30_000 }),
@@ -126,10 +126,29 @@ export class MinioStorageService {
 
   async putObject(key: string, body: Buffer, contentType: string): Promise<void> {
     this.assertEnabled();
+    const normalizedKey = this.normalizeObjectKey(key);
+    const largeObjectThreshold = 50 * 1024 * 1024;
+
+    if (body.length > largeObjectThreshold) {
+      const upload = new Upload({
+        client: this.internalClient,
+        queueSize: 4,
+        partSize: 10 * 1024 * 1024,
+        params: {
+          Bucket: this.bucket,
+          Key: normalizedKey,
+          Body: body,
+          ContentType: contentType,
+        },
+      });
+      await upload.done();
+      return;
+    }
+
     await this.internalClient.send(
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: this.normalizeObjectKey(key),
+        Key: normalizedKey,
         Body: body,
         ContentType: contentType,
       }),
