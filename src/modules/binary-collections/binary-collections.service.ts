@@ -135,7 +135,6 @@ export class BinaryCollectionsService {
 
   async findAll(): Promise<BinaryCollection[]> {
     return this.binaryCollectionsRepository.find({
-      where: { deleted_pending: false },
       select: [
         'id',
         'questionnaire_id',
@@ -158,7 +157,7 @@ export class BinaryCollectionsService {
 
   async findOne(id: string): Promise<BinaryCollection> {
     const collection = await this.binaryCollectionsRepository.findOne({
-      where: { id, deleted_pending: false },
+      where: { id },
     });
 
     if (!collection) {
@@ -184,7 +183,7 @@ export class BinaryCollectionsService {
 
     // Find all binary collections for this patient
     const collections = await this.binaryCollectionsRepository.find({
-      where: { patient_cpf_hash: cpf_hash, deleted_pending: false },
+      where: { patient_cpf_hash: cpf_hash },
       select: [
         'id',
         'questionnaire_id',
@@ -215,15 +214,14 @@ export class BinaryCollectionsService {
   }
 
   /**
-   * Obtém o binário da coleção (CSV, áudio, etc.) para download
-   * @param id - Binary collection UUID
-   * @returns Buffer contendo o arquivo binário, nome do arquivo e content-type
+   * Obtém o binário da coleção (CSV, áudio, etc.) para download.
+   * Não filtra por deleted_pending — esse flag é só para fila da sincronização Samsung/BART.
    */
   async downloadCsv(
     id: string,
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const collection = await this.binaryCollectionsRepository.findOne({
-      where: { id, deleted_pending: false },
+      where: { id },
       select: ['id', 'csv_data', 'metadata', 'patient_cpf_hash'],
     });
 
@@ -231,7 +229,7 @@ export class BinaryCollectionsService {
       throw new NotFoundException(`Binary collection with ID ${id} not found`);
     }
 
-    if (!collection.csv_data) {
+    if (!collection.csv_data || collection.csv_data.length === 0) {
       throw new NotFoundException(
         `Binary data not found for binary collection ${id}`,
       );
@@ -282,10 +280,10 @@ export class BinaryCollectionsService {
       const count = await this.binaryCollectionsRepository
         .createQueryBuilder('bc')
         .where(
-          '(bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash) AND bc.deleted_pending = FALSE',
+          '(bc.questionnaire_id = :questionnaireId OR bc.patient_cpf_hash = :patientCpfHash)',
           {
-          questionnaireId,
-          patientCpfHash,
+            questionnaireId,
+            patientCpfHash,
           },
         )
         .getCount();
@@ -294,7 +292,7 @@ export class BinaryCollectionsService {
     } else {
       // If no patient CPF hash, only count by questionnaire_id
       const count = await this.binaryCollectionsRepository.count({
-        where: { questionnaire_id: questionnaireId, deleted_pending: false },
+        where: { questionnaire_id: questionnaireId },
       });
 
       return count;
@@ -316,7 +314,6 @@ export class BinaryCollectionsService {
         "TO_CHAR(DATE_TRUNC('day', bc.uploaded_at AT TIME ZONE 'America/Sao_Paulo'), 'YYYY-MM-DD') as date",
         'COUNT(*)::int as count',
       ])
-      .where('bc.deleted_pending = FALSE')
       .andWhere(
         '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excludedPids))',
         { excludedPids },
@@ -350,7 +347,6 @@ export class BinaryCollectionsService {
         'COUNT(*)::int as count',
       ])
       .where('bc.task_id IS NOT NULL')
-      .andWhere('bc.deleted_pending = FALSE')
       .andWhere(
         '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excludedPids))',
         { excludedPids },
@@ -377,7 +373,6 @@ export class BinaryCollectionsService {
       .select('COALESCE(SUM(bc.file_size_bytes), 0)', 'total_bytes')
       .addSelect('COALESCE(AVG(bc.file_size_bytes), 0)', 'average_bytes')
       .addSelect('COUNT(*)::int', 'total_records')
-      .where('bc.deleted_pending = FALSE')
       .andWhere(
         '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excludedPids))',
         { excludedPids },

@@ -58,6 +58,7 @@ export class BinaryCollection {
   @Column({ type: 'timestamptz', nullable: true })
   file_synced_at: Date | null;
 
+  /** Usado apenas pela sincronização Samsung/BART; não oculta o arquivo em export/download da UI. */
   @Column({ type: 'boolean', default: false })
   deleted_pending: boolean;
 

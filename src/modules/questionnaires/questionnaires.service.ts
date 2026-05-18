@@ -3933,6 +3933,8 @@ export class QuestionnairesService {
   /**
    * Export all questionnaires with all related data
    */
+  private static readonly EXPORT_EXCLUDED_PUBLIC_IDS = ['P000', 'P00'];
+
   private applyExportFiltersToQuestionnaireQuery(
     qb: SelectQueryBuilder<Questionnaire>,
     filters?: {
@@ -3942,6 +3944,11 @@ export class QuestionnairesService {
       dateEnd?: string;
     },
   ): void {
+    qb.andWhere(
+      '(patient.public_identifier IS NULL OR UPPER(TRIM(patient.public_identifier)) NOT IN (:...exportExcludedPids))',
+      { exportExcludedPids: QuestionnairesService.EXPORT_EXCLUDED_PUBLIC_IDS },
+    );
+
     const toPatientNum = (v?: string): number | null => {
       if (!v?.trim()) return null;
       const m = /^P?(\d{1,3})$/i.exec(v.trim());
