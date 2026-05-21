@@ -10,6 +10,7 @@ import {
   HttpStatus,
   ParseUUIDPipe,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,6 +20,7 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+import { AdminRoleGuard } from '../../common/guards/admin-role.guard';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { UpdatePatientDto } from './dto/update-patient.dto';
@@ -125,8 +127,9 @@ export class PatientsController {
   }
 
   @Delete(':id')
+  @UseGuards(AdminRoleGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete patient' })
+  @ApiOperation({ summary: 'Delete patient (admin only)' })
   @ApiParam({ name: 'id', description: 'Patient UUID' })
   @ApiResponse({
     status: 204,

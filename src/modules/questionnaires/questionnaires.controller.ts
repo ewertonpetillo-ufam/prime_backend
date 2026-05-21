@@ -30,6 +30,7 @@ import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { SavePhysioDto } from './dto/save-physio.dto';
 import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
+import { SaveSpeechPatientDescriptionDto } from './dto/save-speech-patient-description.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Questionnaires')
@@ -315,6 +316,31 @@ export class QuestionnairesController {
     @CurrentUser() user: { userId: string },
   ) {
     return this.questionnairesService.saveSleepPatientDescription(
+      dto,
+      user.userId,
+    );
+  }
+
+  @Post('speech-patient-description')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar descrição do paciente (avaliação da fala)',
+    description:
+      'Atualiza a descrição clínica da fala do paciente vinculada ao questionário',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Descrição da fala salva com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveSpeechPatientDescription(
+    @Body() dto: SaveSpeechPatientDescriptionDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveSpeechPatientDescription(
       dto,
       user.userId,
     );

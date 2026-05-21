@@ -47,6 +47,7 @@ import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { SavePhysioDto } from './dto/save-physio.dto';
 import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
+import { SaveSpeechPatientDescriptionDto } from './dto/save-speech-patient-description.dto';
 import { PdfReportsService } from '../pdf-reports/pdf-reports.service';
 
 const UPDRS_SCORE_FIELDS = [
@@ -1369,6 +1370,79 @@ export class QuestionnairesService {
     return saved;
   }
 
+  async saveSpeechPatientDescription(
+    dto: SaveSpeechPatientDescriptionDto,
+    evaluatorId: string,
+  ): Promise<ClinicalAssessment> {
+    const { questionnaireId, speechPatientDescription } = dto;
+
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
+    }
+
+    let clinicalAssessment: ClinicalAssessment | null =
+      await this.clinicalAssessmentRepository.findOne({
+        where: { questionnaire_id: questionnaireId },
+      });
+
+    if (!clinicalAssessment) {
+      const payload: DeepPartial<ClinicalAssessment> = {
+        questionnaire_id: questionnaireId,
+        diagnostic_description: '',
+        age_at_onset: null,
+        initial_symptom: null,
+        affected_side: null,
+        phenotype_id: null,
+        hoehn_yahr_stage_id: null,
+        schwab_england_score: null,
+        has_family_history: false,
+        family_kinship_degree: null,
+        has_dyskinesia: false,
+        dyskinesia_interfered: false,
+        dyskinesia_type_id: null,
+        dyskinesia_type_codes: null,
+        has_freezing_of_gait: false,
+        has_wearing_off: false,
+        average_on_time_hours: null,
+        has_delayed_on: false,
+        ldopa_onset_time_hours: null,
+        assessed_on_levodopa: false,
+        has_surgery_history: false,
+        surgery_year: null,
+        surgery_type_id: null,
+        surgery_target: null,
+        comorbidities: null,
+        other_medications: null,
+        disease_evolution: null,
+        current_symptoms: null,
+        speech_patient_description: speechPatientDescription ?? null,
+      };
+      clinicalAssessment = this.clinicalAssessmentRepository.create(payload);
+    } else {
+      clinicalAssessment.speech_patient_description =
+        speechPatientDescription ?? null;
+    }
+
+    const saved =
+      await this.clinicalAssessmentRepository.save(clinicalAssessment);
+
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 3);
+      this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
+      await this.questionnairesRepository.save(questionnaire);
+    }
+
+    return saved;
+  }
+
   /**
    * Save UPDRS-III scores (Step 4 - Avaliação Neurológica)
    */
@@ -1970,6 +2044,7 @@ export class QuestionnairesService {
     // Retornar apenas dados básicos para a listagem
     return questionnaires.map((q) => ({
       id: q.id,
+      patientId: q.patient?.id || q.patient_id || null,
       fullName: q.patient?.full_name || '',
       cpf: q.patient?.cpf || '', // CPF em texto para exibição nas telas
       cpfHash: q.patient?.cpf_hash || '', // Hash do CPF para exportações
@@ -2334,6 +2409,8 @@ export class QuestionnairesService {
         clinical.physio_patient_description || '';
       (formData as any).sleepPatientDescription =
         clinical.sleep_patient_description || '';
+      (formData as any).speechPatientDescription =
+        clinical.speech_patient_description || '';
 
       formData.wearingOff =
         clinical.has_wearing_off === true ? true : undefined;
@@ -2992,6 +3069,7 @@ export class QuestionnairesService {
 
     return {
       id: questionnaire.id,
+      patientId: questionnaire.patient_id,
       fullName: patient.full_name,
       cpf: patient.cpf || '', // CPF em texto para exibição nas telas
       cpfHash: patient.cpf_hash || '', // Hash do CPF para exportações
@@ -3122,20 +3200,24 @@ export class QuestionnairesService {
     // às relações de score/avaliação do questionário. Como cada protocolo é salvo
     // em tabela própria, a presença do objeto já indica que o protocolo foi preenchido.
 
-    const sleepProtocolsCompleted =
-      !!questionnaire.stopbang_score &&
-      !!questionnaire.epworth_score &&
-      !!questionnaire.pdss2_score &&
-      !!questionnaire.rbdsq_score;
+    const isHealthyControl = questionnaire.is_healthy_control === true;
+
+    const sleepProtocolsCompleted = isHealthyControl
+      ? !!questionnaire.stopbang_score && !!questionnaire.epworth_score
+      : !!questionnaire.stopbang_score &&
+        !!questionnaire.epworth_score &&
+        !!questionnaire.pdss2_score &&
+        !!questionnaire.rbdsq_score;
 
     const neurologicalProtocolsCompleted =
       !!questionnaire.updrs3_score &&
       !!questionnaire.meem_score &&
       !!questionnaire.udysrs_score;
 
-    const physiotherapyProtocolsCompleted = !!questionnaire.fogq_score;
+    const physiotherapyProtocolsCompleted = isHealthyControl
+      ? true
+      : !!questionnaire.fogq_score;
 
-    // Aqui assumimos que todos esses protocolos são obrigatórios
     return (
       sleepProtocolsCompleted &&
       neurologicalProtocolsCompleted &&

@@ -231,7 +231,7 @@ export class PdfReportsService {
   async deleteReport(id: string) {
     const existing = await this.pdfReportRepository.findOne({ where: { id } });
     if (!existing) {
-      throw new NotFoundException(`Relatório com ID ${id} não encontrado`);
+      return { success: true, alreadyDeleted: true as const };
     }
     if (existing.file_path && this.minioStorage.isEnabled()) {
       try {
