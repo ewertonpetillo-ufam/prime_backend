@@ -33,8 +33,38 @@ export const UDYSRS_Q_EXPORT_FIELD_ORDER = [
 export const formatNeurologicalScoreCsv = (value: unknown): string => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? '1' : '0';
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return '1';
+    if (normalized === 'false') return '0';
+  }
   return String(value);
 };
+
+/** Primeiro valor definido (inclui `false` e `0`; ignora string vazia). */
+export const pickExportValue = (...candidates: unknown[]): unknown => {
+  for (const value of candidates) {
+    if (value !== null && value !== undefined && value !== '') return value;
+  }
+  for (const value of candidates) {
+    if (value === false || value === 0) return value;
+  }
+  return '';
+};
+
+const escapeSubjectDataCsvCell = (value: string): string => {
+  if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+};
+
+/** Linha CSV de Subject_Data com booleans normalizados (0/1), como UPDRS. */
+export const joinSubjectDataCsvRow = (values: unknown[]): string =>
+  values
+    .map((value) => formatNeurologicalScoreCsv(value))
+    .map(escapeSubjectDataCsvCell)
+    .join(',');
 
 export const formatMeemLanguageNaming = (meem: Record<string, unknown>): string => {
   const parts = [meem.language_naming1, meem.language_naming2]

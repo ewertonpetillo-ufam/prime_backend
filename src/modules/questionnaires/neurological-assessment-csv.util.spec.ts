@@ -2,6 +2,8 @@ import {
   formatMeemLanguageNaming,
   formatNeurologicalScoreCsv,
   getUdysrsQExportValues,
+  joinSubjectDataCsvRow,
+  pickExportValue,
   UDYSRS_Q_EXPORT_FIELD_ORDER,
 } from './neurological-assessment-csv.util';
 
@@ -9,8 +11,20 @@ describe('neurological-assessment-csv.util', () => {
   it('formatNeurologicalScoreCsv formats booleans as 0/1', () => {
     expect(formatNeurologicalScoreCsv(true)).toBe('1');
     expect(formatNeurologicalScoreCsv(false)).toBe('0');
+    expect(formatNeurologicalScoreCsv('true')).toBe('1');
+    expect(formatNeurologicalScoreCsv('false')).toBe('0');
     expect(formatNeurologicalScoreCsv(2)).toBe('2');
     expect(formatNeurologicalScoreCsv(null)).toBe('');
+  });
+
+  it('pickExportValue preserves false and zero', () => {
+    expect(pickExportValue(undefined, null, false)).toBe(false);
+    expect(pickExportValue('', 0)).toBe(0);
+    expect(pickExportValue(undefined, 'x')).toBe('x');
+  });
+
+  it('joinSubjectDataCsvRow normalizes booleans in CSV row', () => {
+    expect(joinSubjectDataCsvRow(['id-1', false, true, 3])).toBe('id-1,0,1,3');
   });
 
   it('formatMeemLanguageNaming joins naming1 and naming2', () => {

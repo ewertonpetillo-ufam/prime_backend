@@ -70,6 +70,19 @@ export type DemographicsBalanceKpis = {
   linhas: DemographicsBalanceRow[];
 };
 
+export type ReportPatientRowDto = {
+  questionnaireId: string;
+  patientLabel: string;
+  patientName: string;
+  sex: string;
+  age: number | null;
+  isAdvanced: boolean;
+  sleepTestRecommended: boolean;
+  sleepTestDone: boolean;
+  contactPhone: string | null;
+  contactEmail: string | null;
+};
+
 @Injectable()
 export class AdminCollectionOverviewService {
   constructor(
@@ -905,6 +918,124 @@ export class AdminCollectionOverviewService {
         statuses,
         expectedBinaryFilesTotal: EXPECTED_BINARY_FILES_TOTAL,
         atRiskDaysWithoutUpload: AT_RISK_DAYS,
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  async getReportsPatients(params: {
+    statuses?: string;
+    limit?: number;
+  }): Promise<{
+    patients: ReportPatientRowDto[];
+    meta: {
+      limit: number;
+      statuses: string[];
+      generatedAt: string;
+    };
+  }> {
+    const statuses = this.parseStatuses(params.statuses);
+    const limit = params.limit ?? DEFAULT_LIMIT;
+
+    const { questionnaires, countsRows, taskIdToCode } =
+      await this.loadScopeAndCounts(statuses, limit);
+    const byQ = this.buildCountsByQuestionnaire(countsRows, taskIdToCode);
+
+    if (questionnaires.length === 0) {
+      return {
+        patients: [],
+        meta: {
+          limit,
+          statuses,
+          generatedAt: new Date().toISOString(),
+        },
+      };
+    }
+
+    const qids = questionnaires.map((q) => q.id);
+
+    const clinicalRaw = await this.clinicalRepo
+      .createQueryBuilder('ca')
+      .select('ca.questionnaire_id', 'questionnaire_id')
+      .addSelect('ca.age_at_onset', 'age_at_onset')
+      .addSelect('hy.stage', 'stage')
+      .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
+      .where('ca.questionnaire_id IN (:...qids)', { qids })
+      .getRawMany();
+
+    const clinicalByQid = new Map<
+      string,
+      { age_at_onset: number | null; stage: string | number | null }
+    >();
+    for (const row of clinicalRaw) {
+      const qid = String((row as { questionnaire_id: string }).questionnaire_id);
+      const ageRaw = (row as { age_at_onset: unknown }).age_at_onset;
+      const stageRaw = (row as { stage: unknown }).stage;
+      clinicalByQid.set(qid, {
+        age_at_onset:
+          ageRaw !== null && ageRaw !== undefined && !Number.isNaN(Number(ageRaw))
+            ? Number(ageRaw)
+            : null,
+        stage: stageRaw as string | number | null,
+      });
+    }
+
+    const genderRaw = await this.questionnairesRepo.manager.query(
+      `
+      SELECT p.id AS patient_id, COALESCE(gt.code, '') AS gender_code
+      FROM patients p
+      LEFT JOIN gender_types gt ON gt.id = p.gender_id
+      WHERE p.id = ANY($1::uuid[])
+      `,
+      [questionnaires.map((q) => q.patient_id)],
+    );
+
+    const genderByPatientId = new Map<string, string>();
+    for (const row of genderRaw as { patient_id: string; gender_code: string }[]) {
+      genderByPatientId.set(String(row.patient_id), String(row.gender_code || ''));
+    }
+
+    const patients: ReportPatientRowDto[] = questionnaires.map((q) => {
+      const counts = byQ.get(q.id) || {};
+      const clinical = clinicalByQid.get(q.id);
+      const grupo = this.classifyPatientGroup(q, clinical);
+      const genderCode = genderByPatientId.get(q.patient_id)?.trim().toUpperCase() || '';
+      const sex =
+        genderCode === 'M'
+          ? 'Homem'
+          : genderCode === 'F'
+            ? 'Mulher'
+            : '—';
+
+      return {
+        questionnaireId: q.id,
+        patientLabel: this.patientLabel(q),
+        patientName: q.patient?.full_name || '',
+        sex,
+        age: this.computeAgeYears(q.patient?.date_of_birth),
+        isAdvanced: grupo === 'avancado',
+        sleepTestRecommended: q.sleep_test_recommended === true,
+        sleepTestDone: (counts['TA13'] || 0) > 0,
+        contactPhone:
+          q.patient?.phone_primary?.trim() ||
+          q.patient?.phone_secondary?.trim() ||
+          null,
+        contactEmail: q.patient?.email?.trim() || null,
+      };
+    });
+
+    patients.sort((a, b) =>
+      a.patientLabel.localeCompare(b.patientLabel, 'pt-BR', {
+        numeric: true,
+        sensitivity: 'base',
+      }),
+    );
+
+    return {
+      patients,
+      meta: {
+        limit,
+        statuses,
         generatedAt: new Date().toISOString(),
       },
     };

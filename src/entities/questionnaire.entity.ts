@@ -69,6 +69,10 @@ export class Questionnaire {
   @Column({ type: 'boolean', default: false })
   is_healthy_control: boolean;
 
+  /** Recomendação de teste de sono marcada na avaliação neurológica (Step 4) */
+  @Column({ type: 'boolean', default: false })
+  sleep_test_recommended: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   current_session_started_at: Date | null;
 

@@ -43,6 +43,8 @@ import {
   formatMeemLanguageNaming,
   formatNeurologicalScoreCsv,
   getUdysrsQExportValues,
+  joinSubjectDataCsvRow,
+  pickExportValue,
 } from './neurological-assessment-csv.util';
 import { SaveStopbangDto } from './dto/save-stopbang.dto';
 import { SaveEpworthDto } from './dto/save-epworth.dto';
@@ -1850,6 +1852,32 @@ export class QuestionnairesService {
   }
 
   /**
+   * Atualiza indicação de teste de sono (Step 4 neurológico).
+   */
+  async patchSleepTestRecommended(
+    questionnaireId: string,
+    sleepTestRecommended: boolean,
+  ) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
+    }
+
+    questionnaire.sleep_test_recommended = sleepTestRecommended === true;
+    const saved = await this.questionnairesRepository.save(questionnaire);
+
+    return {
+      questionnaireId: saved.id,
+      sleepTestRecommended: saved.sleep_test_recommended === true,
+    };
+  }
+
+  /**
    * Save FOGQ scores
    */
   async saveFogqScores(dto: SaveFogqDto, evaluatorId: string) {
@@ -1994,7 +2022,7 @@ export class QuestionnairesService {
   }
 
   /**
-   * Search questionnaires by patient name or CPF (optimized for listing)
+   * Search questionnaires by patient name, CPF (partial) or public_identifier (partial)
    * Returns only basic data needed for the search results page
    */
   async searchQuestionnaires(term?: string) {
@@ -2019,29 +2047,31 @@ export class QuestionnairesService {
       .limit(100); // Limitar resultados para melhor performance
 
     if (term && term.trim() !== '') {
-      const termLower = term.toLowerCase().trim();
-      const termDigits = term.replace(/\D/g, '');
+      const termTrimmed = term.trim();
+      const termLower = termTrimmed.toLowerCase();
+      const termDigits = termTrimmed.replace(/\D/g, '');
+      const termCompact = termTrimmed.replace(/\s/g, '');
 
-      // Se o termo tem dígitos, pode ser CPF - gerar hash e buscar
-      if (termDigits.length > 0) {
-        try {
-          const cpfHash = CryptoUtil.hashCpf(termDigits);
-          queryBuilder.where(
-            '(LOWER(patient.full_name) LIKE :term OR patient.cpf_hash = :cpfHash)',
-            { term: `%${termLower}%`, cpfHash },
-          );
-        } catch (error) {
-          // Se falhar ao gerar hash, busca apenas por nome
-          queryBuilder.where('LOWER(patient.full_name) LIKE :term', {
-            term: `%${termLower}%`,
-          });
-        }
-      } else {
-        // Apenas busca por nome
-        queryBuilder.where('LOWER(patient.full_name) LIKE :term', {
-          term: `%${termLower}%`,
-        });
+      const conditions = ['LOWER(patient.full_name) LIKE :term'];
+      const params: Record<string, string> = {
+        term: `%${termLower}%`,
+      };
+
+      // Identificador público: correspondência parcial conforme digitação (como o nome)
+      if (termCompact.length > 0) {
+        params.pidTerm = `%${termCompact}%`;
+        conditions.push(
+          "COALESCE(patient.public_identifier, '') ILIKE :pidTerm",
+        );
       }
+
+      // CPF: correspondência parcial pelos dígitos digitados (como o nome)
+      if (termDigits.length > 0) {
+        params.cpfDigitsTerm = `%${termDigits}%`;
+        conditions.push("COALESCE(patient.cpf, '') LIKE :cpfDigitsTerm");
+      }
+
+      queryBuilder.where(`(${conditions.join(' OR ')})`, params);
     }
 
     const questionnaires = await queryBuilder.getMany();
@@ -2308,6 +2338,7 @@ export class QuestionnairesService {
             : 'Não'
           : '',
       isHealthyControl: questionnaire.is_healthy_control === true,
+      sleepTestRecommended: questionnaire.sleep_test_recommended === true,
     };
 
     // Dados antropométricos
@@ -3390,13 +3421,13 @@ export class QuestionnairesService {
       data.data?.familyCase || '',
       data.data?.kinshipDegree || '',
       data.data?.mainPhenotype || '',
-      data.data?.levodopaOn ? 'Sim' : 'Não',
-      data.data?.diskinectiaPresence ? 'Sim' : 'Não',
-      data.data?.fog ? 'Sim' : 'Não',
+      pickExportValue(data.data?.levodopaOn),
+      pickExportValue(data.data?.diskinectiaPresence),
+      pickExportValue(data.data?.fog),
       data.data?.fogClassifcation || '',
-      data.data?.wearingOff ? 'Sim' : 'Não',
+      pickExportValue(data.data?.wearingOff),
       data.data?.durationWearingOff || '',
-      data.data?.DelayOn ? 'Sim' : 'Não',
+      pickExportValue(data.data?.DelayOn),
       data.data?.durationLDopa || '',
       data.data?.scaleHY || '',
       data.data?.scaleSE || '',
@@ -3409,7 +3440,7 @@ export class QuestionnairesService {
       data.data?.evolution || '',
       data.data?.symptom || '',
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3612,7 +3643,7 @@ export class QuestionnairesService {
       formatNeurologicalScoreCsv(udysrs.total_score),
       ...udysrsQValues,
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3675,7 +3706,7 @@ export class QuestionnairesService {
       nmf.q17 || '',
       nmf.q18 || '',
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3684,6 +3715,19 @@ export class QuestionnairesService {
    * Generate CSV for Sleep Assessment (STOP-Bang, Epworth, PDSS-2, RBDSQ)
    */
   private generateSleepAssessmentCsv(data: any): string {
+    const d = data.data || {};
+    const stop = data.stopbang_score;
+    const epworth = data.epworth_score;
+    const pdss2 = data.pdss2_score;
+    const rbdsqBr = data.rbdsq_br_score;
+    const rbdsqLegacy = data.rbdsq_score;
+
+    const rbdsqField = (formKey: string, brKey?: string, legacyKey?: string) =>
+      pickExportValue(
+        d[formKey],
+        brKey && rbdsqBr ? (rbdsqBr as any)[brKey] : undefined,
+        legacyKey && rbdsqLegacy ? (rbdsqLegacy as any)[legacyKey] : undefined,
+      );
     const rows: string[] = [];
 
     // Header anonimizado (sem nome e CPF)
@@ -3746,56 +3790,60 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
-      data.data?.scoreStopBang || '',
-      data.data?.stopbang_snore || '',
-      data.data?.stopbang_tired || '',
-      data.data?.stopbang_observed || '',
-      data.data?.stopbang_pressure || '',
-      data.data?.stopbang_age || '',
-      data.data?.stopbang_neck || '',
-      data.data?.stopbang_gender || '',
-      data.data?.scoreEpworth || '',
-      data.data?.epworth_q1 || '',
-      data.data?.epworth_q2 || '',
-      data.data?.epworth_q3 || '',
-      data.data?.epworth_q4 || '',
-      data.data?.epworth_q5 || '',
-      data.data?.epworth_q6 || '',
-      data.data?.epworth_q7 || '',
-      data.data?.epworth_q8 || '',
-      data.data?.scorePDSS2 || '',
-      data.data?.pdss2_q1 || '',
-      data.data?.pdss2_q2 || '',
-      data.data?.pdss2_q3 || '',
-      data.data?.pdss2_q4 || '',
-      data.data?.pdss2_q5 || '',
-      data.data?.pdss2_q6 || '',
-      data.data?.pdss2_q7 || '',
-      data.data?.pdss2_q8 || '',
-      data.data?.pdss2_q9 || '',
-      data.data?.pdss2_q10 || '',
-      data.data?.pdss2_q11 || '',
-      data.data?.pdss2_q12 || '',
-      data.data?.pdss2_q13 || '',
-      data.data?.pdss2_q14 || '',
-      data.data?.pdss2_q15 || '',
-      data.data?.scoreRBDSQ || '',
-      data.data?.q1RBDSQ || '',
-      data.data?.q2RBDSQ || '',
-      data.data?.q3RBDSQ || '',
-      data.data?.q4RBDSQ || '',
-      data.data?.q5RBDSQ || '',
-      data.data?.q6_1RBDSQ || '',
-      data.data?.q6_2RBDSQ || '',
-      data.data?.q6_3RBDSQ || '',
-      data.data?.q6_4RBDSQ || '',
-      data.data?.q7RBDSQ || '',
-      data.data?.q8RBDSQ || '',
-      data.data?.q9RBDSQ || '',
-      data.data?.q10RBDSQ || '',
-      data.data?.rbdsqNeuroDiseaseDescription || '',
+      pickExportValue(d.scoreStopBang, stop?.total_score),
+      pickExportValue(d.stopbang_snore, stop?.snoring),
+      pickExportValue(d.stopbang_tired, stop?.tired),
+      pickExportValue(d.stopbang_observed, stop?.observed_apnea),
+      pickExportValue(d.stopbang_pressure, stop?.blood_pressure),
+      pickExportValue(d.stopbang_age, stop?.age_over_50),
+      pickExportValue(d.stopbang_neck, stop?.neck_circumference_large),
+      pickExportValue(d.stopbang_gender, stop?.gender_male),
+      pickExportValue(d.scoreEpworth, epworth?.total_score),
+      pickExportValue(d.epworth_q1, epworth?.sitting_reading),
+      pickExportValue(d.epworth_q2, epworth?.watching_tv),
+      pickExportValue(d.epworth_q3, epworth?.sitting_inactive_public),
+      pickExportValue(d.epworth_q4, epworth?.passenger_car),
+      pickExportValue(d.epworth_q5, epworth?.lying_down_afternoon),
+      pickExportValue(d.epworth_q6, epworth?.sitting_talking),
+      pickExportValue(d.epworth_q7, epworth?.sitting_after_lunch),
+      pickExportValue(d.epworth_q8, epworth?.car_stopped_traffic),
+      pickExportValue(d.scorePDSS2, pdss2?.total_score),
+      pickExportValue(d.pdss2_q1, pdss2?.q1),
+      pickExportValue(d.pdss2_q2, pdss2?.q2),
+      pickExportValue(d.pdss2_q3, pdss2?.q3),
+      pickExportValue(d.pdss2_q4, pdss2?.q4),
+      pickExportValue(d.pdss2_q5, pdss2?.q5),
+      pickExportValue(d.pdss2_q6, pdss2?.q6),
+      pickExportValue(d.pdss2_q7, pdss2?.q7),
+      pickExportValue(d.pdss2_q8, pdss2?.q8),
+      pickExportValue(d.pdss2_q9, pdss2?.q9),
+      pickExportValue(d.pdss2_q10, pdss2?.q10),
+      pickExportValue(d.pdss2_q11, pdss2?.q11),
+      pickExportValue(d.pdss2_q12, pdss2?.q12),
+      pickExportValue(d.pdss2_q13, pdss2?.q13),
+      pickExportValue(d.pdss2_q14, pdss2?.q14),
+      pickExportValue(d.pdss2_q15, pdss2?.q15),
+      pickExportValue(d.scoreRBDSQ, rbdsqBr?.total_score, rbdsqLegacy?.total_score),
+      rbdsqField('q1RBDSQ', 'q1_realistic_dreams', 'q1_vivid_dreams'),
+      rbdsqField('q2RBDSQ', 'q2_aggressive_dreams', 'q2_aggressive_content'),
+      rbdsqField('q3RBDSQ', 'q3_dream_enactment', 'q3_dream_enactment'),
+      rbdsqField('q4RBDSQ', 'q4_limb_movements', 'q4_limb_movements'),
+      rbdsqField('q5RBDSQ', 'q5_injury_potential', 'q5_injury_potential'),
+      rbdsqField('q6_1RBDSQ', 'q6_1_vocalizations', 'q6_bed_disruption'),
+      rbdsqField('q6_2RBDSQ', 'q6_2_fighting_movements'),
+      rbdsqField('q6_3RBDSQ', 'q6_3_complex_movements_or_falls'),
+      rbdsqField('q6_4RBDSQ', 'q6_4_objects_falling'),
+      rbdsqField('q7RBDSQ', 'q7_movements_cause_awakenings', 'q7_awakening_recall'),
+      rbdsqField('q8RBDSQ', 'q8_dream_recall', 'q8_sleep_disruption'),
+      rbdsqField('q9RBDSQ', 'q9_disturbed_sleep', 'q9_neurological_disorder'),
+      rbdsqField('q10RBDSQ', 'q10_neurological_disease', 'q10_rem_behavior_problem'),
+      pickExportValue(
+        d.rbdsqNeuroDiseaseDescription,
+        rbdsqBr?.neuro_disease_description,
+        rbdsqLegacy?.neuro_disease_description,
+      ),
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3825,14 +3873,14 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
-      data.data?.scoreFOGQ || '',
-      fogq.gait_worst_state || '',
-      fogq.impact_daily_activities || '',
-      fogq.feet_stuck || '',
-      fogq.longest_episode || '',
-      fogq.hesitation_turning || '',
+      pickExportValue(data.data?.scoreFOGQ, fogq.total_score),
+      pickExportValue(fogq.gait_worst_state),
+      pickExportValue(fogq.impact_daily_activities),
+      pickExportValue(fogq.feet_stuck),
+      pickExportValue(fogq.longest_episode),
+      pickExportValue(fogq.hesitation_turning),
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
