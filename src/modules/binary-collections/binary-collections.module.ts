@@ -26,6 +26,6 @@ import { PdfReport } from '../../entities/pdf-report.entity';
   ],
   controllers: [BinaryCollectionsController, AdminCollectionOverviewController],
   providers: [BinaryCollectionsService, AdminCollectionOverviewService],
-  exports: [BinaryCollectionsService],
+  exports: [BinaryCollectionsService, AdminCollectionOverviewService],
 })
 export class BinaryCollectionsModule {}

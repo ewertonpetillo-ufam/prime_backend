@@ -44,6 +44,22 @@ export class SamsungSyncController {
     }
   }
 
+  @Post('reset-pending')
+  @ApiOperation({
+    summary: 'Redefine sincronização para pendente (por faixa de paciente/data)',
+  })
+  async resetPending(
+    @Body()
+    body?: {
+      patientStart?: string;
+      patientEnd?: string;
+      dateStart?: string;
+      dateEnd?: string;
+    },
+  ) {
+    return this.samsungSyncService.resetSyncPending(body || {});
+  }
+
   @Get('pending')
   @ApiOperation({ summary: 'Lista pacientes/arquivos pendentes para sincronização' })
   async pending() {
@@ -84,6 +100,41 @@ export class SamsungSyncController {
   async tree(@Query('limit') limit?: string) {
     const parsedLimit = limit ? Number(limit) : undefined;
     return this.samsungSyncService.getDirectoryTree(parsedLimit);
+  }
+
+  @Get('storage/config')
+  @ApiOperation({ summary: 'Configuração da raiz do dataset no Artifactory' })
+  getStorageConfig() {
+    return this.samsungSyncService.getStorageConfig();
+  }
+
+  @Get('storage')
+  @ApiOperation({ summary: 'Navega pastas e arquivos sob ARTIFACTORY_BASE_PATH' })
+  async browseStorage(@Query('path') path?: string) {
+    return this.samsungSyncService.browseStorage(path);
+  }
+
+  @Get('storage/download')
+  @ApiOperation({ summary: 'Baixa arquivo do Artifactory (path relativo à raiz do dataset)' })
+  async downloadStorage(@Query('path') path: string, @Res() res: Response) {
+    if (!path?.trim()) {
+      throw new NotFoundException('Caminho não informado');
+    }
+    const artifact = await this.samsungSyncService.downloadStorageItem(path);
+    const fileName = path.split('/').pop() || 'download';
+    res.setHeader('Content-Type', artifact.contentType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(artifact.buffer);
+  }
+
+  @Delete('storage')
+  @ApiOperation({ summary: 'Remove arquivo ou pasta vazia do Artifactory' })
+  async deleteStorage(@Query('path') path: string) {
+    if (!path?.trim()) {
+      throw new NotFoundException('Caminho não informado');
+    }
+    await this.samsungSyncService.deleteStorageItem(path);
+    return { success: true };
   }
 
   @Get('artifacts')

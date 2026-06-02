@@ -51,6 +51,14 @@ export class ArtifactoryService {
     return `${this.baseUrl}/api/storage/${repo}/${encodedPath}`;
   }
 
+  getPublicBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  getArtifactDownloadUrl(repo: string, artifactPath: string): string {
+    return this.buildArtifactUrl(repo, artifactPath);
+  }
+
   private buildArtifactUrl(repo: string, artifactPath: string): string {
     const encodedPath = artifactPath
       .split('/')
@@ -215,6 +223,60 @@ export class ArtifactoryService {
     if (!response.ok) {
       throw new Error(`Falha ao remover ${repo}/${artifactPath}: HTTP ${response.status}`);
     }
+  }
+
+  async listStorage(
+    repo: string,
+    folderPath: string,
+  ): Promise<
+    {
+      name: string;
+      path: string;
+      folder: boolean;
+      size: number;
+      last_modified: string | null;
+    }[]
+  > {
+    this.ensureReady();
+    const cleaned = folderPath.replace(/^\/+|\/+$/g, '');
+    const url = cleaned
+      ? `${this.baseUrl}/api/storage/${repo}/${cleaned}?list&deep=0&listFolders=1`
+      : `${this.baseUrl}/api/storage/${repo}?list&deep=0&listFolders=1`;
+    const response = await this.requestWithRetry(
+      url,
+      {
+        method: 'GET',
+        headers: this.authHeaders,
+      },
+      { timeoutMs: 30000, retries: 2 },
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) return [];
+      throw new Error(`Falha ao listar storage ${repo}/${cleaned || '/'}: HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { files?: ArtifactListItem[] };
+    const files = Array.isArray(payload.files) ? payload.files : [];
+    return files
+      .map((item) => {
+        const rawName = item.uri?.replace(/^\//, '') || '';
+        const isFolder = Boolean(item.folder) || rawName.endsWith('/');
+        const name = rawName.replace(/\/$/, '');
+        const path = cleaned ? `${cleaned}/${name}` : name;
+        return {
+          name,
+          path,
+          folder: isFolder,
+          size: Number(item.size || 0),
+          last_modified: item.lastModified || null,
+        };
+      })
+      .filter((item) => item.name.length > 0)
+      .sort((a, b) => {
+        if (a.folder !== b.folder) return a.folder ? -1 : 1;
+        return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+      });
   }
 
   async listArtifacts(repo: string, basePath: string): Promise<

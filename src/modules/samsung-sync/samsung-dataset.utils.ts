@@ -1,4 +1,16 @@
+import archiver = require('archiver');
+
 export type SamsungProtocol = 'Clinic' | 'Sleep' | 'Free-living';
+
+export const SUBJECT_DATA_FOLDER = 'Subject_Data';
+
+/** @deprecated Use SUBJECT_DATA_FOLDER */
+export const CLINICAL_DATA_FOLDER = SUBJECT_DATA_FOLDER;
+
+export type DeliveryMetadataRow = {
+  generation_date: string;
+  download_url: string;
+};
 
 /**
  * Nomenclatura de CSV de tarefas ativas (lateralidade, INERTIAL/SDK, STA, Rep):
@@ -21,13 +33,162 @@ export const samsungStep = (stepIndex: number) =>
   SAMSUNG_SYNC_PROGRESS_STEPS[Math.max(0, Math.min(stepIndex, SAMSUNG_SYNC_PROGRESS_STEPS.length - 1))];
 
 export const toDateFolder = (value: string | Date | null | undefined): string => {
-  if (!value) return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  if (!value) return getDeliveryDateFolder();
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    return getDeliveryDateFolder();
   }
   return date.toISOString().slice(0, 10).replace(/-/g, '');
 };
+
+/** Data de entrega (sync) em YYYYMMDD — timezone America/Sao_Paulo. */
+export const getDeliveryDateFolder = (date: Date = new Date()): string => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const y = parts.find((p) => p.type === 'year')?.value ?? '0000';
+  const m = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const d = parts.find((p) => p.type === 'day')?.value ?? '01';
+  return `${y}${m}${d}`;
+};
+
+/** Data de coleta para coluna generation_date do metadata eBART (YYYY-MM-DD). */
+export const formatCollectionDateForMetadata = (questionnaire?: {
+  data?: { dataColeta?: string | null };
+  collection_date?: string | Date | null;
+  createdAt?: string | Date | null;
+  created_at?: string | Date | null;
+} | null): string => {
+  const raw =
+    questionnaire?.data?.dataColeta ??
+    questionnaire?.collection_date ??
+    questionnaire?.createdAt ??
+    questionnaire?.created_at;
+  if (!raw) return '';
+  if (typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    return raw.slice(0, 10);
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return String(raw).slice(0, 10);
+  return date.toISOString().slice(0, 10);
+};
+
+export const buildDeliveryZipFileName = (deliveryDate: string): string =>
+  `${deliveryDate}.zip`;
+
+export const buildDataZipArtifactPath = (
+  artifactoryBasePath: string,
+  deliveryDate: string,
+): string => {
+  const prefix = (artifactoryBasePath || '').replace(/^\/+|\/+$/g, '');
+  return prefix
+    ? `${prefix}/Data/${buildDeliveryZipFileName(deliveryDate)}`
+    : `Data/${buildDeliveryZipFileName(deliveryDate)}`;
+};
+
+export const buildMetadataCsvArtifactPath = (
+  artifactoryBasePath: string,
+  deliveryDate: string,
+): string => {
+  const prefix = (artifactoryBasePath || '').replace(/^\/+|\/+$/g, '');
+  return prefix
+    ? `${prefix}/Metadata/${deliveryDate}_metadata.csv`
+    : `Metadata/${deliveryDate}_metadata.csv`;
+};
+
+/** URL Artifactory para entrada dentro do ZIP de entrega (sintaxe !/). */
+export const buildArchiveEntryDownloadUrl = (
+  artifactoryBaseUrl: string,
+  repo: string,
+  artifactoryBasePath: string,
+  deliveryDate: string,
+  entryPathInsideZip: string,
+): string => {
+  const base = artifactoryBaseUrl.replace(/\/$/, '');
+  const zipPath = buildDataZipArtifactPath(artifactoryBasePath, deliveryDate);
+  const encodedZipPath = zipPath
+    .split('/')
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+  const inner = entryPathInsideZip.replace(/^\/+/, '');
+  return `${base}/${repo}/${encodedZipPath}!/${inner}`;
+};
+
+export const buildArtifactoryArtifactPath = (
+  basePath: string,
+  relativePath: string,
+): string => {
+  const prefix = (basePath || '').replace(/^\/+|\/+$/g, '');
+  const rel = relativePath.replace(/^\/+/, '');
+  return prefix ? `${prefix}/${rel}` : rel;
+};
+
+export const buildSubjectDataZipPath = (
+  deliveryDate: string,
+  subjectId: string,
+  stageFolder: string,
+  fileName: string,
+): string =>
+  `${deliveryDate}/${subjectId}/${stageFolder}/${SUBJECT_DATA_FOLDER}/${fileName}`;
+
+/** @deprecated Use buildSubjectDataZipPath */
+export const buildClinicalDataZipPath = buildSubjectDataZipPath;
+
+export const buildSamsungDataFileZipPath = (
+  deliveryDate: string,
+  subjectId: string,
+  stageFolder: string,
+  deviceFolder: string,
+  fileName: string,
+): string =>
+  `${deliveryDate}/${subjectId}/${stageFolder}/${deviceFolder}/${fileName}`;
+
+export const buildDeviceSubZipPath = (
+  deliveryDate: string,
+  subjectId: string,
+  stageFolder: string,
+  deviceFolder: string,
+): string =>
+  `${deliveryDate}/${subjectId}/${stageFolder}/${deviceFolder}.zip`;
+
+export const buildDeliveryMetadataCsv = (rows: DeliveryMetadataRow[]): string => {
+  const lines = ['generation_date,download_url'];
+  for (const row of rows) {
+    const gd = (row.generation_date || '').replace(/"/g, '""');
+    const url = (row.download_url || '').replace(/"/g, '""');
+    lines.push(`"${gd}","${url}"`);
+  }
+  return `${lines.join('\n')}\n`;
+};
+
+export type ZipEntryInput = { name: string; buffer: Buffer };
+
+export const createZipBufferFromEntries = async (
+  entries: ZipEntryInput[],
+): Promise<Buffer> => {
+  const arc = archiver('zip', { zlib: { level: 1 } });
+  const chunks: Buffer[] = [];
+  const result = new Promise<Buffer>((resolve, reject) => {
+    arc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    arc.on('end', () => resolve(Buffer.concat(chunks)));
+    arc.on('error', reject);
+  });
+  for (const entry of entries) {
+    arc.append(entry.buffer, { name: entry.name });
+  }
+  await arc.finalize();
+  return result;
+};
+
+export const deviceGroupKey = (
+  subjectId: string,
+  stageFolder: string,
+  deviceFolder: string,
+): string => `${subjectId}::${stageFolder}::${deviceFolder}`;
 
 export const toSamsungSubjectId = (publicIdentifier?: string | null): string => {
   const digits = (publicIdentifier || '').replace(/\D/g, '');
