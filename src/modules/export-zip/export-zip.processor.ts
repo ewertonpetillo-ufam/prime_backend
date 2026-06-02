@@ -10,20 +10,28 @@ import { EXPORT_ZIP_QUEUE } from '../queues/queues.module';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';
 import { MinioStorageService } from '../storage/minio-storage.service';
 import {
-  toSamsungSubjectId,
-  isSamsungExcludedPublicIdentifier,
-  toDateFolder,
-  toStageFolder,
-  toSamsungDeviceFolder,
-  buildSamsungActiveTaskFilename,
-  sanitizeExternalDocBaseName,
-  samsungPdfReportDataPath,
+  ZipEntryInput,
+  buildSubjectDataZipPath,
+  buildDeliveryZipFileName,
+  buildDeviceSubZipPath,
+  buildSamsungDataFileZipPath,
+  createZipBufferFromEntries,
+  deviceGroupKey,
+  extractTaskCodeFromFilename,
+  formatCollectionDateForMetadata,
+  getDeliveryDateFolder,
   getUniqueFilename,
-  isSpeechTask,
-  isSamsungSmartphoneTask,
   inferSamsungDevice,
   inferSamsungProtocol,
-  extractTaskCodeFromFilename,
+  isSamsungExcludedPublicIdentifier,
+  isSamsungSmartphoneTask,
+  isSpeechTask,
+  samsungPdfReportDataPath,
+  sanitizeExternalDocBaseName,
+  toSamsungDeviceFolder,
+  toSamsungSubjectId,
+  toStageFolder,
+  buildSamsungActiveTaskFilename,
 } from '../samsung-sync/samsung-dataset.utils';
 
 interface ExportZipJobData {
@@ -60,12 +68,19 @@ export class ExportZipProcessor extends WorkerHost {
     const filters = job.data.filters ?? {};
     const minioKey = `exports/temp/${job.id}.zip`;
     const limit = pLimit(3);
+    const deliveryDate = getDeliveryDateFolder();
+    const zipName = buildDeliveryZipFileName(deliveryDate);
+    const deviceGroups = new Map<string, ZipEntryInput[]>();
+
+    const addToDeviceGroup = (key: string, fileName: string, buffer: Buffer) => {
+      const list = deviceGroups.get(key) || [];
+      list.push({ name: fileName, buffer });
+      deviceGroups.set(key, list);
+    };
 
     await this.updateStep(job, 0, 'Iniciando geração do ZIP...');
 
-    // 1. Busca dados de todos os questionários
     await this.updateStep(job, 2, 'Consultando banco de dados...');
-    this.logger.log(`[Job ${job.id}] Buscando dados dos questionários...`);
     const questionnaireIds =
       await this.questionnairesService.listQuestionnaireIdsForExport(filters);
 
@@ -82,7 +97,7 @@ export class ExportZipProcessor extends WorkerHost {
       (item: any) =>
         !isSamsungExcludedPublicIdentifier(
           item?.questionnaire?.patient?.public_identifier ??
-          item?.questionnaire?.public_identifier,
+            item?.questionnaire?.public_identifier,
         ),
     );
 
@@ -90,23 +105,8 @@ export class ExportZipProcessor extends WorkerHost {
       throw new Error('Nenhum questionário encontrado para os filtros informados.');
     }
 
-    // Computa nome do ZIP a partir do intervalo de pacientes
-    const subjectIds = [...new Set(
-      filteredData.map((item: any) =>
-        toSamsungSubjectId(
-          item?.questionnaire?.patient?.public_identifier ??
-          item?.questionnaire?.public_identifier ?? '',
-        ),
-      ),
-    )].sort();
-    const firstSubject = subjectIds[0] ?? 'S000';
-    const lastSubject = subjectIds[subjectIds.length - 1] ?? 'S000';
-    const zipBaseName = `SRBR-M_UFAMPRIME_${firstSubject}-${lastSubject}`;
-    const zipName = `${zipBaseName}.zip`;
+    await this.updateStep(job, 5, `Montando ZIP de entrega ${deliveryDate}...`);
 
-    await this.updateStep(job, 5, `Montando ZIP para ${subjectIds.length} paciente(s)...`);
-
-    // 3. Monta o ZIP via archiver com pipe direto ao MinIO
     const archive = archiver('zip', { zlib: { level: 1 } });
 
     archive.on('warning', (err) => {
@@ -117,8 +117,6 @@ export class ExportZipProcessor extends WorkerHost {
       }
     });
 
-    // Inicia o upload em streaming para o MinIO via PassThrough
-    // (o @aws-sdk/lib-storage exige um stream Node.js padrão; archiver é um Transform customizado)
     const passThrough = new PassThrough();
     archive.pipe(passThrough);
     const uploadPromise = this.minioService.putObjectStream(
@@ -127,14 +125,13 @@ export class ExportZipProcessor extends WorkerHost {
       'application/zip',
     );
 
-    // Adiciona o README.txt global de Metadata
     archive.append(
-      'Em Metadata/Sxxx: arquivos METADATA-YYYYMMDD-Sxxx-*.csv agregados (demografia, UPDRS, sono, etc.). ' +
-        'Em YYYYMMDD/Sxxx: tarefas ativas e documentos externos organizados por estágio/dispositivo.',
-      { name: `${zipBaseName}/Metadata/README.txt` },
+      `ZIP de entrega ${deliveryDate}. Dados do sujeito em Subject_Data/. Binários/PDFs agrupados em sub-ZIPs por dispositivo.`,
+      { name: 'README.txt' },
     );
 
-    // 4. Processa cada paciente
+    const clinicalStageFolder = toStageFolder('Clinic');
+
     for (let i = 0; i < filteredData.length; i++) {
       const item = filteredData[i];
       const questionnaire = item?.questionnaire;
@@ -143,32 +140,29 @@ export class ExportZipProcessor extends WorkerHost {
         questionnaire?.public_identifier ??
         '';
       const subjectId = toSamsungSubjectId(publicIdentifier);
-      const collectionDate = toDateFolder(questionnaire?.createdAt ?? questionnaire?.created_at);
-      const cpfHash: string = questionnaire?.patient?.cpf_hash ?? '';
+      const cpfHash: string = questionnaire?.cpfHash ?? questionnaire?.patient?.cpf_hash ?? '';
+      void formatCollectionDateForMetadata(questionnaire);
 
-      // --- Metadata CSVs ---
       const csvFiles = item?.csvFiles ?? {};
-      const metadataPrefix = `${zipBaseName}/Metadata/${subjectId}`;
-      const csvMetadataPrefix = `METADATA-${collectionDate}-${subjectId}`;
-      archive.append(csvFiles.demographicAnthropometricClinical ?? '', {
-        name: `${metadataPrefix}/${csvMetadataPrefix}-01_demographic_anthropometric_clinical.csv`,
-      });
-      archive.append(csvFiles.neurologicalAssessment ?? '', {
-        name: `${metadataPrefix}/${csvMetadataPrefix}-02_neurological_assessment_updrs.csv`,
-      });
-      archive.append(csvFiles.speechTherapy ?? '', {
-        name: `${metadataPrefix}/${csvMetadataPrefix}-03_speech_therapy.csv`,
-      });
-      archive.append(csvFiles.sleepAssessment ?? '', {
-        name: `${metadataPrefix}/${csvMetadataPrefix}-04_sleep_assessment.csv`,
-      });
-      archive.append(csvFiles.physiotherapy ?? '', {
-        name: `${metadataPrefix}/${csvMetadataPrefix}-05_physiotherapy.csv`,
-      });
+      const csvMetadataPrefix = `${deliveryDate}-${subjectId}`;
+      const clinicalFiles = [
+        { suffix: '01_demographic_anthropometric_clinical.csv', content: csvFiles.demographicAnthropometricClinical },
+        { suffix: '02_neurological_assessment_updrs.csv', content: csvFiles.neurologicalAssessment },
+        { suffix: '03_speech_therapy.csv', content: csvFiles.speechTherapy },
+        { suffix: '04_sleep_assessment.csv', content: csvFiles.sleepAssessment },
+        { suffix: '05_physiotherapy.csv', content: csvFiles.physiotherapy },
+      ];
+      for (const cf of clinicalFiles) {
+        archive.append(cf.content ?? '', {
+          name: buildSubjectDataZipPath(
+            deliveryDate,
+            subjectId,
+            clinicalStageFolder,
+            `${csvMetadataPrefix}-${cf.suffix}`,
+          ),
+        });
+      }
 
-      const dataRoot = `${zipBaseName}/${collectionDate}/${subjectId}`;
-
-      // --- PDFs (concorrência máx. 5 via p-limit) ---
       const pdfReports: any[] = Array.isArray(item?.pdfReports) ? item.pdfReports : [];
       const pdfNameCounters = new Map<string, number>();
 
@@ -187,11 +181,12 @@ export class ExportZipProcessor extends WorkerHost {
                   : report.file_name ?? 'relatorio.pdf';
                 const scope = `${stageFolder}/${deviceFolder}`;
                 const uniqueName = getUniqueFilename(baseName, pdfNameCounters, scope);
-
                 const pdfBuffer = await this.minioService.getObjectBuffer(report.file_path);
-                archive.append(pdfBuffer, {
-                  name: `${dataRoot}/${stageFolder}/${deviceFolder}/${uniqueName}`,
-                });
+                addToDeviceGroup(
+                  deviceGroupKey(subjectId, stageFolder, deviceFolder),
+                  uniqueName,
+                  pdfBuffer,
+                );
               } catch (err) {
                 this.logger.warn(
                   `[Job ${job.id}] PDF omitido (${report.id}): ${err instanceof Error ? err.message : String(err)}`,
@@ -201,7 +196,6 @@ export class ExportZipProcessor extends WorkerHost {
           ),
       );
 
-      // --- Binary Collections ---
       const binaryCollections: any[] = Array.isArray(item?.binaryCollections)
         ? item.binaryCollections
         : [];
@@ -220,10 +214,8 @@ export class ExportZipProcessor extends WorkerHost {
           return String(a?.id ?? '').localeCompare(String(b?.id ?? ''));
         });
 
-      // Load binary CSV data per-patient to avoid holding all patients' data in RAM simultaneously
       const patientBinaryIds = collectionsToInclude.map((bc: any) => bc.id).filter(Boolean);
       const binaryCsvMap = await this.getBinaryCsvDataMap(patientBinaryIds);
-
       const repetitionCounters = new Map<string, number>();
 
       for (const bc of collectionsToInclude) {
@@ -243,7 +235,7 @@ export class ExportZipProcessor extends WorkerHost {
         const tentativeName = buildSamsungActiveTaskFilename(
           fileName,
           subjectId,
-          collectionDate,
+          deliveryDate,
           bc,
           device,
           taskCode,
@@ -257,19 +249,34 @@ export class ExportZipProcessor extends WorkerHost {
         repetitionCounters.set(repKey, nextRep);
         const finalName = `${stemWithoutRep}-Rep${nextRep}${ext}`;
 
-        archive.append(csvBuffer, {
-          name: `${dataRoot}/${stageFolder}/${deviceFolder}/${finalName}`,
-        });
+        addToDeviceGroup(deviceGroupKey(subjectId, stageFolder, deviceFolder), finalName, csvBuffer);
+        void buildSamsungDataFileZipPath(
+          deliveryDate,
+          subjectId,
+          stageFolder,
+          deviceFolder,
+          finalName,
+        );
       }
 
       const percent = Math.round(5 + ((i + 1) / filteredData.length) * 85);
-      await this.updateStep(job, percent, `Processando paciente ${i + 1}/${filteredData.length} (${subjectId})...`);
-      this.logger.log(`[Job ${job.id}] Paciente ${i + 1}/${filteredData.length} (${subjectId}) adicionado ao ZIP`);
+      await this.updateStep(
+        job,
+        percent,
+        `Processando paciente ${i + 1}/${filteredData.length} (${subjectId})...`,
+      );
     }
 
-    // 5. Finaliza o archiver e aguarda upload
+    for (const [groupKey, entries] of deviceGroups.entries()) {
+      const [subjectId, stageFolder, deviceFolder] = groupKey.split('::');
+      if (!subjectId || !stageFolder || !deviceFolder || entries.length === 0) continue;
+      const subZipBuffer = await createZipBufferFromEntries(entries);
+      archive.append(subZipBuffer, {
+        name: buildDeviceSubZipPath(deliveryDate, subjectId, stageFolder, deviceFolder),
+      });
+    }
+
     await this.updateStep(job, 91, 'Finalizando compactação e fazendo upload para o MinIO...');
-    this.logger.log(`[Job ${job.id}] Finalizando ZIP e aguardando upload no MinIO...`);
     await archive.finalize();
     await uploadPromise;
 

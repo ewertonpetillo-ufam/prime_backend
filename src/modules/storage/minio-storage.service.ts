@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  HeadBucketCommand,
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -31,9 +32,11 @@ export class MinioStorageService {
   private readonly presignClient: S3Client;
   private readonly enabled: boolean;
   private readonly presignedEnabled: boolean;
+  private readonly endpoint: string;
 
   constructor(private readonly config: ConfigService) {
     const endpoint = config.get<string>('MINIO_ENDPOINT')?.trim();
+    this.endpoint = endpoint || '';
     const publicBase =
       config.get<string>('MINIO_PUBLIC_BASE_URL')?.trim() || endpoint || '';
     const accessKey = config.get<string>('MINIO_ACCESS_KEY')?.trim();
@@ -77,6 +80,25 @@ export class MinioStorageService {
 
   isPresignedEnabled(): boolean {
     return this.presignedEnabled;
+  }
+
+  getEndpoint(): string {
+    return this.endpoint;
+  }
+
+  async ping(timeoutMs = 5000): Promise<boolean> {
+    if (!this.enabled) return false;
+    try {
+      await Promise.race([
+        this.internalClient.send(new HeadBucketCommand({ Bucket: this.bucket })),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('MinIO ping timeout')), timeoutMs),
+        ),
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   assertEnabled(): void {
