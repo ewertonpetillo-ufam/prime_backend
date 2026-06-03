@@ -12,6 +12,9 @@ export type DeliveryMetadataRow = {
   download_url: string;
 };
 
+export const DELIVERY_METADATA_SOURCE = 'UFAM';
+export const DELIVERY_METADATA_PROJECT_NAME = 'PRIME';
+
 /**
  * Nomenclatura de CSV de tarefas ativas (lateralidade, INERTIAL/SDK, STA, Rep):
  * manter alinhado com prime/lib/samsungActiveTaskFilename.ts
@@ -156,11 +159,13 @@ export const buildDeviceSubZipPath = (
   `${deliveryDate}/${subjectId}/${stageFolder}/${deviceFolder}.zip`;
 
 export const buildDeliveryMetadataCsv = (rows: DeliveryMetadataRow[]): string => {
-  const lines = ['generation_date,download_url'];
+  const lines = ['generation_date,download_url,source,project_name'];
   for (const row of rows) {
     const gd = (row.generation_date || '').replace(/"/g, '""');
     const url = (row.download_url || '').replace(/"/g, '""');
-    lines.push(`"${gd}","${url}"`);
+    lines.push(
+      `"${gd}","${url}","${DELIVERY_METADATA_SOURCE}","${DELIVERY_METADATA_PROJECT_NAME}"`,
+    );
   }
   return `${lines.join('\n')}\n`;
 };

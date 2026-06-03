@@ -61,13 +61,15 @@ describe('samsung-dataset.utils', () => {
     );
   });
 
-  it('buildDeliveryMetadataCsv outputs header and quoted rows', () => {
+  it('buildDeliveryMetadataCsv outputs header and quoted rows with source and project_name', () => {
     const csv = buildDeliveryMetadataCsv([
       { generation_date: '2026-03-12', download_url: 'https://example.com/a' },
     ]);
-    expect(csv).toContain('generation_date,download_url');
+    expect(csv).toContain('generation_date,download_url,source,project_name');
     expect(csv).toContain('"2026-03-12"');
     expect(csv).toContain('https://example.com/a');
+    expect(csv).toContain('"UFAM"');
+    expect(csv).toContain('"PRIME"');
   });
 
   it('createZipBufferFromEntries returns non-empty buffer', async () => {
