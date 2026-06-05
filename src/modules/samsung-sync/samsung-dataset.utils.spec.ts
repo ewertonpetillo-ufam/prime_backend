@@ -8,6 +8,9 @@ import {
   buildDeviceSubZipPath,
   buildMetadataCsvArtifactPath,
   createZipBufferFromEntries,
+  createZipFileFromEntries,
+  ensureSamsungSyncTempDir,
+  cleanupSamsungSyncTempDir,
   formatCollectionDateForMetadata,
   getDeliveryDateFolder,
 } from './samsung-dataset.utils';
@@ -78,5 +81,16 @@ describe('samsung-dataset.utils', () => {
     ]);
     expect(Buffer.isBuffer(buf)).toBe(true);
     expect(buf.length).toBeGreaterThan(10);
+  }, 15000);
+
+  it('createZipFileFromEntries writes zip to disk', async () => {
+    const runId = 'test-run-zip-disk';
+    const dir = await ensureSamsungSyncTempDir(runId);
+    const dest = `${dir}/sub.zip`;
+    await createZipFileFromEntries([{ name: 'a.txt', buffer: Buffer.from('x') }], dest);
+    const { stat } = await import('fs/promises');
+    const st = await stat(dest);
+    expect(st.size).toBeGreaterThan(10);
+    await cleanupSamsungSyncTempDir(runId);
   }, 15000);
 });
