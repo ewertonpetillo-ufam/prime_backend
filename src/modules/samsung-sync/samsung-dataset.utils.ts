@@ -1,4 +1,8 @@
 import archiver = require('archiver');
+import { createWriteStream } from 'fs';
+import { mkdir, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 export type SamsungProtocol = 'Clinic' | 'Sleep' | 'Free-living';
 
@@ -187,6 +191,60 @@ export const createZipBufferFromEntries = async (
   }
   await arc.finalize();
   return result;
+};
+
+export const getSamsungSyncTempDir = (runId: string): string =>
+  join(tmpdir(), 'prime-samsung-sync', runId);
+
+export const ensureSamsungSyncTempDir = async (runId: string): Promise<string> => {
+  const dir = getSamsungSyncTempDir(runId);
+  await mkdir(dir, { recursive: true });
+  return dir;
+};
+
+export const cleanupSamsungSyncTempDir = async (runId: string): Promise<void> => {
+  const dir = getSamsungSyncTempDir(runId);
+  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+};
+
+/** Grava sub-ZIP em disco sem acumular buffers na heap. */
+export const createZipFileFromEntries = async (
+  entries: ZipEntryInput[],
+  destPath: string,
+): Promise<void> => {
+  const arc = archiver('zip', { zlib: { level: 1 } });
+  const output = createWriteStream(destPath);
+  const finished = new Promise<void>((resolve, reject) => {
+    output.on('close', () => resolve());
+    output.on('error', reject);
+    arc.on('error', reject);
+  });
+  arc.pipe(output);
+  for (const entry of entries) {
+    arc.append(entry.buffer, { name: entry.name });
+  }
+  await arc.finalize();
+  await finished;
+};
+
+/** ZIP de entrega principal gravado em disco (streaming). */
+export const openDeliveryZipWriter = (
+  runId: string,
+): {
+  archive: archiver.Archiver;
+  finished: Promise<void>;
+  filePath: string;
+} => {
+  const filePath = join(getSamsungSyncTempDir(runId), `${runId}.zip`);
+  const arc = archiver('zip', { zlib: { level: 1 } });
+  const output = createWriteStream(filePath);
+  const finished = new Promise<void>((resolve, reject) => {
+    output.on('close', () => resolve());
+    output.on('error', reject);
+    arc.on('error', reject);
+  });
+  arc.pipe(output);
+  return { archive: arc, finished, filePath };
 };
 
 export const deviceGroupKey = (
