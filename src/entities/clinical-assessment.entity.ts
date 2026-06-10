@@ -111,6 +111,9 @@ export class ClinicalAssessment {
   @Column({ type: 'text', nullable: true })
   sleep_patient_description: string;
 
+  @Column({ type: 'text', nullable: true })
+  speech_patient_description: string;
+
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 

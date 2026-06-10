@@ -15,6 +15,7 @@ import { Repository } from 'typeorm';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BART_SYNC_QUEUE } from '../queues/queues.module';
 import { SamsungSyncRun, SamsungSyncRunStatus } from '../../entities/samsung-sync-run.entity';
+import { SamsungSyncService } from '../samsung-sync/samsung-sync.service';
 
 export interface BartSyncRequestDto {
   patientStart?: string;
@@ -30,6 +31,7 @@ export class BartSyncController {
     @InjectQueue(BART_SYNC_QUEUE) private readonly bartSyncQueue: Queue,
     @InjectRepository(SamsungSyncRun)
     private readonly syncRunRepository: Repository<SamsungSyncRun>,
+    private readonly samsungSyncService: SamsungSyncService,
   ) {}
 
   @Post('request')
@@ -37,6 +39,16 @@ export class BartSyncController {
   @ApiOperation({ summary: 'Solicita sincronização assíncrona com BART/Artifactory' })
   @ApiResponse({ status: 202, description: 'Job criado — use statusUrl para acompanhar' })
   async requestBartSync(@Body() body: BartSyncRequestDto) {
+    const existingRun = await this.samsungSyncService.findActiveRunningRun();
+    if (existingRun) {
+      return {
+        jobId: null,
+        runId: existingRun.id,
+        alreadyRunning: true,
+        statusUrl: `/sync/samsung/runs/${existingRun.id}`,
+      };
+    }
+
     const job = await this.bartSyncQueue.add(
       'sync-to-bart',
       {
@@ -66,10 +78,32 @@ export class BartSyncController {
   async getBartSyncStatus(@Param('jobId') jobId: string) {
     const job = await this.bartSyncQueue.getJob(jobId);
     if (!job) {
-      // Job não encontrado — backend pode ter reiniciado ou Redis foi limpo
+      const runningRun = await this.syncRunRepository.findOne({
+        where: { status: SamsungSyncRunStatus.RUNNING },
+        order: { started_at: 'DESC' },
+      });
+      if (runningRun) {
+        const dbProgress = {
+          current:
+            (runningRun.synced_patients ?? 0) + (runningRun.errored_patients ?? 0),
+          total: runningRun.total_patients ?? 0,
+          uploadedFiles: runningRun.uploaded_files ?? 0,
+          skippedFiles: runningRun.skipped_files ?? 0,
+          errorFiles: runningRun.error_files ?? 0,
+        };
+        return {
+          status: 'processing',
+          runId: runningRun.id,
+          progress: dbProgress,
+          summary: runningRun.summary ?? undefined,
+          recoveredFromRun: true,
+        };
+      }
+
       return {
         status: 'error',
-        error: 'Processo não encontrado. O servidor pode ter sido reiniciado. Por favor, tente novamente.',
+        error:
+          'Processo não encontrado. O servidor pode ter sido reiniciado. Por favor, tente novamente.',
         progress: undefined,
         runId: null,
         errors: [],

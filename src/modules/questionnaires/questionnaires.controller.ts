@@ -30,6 +30,8 @@ import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { SavePhysioDto } from './dto/save-physio.dto';
 import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
+import { SaveSpeechPatientDescriptionDto } from './dto/save-speech-patient-description.dto';
+import { PatchSleepTestRecommendedDto } from './dto/patch-sleep-test-recommended.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Questionnaires')
@@ -320,6 +322,31 @@ export class QuestionnairesController {
     );
   }
 
+  @Post('speech-patient-description')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Salvar descrição do paciente (avaliação da fala)',
+    description:
+      'Atualiza a descrição clínica da fala do paciente vinculada ao questionário',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Descrição da fala salva com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async saveSpeechPatientDescription(
+    @Body() dto: SaveSpeechPatientDescriptionDto,
+    @CurrentUser() user: { userId: string },
+  ) {
+    return this.questionnairesService.saveSpeechPatientDescription(
+      dto,
+      user.userId,
+    );
+  }
+
   @Post(':id/session/start')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -358,6 +385,31 @@ export class QuestionnairesController {
     return this.questionnairesService.endSession(questionnaireId);
   }
 
+  @Patch(':id/sleep-test-recommended')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar indicação de teste de sono',
+    description:
+      'Marca ou desmarca o paciente como recomendado para teste de sono na avaliação neurológica.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Indicação atualizada com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async patchSleepTestRecommended(
+    @Param('id') questionnaireId: string,
+    @Body() dto: PatchSleepTestRecommendedDto,
+  ) {
+    return this.questionnairesService.patchSleepTestRecommended(
+      questionnaireId,
+      dto.sleepTestRecommended,
+    );
+  }
+
   @Get('reference-data')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -377,7 +429,8 @@ export class QuestionnairesController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Search questionnaires',
-    description: 'Search questionnaires by patient name or CPF',
+    description:
+      'Search questionnaires by patient name, CPF (partial digits) or public identifier (partial)',
   })
   @ApiResponse({
     status: 200,

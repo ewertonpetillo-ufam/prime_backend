@@ -39,6 +39,13 @@ import { PdfReport } from '../../entities/pdf-report.entity';
 import { SaveUpdrs3Dto } from './dto/save-updrs3.dto';
 import { SaveMeemDto } from './dto/save-meem.dto';
 import { SaveUdysrsDto } from './dto/save-udysrs.dto';
+import {
+  formatMeemLanguageNaming,
+  formatNeurologicalScoreCsv,
+  getUdysrsQExportValues,
+  joinSubjectDataCsvRow,
+  pickExportValue,
+} from './neurological-assessment-csv.util';
 import { SaveStopbangDto } from './dto/save-stopbang.dto';
 import { SaveEpworthDto } from './dto/save-epworth.dto';
 import { SavePdss2Dto } from './dto/save-pdss2.dto';
@@ -47,6 +54,7 @@ import { SaveRbdsqBrDto } from './dto/save-rbdsq-br.dto';
 import { SaveFogqDto } from './dto/save-fogq.dto';
 import { SavePhysioDto } from './dto/save-physio.dto';
 import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
+import { SaveSpeechPatientDescriptionDto } from './dto/save-speech-patient-description.dto';
 import { PdfReportsService } from '../pdf-reports/pdf-reports.service';
 
 const UPDRS_SCORE_FIELDS = [
@@ -1369,6 +1377,79 @@ export class QuestionnairesService {
     return saved;
   }
 
+  async saveSpeechPatientDescription(
+    dto: SaveSpeechPatientDescriptionDto,
+    evaluatorId: string,
+  ): Promise<ClinicalAssessment> {
+    const { questionnaireId, speechPatientDescription } = dto;
+
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
+    }
+
+    let clinicalAssessment: ClinicalAssessment | null =
+      await this.clinicalAssessmentRepository.findOne({
+        where: { questionnaire_id: questionnaireId },
+      });
+
+    if (!clinicalAssessment) {
+      const payload: DeepPartial<ClinicalAssessment> = {
+        questionnaire_id: questionnaireId,
+        diagnostic_description: '',
+        age_at_onset: null,
+        initial_symptom: null,
+        affected_side: null,
+        phenotype_id: null,
+        hoehn_yahr_stage_id: null,
+        schwab_england_score: null,
+        has_family_history: false,
+        family_kinship_degree: null,
+        has_dyskinesia: false,
+        dyskinesia_interfered: false,
+        dyskinesia_type_id: null,
+        dyskinesia_type_codes: null,
+        has_freezing_of_gait: false,
+        has_wearing_off: false,
+        average_on_time_hours: null,
+        has_delayed_on: false,
+        ldopa_onset_time_hours: null,
+        assessed_on_levodopa: false,
+        has_surgery_history: false,
+        surgery_year: null,
+        surgery_type_id: null,
+        surgery_target: null,
+        comorbidities: null,
+        other_medications: null,
+        disease_evolution: null,
+        current_symptoms: null,
+        speech_patient_description: speechPatientDescription ?? null,
+      };
+      clinicalAssessment = this.clinicalAssessmentRepository.create(payload);
+    } else {
+      clinicalAssessment.speech_patient_description =
+        speechPatientDescription ?? null;
+    }
+
+    const saved =
+      await this.clinicalAssessmentRepository.save(clinicalAssessment);
+
+    {
+      const currentLastStep = questionnaire.last_step ?? 0;
+      questionnaire.last_step = Math.max(currentLastStep, 3);
+      this.accumulateSessionTime(questionnaire, new Date());
+      this.setQuestionnaireEvaluator(questionnaire, evaluatorId);
+      await this.questionnairesRepository.save(questionnaire);
+    }
+
+    return saved;
+  }
+
   /**
    * Save UPDRS-III scores (Step 4 - Avaliação Neurológica)
    */
@@ -1771,6 +1852,32 @@ export class QuestionnairesService {
   }
 
   /**
+   * Atualiza indicação de teste de sono (Step 4 neurológico).
+   */
+  async patchSleepTestRecommended(
+    questionnaireId: string,
+    sleepTestRecommended: boolean,
+  ) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
+    }
+
+    questionnaire.sleep_test_recommended = sleepTestRecommended === true;
+    const saved = await this.questionnairesRepository.save(questionnaire);
+
+    return {
+      questionnaireId: saved.id,
+      sleepTestRecommended: saved.sleep_test_recommended === true,
+    };
+  }
+
+  /**
    * Save FOGQ scores
    */
   async saveFogqScores(dto: SaveFogqDto, evaluatorId: string) {
@@ -1915,7 +2022,7 @@ export class QuestionnairesService {
   }
 
   /**
-   * Search questionnaires by patient name or CPF (optimized for listing)
+   * Search questionnaires by patient name, CPF (partial) or public_identifier (partial)
    * Returns only basic data needed for the search results page
    */
   async searchQuestionnaires(term?: string) {
@@ -1940,29 +2047,31 @@ export class QuestionnairesService {
       .limit(100); // Limitar resultados para melhor performance
 
     if (term && term.trim() !== '') {
-      const termLower = term.toLowerCase().trim();
-      const termDigits = term.replace(/\D/g, '');
+      const termTrimmed = term.trim();
+      const termLower = termTrimmed.toLowerCase();
+      const termDigits = termTrimmed.replace(/\D/g, '');
+      const termCompact = termTrimmed.replace(/\s/g, '');
 
-      // Se o termo tem dígitos, pode ser CPF - gerar hash e buscar
-      if (termDigits.length > 0) {
-        try {
-          const cpfHash = CryptoUtil.hashCpf(termDigits);
-          queryBuilder.where(
-            '(LOWER(patient.full_name) LIKE :term OR patient.cpf_hash = :cpfHash)',
-            { term: `%${termLower}%`, cpfHash },
-          );
-        } catch (error) {
-          // Se falhar ao gerar hash, busca apenas por nome
-          queryBuilder.where('LOWER(patient.full_name) LIKE :term', {
-            term: `%${termLower}%`,
-          });
-        }
-      } else {
-        // Apenas busca por nome
-        queryBuilder.where('LOWER(patient.full_name) LIKE :term', {
-          term: `%${termLower}%`,
-        });
+      const conditions = ['LOWER(patient.full_name) LIKE :term'];
+      const params: Record<string, string> = {
+        term: `%${termLower}%`,
+      };
+
+      // Identificador público: correspondência parcial conforme digitação (como o nome)
+      if (termCompact.length > 0) {
+        params.pidTerm = `%${termCompact}%`;
+        conditions.push(
+          "COALESCE(patient.public_identifier, '') ILIKE :pidTerm",
+        );
       }
+
+      // CPF: correspondência parcial pelos dígitos digitados (como o nome)
+      if (termDigits.length > 0) {
+        params.cpfDigitsTerm = `%${termDigits}%`;
+        conditions.push("COALESCE(patient.cpf, '') LIKE :cpfDigitsTerm");
+      }
+
+      queryBuilder.where(`(${conditions.join(' OR ')})`, params);
     }
 
     const questionnaires = await queryBuilder.getMany();
@@ -1970,6 +2079,7 @@ export class QuestionnairesService {
     // Retornar apenas dados básicos para a listagem
     return questionnaires.map((q) => ({
       id: q.id,
+      patientId: q.patient?.id || q.patient_id || null,
       fullName: q.patient?.full_name || '',
       cpf: q.patient?.cpf || '', // CPF em texto para exibição nas telas
       cpfHash: q.patient?.cpf_hash || '', // Hash do CPF para exportações
@@ -2228,6 +2338,7 @@ export class QuestionnairesService {
             : 'Não'
           : '',
       isHealthyControl: questionnaire.is_healthy_control === true,
+      sleepTestRecommended: questionnaire.sleep_test_recommended === true,
     };
 
     // Dados antropométricos
@@ -2334,6 +2445,8 @@ export class QuestionnairesService {
         clinical.physio_patient_description || '';
       (formData as any).sleepPatientDescription =
         clinical.sleep_patient_description || '';
+      (formData as any).speechPatientDescription =
+        clinical.speech_patient_description || '';
 
       formData.wearingOff =
         clinical.has_wearing_off === true ? true : undefined;
@@ -2992,6 +3105,7 @@ export class QuestionnairesService {
 
     return {
       id: questionnaire.id,
+      patientId: questionnaire.patient_id,
       fullName: patient.full_name,
       cpf: patient.cpf || '', // CPF em texto para exibição nas telas
       cpfHash: patient.cpf_hash || '', // Hash do CPF para exportações
@@ -3122,20 +3236,24 @@ export class QuestionnairesService {
     // às relações de score/avaliação do questionário. Como cada protocolo é salvo
     // em tabela própria, a presença do objeto já indica que o protocolo foi preenchido.
 
-    const sleepProtocolsCompleted =
-      !!questionnaire.stopbang_score &&
-      !!questionnaire.epworth_score &&
-      !!questionnaire.pdss2_score &&
-      !!questionnaire.rbdsq_score;
+    const isHealthyControl = questionnaire.is_healthy_control === true;
+
+    const sleepProtocolsCompleted = isHealthyControl
+      ? !!questionnaire.stopbang_score && !!questionnaire.epworth_score
+      : !!questionnaire.stopbang_score &&
+        !!questionnaire.epworth_score &&
+        !!questionnaire.pdss2_score &&
+        !!questionnaire.rbdsq_score;
 
     const neurologicalProtocolsCompleted =
       !!questionnaire.updrs3_score &&
       !!questionnaire.meem_score &&
       !!questionnaire.udysrs_score;
 
-    const physiotherapyProtocolsCompleted = !!questionnaire.fogq_score;
+    const physiotherapyProtocolsCompleted = isHealthyControl
+      ? true
+      : !!questionnaire.fogq_score;
 
-    // Aqui assumimos que todos esses protocolos são obrigatórios
     return (
       sleepProtocolsCompleted &&
       neurologicalProtocolsCompleted &&
@@ -3303,13 +3421,13 @@ export class QuestionnairesService {
       data.data?.familyCase || '',
       data.data?.kinshipDegree || '',
       data.data?.mainPhenotype || '',
-      data.data?.levodopaOn ? 'Sim' : 'Não',
-      data.data?.diskinectiaPresence ? 'Sim' : 'Não',
-      data.data?.fog ? 'Sim' : 'Não',
+      pickExportValue(data.data?.levodopaOn),
+      pickExportValue(data.data?.diskinectiaPresence),
+      pickExportValue(data.data?.fog),
       data.data?.fogClassifcation || '',
-      data.data?.wearingOff ? 'Sim' : 'Não',
+      pickExportValue(data.data?.wearingOff),
       data.data?.durationWearingOff || '',
-      data.data?.DelayOn ? 'Sim' : 'Não',
+      pickExportValue(data.data?.DelayOn),
       data.data?.durationLDopa || '',
       data.data?.scaleHY || '',
       data.data?.scaleSE || '',
@@ -3322,7 +3440,7 @@ export class QuestionnairesService {
       data.data?.evolution || '',
       data.data?.symptom || '',
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3391,7 +3509,6 @@ export class QuestionnairesService {
       'meem_attention_calc3',
       'meem_attention_calc4',
       'meem_attention_calc5',
-      'meem_attention_spell',
       'meem_recall_word1',
       'meem_recall_word2',
       'meem_recall_word3',
@@ -3437,116 +3554,96 @@ export class QuestionnairesService {
     ];
     rows.push(headers.join(','));
 
-    // Data row
-    const updrs3 = data.data?.updrs3Scores || {};
-    const meem = data.data?.meemScores || {};
-    const udysrs = data.data?.udysrsScores || {};
+    const formData = data.data || {};
+    const updrs3 = {
+      ...(data.updrs3_score || {}),
+      ...(formData.updrs3Scores || {}),
+    };
+    const meem = {
+      ...(data.meem_score || {}),
+      ...(formData.meemScores || {}),
+    };
+    const udysrs = {
+      ...(data.udysrs_score || {}),
+      ...(formData.udysrsScores || {}),
+    };
 
-    const speechFullName: string = data.data?.fullName || '';
-    const speechFirstName: string = speechFullName.split(' ')[0] || '';
+    const udysrsQValues = getUdysrsQExportValues(udysrs);
 
     const values = [
       data.id || '',
-      data.data?.scoreUPDRS3 || '',
-      updrs3.speech || '',
-      updrs3.facial_expression || '',
-      updrs3.rigidity_neck || '',
-      updrs3.rigidity_rue || '',
-      updrs3.rigidity_lue || '',
-      updrs3.rigidity_rle || '',
-      updrs3.rigidity_lle || '',
-      updrs3.finger_tapping_right || '',
-      updrs3.finger_tapping_left || '',
-      updrs3.hand_movements_right || '',
-      updrs3.hand_movements_left || '',
-      updrs3.pronation_supination_right || '',
-      updrs3.pronation_supination_left || '',
-      updrs3.toe_tapping_right || '',
-      updrs3.toe_tapping_left || '',
-      updrs3.leg_agility_right || '',
-      updrs3.leg_agility_left || '',
-      updrs3.rising_from_chair || '',
-      updrs3.gait || '',
-      updrs3.freezing_of_gait || '',
-      updrs3.postural_stability || '',
-      updrs3.posture || '',
-      updrs3.global_bradykinesia || '',
-      updrs3.postural_tremor_right || '',
-      updrs3.postural_tremor_left || '',
-      updrs3.kinetic_tremor_right || '',
-      updrs3.kinetic_tremor_left || '',
-      updrs3.rest_tremor_rue || '',
-      updrs3.rest_tremor_lue || '',
-      updrs3.rest_tremor_rle || '',
-      updrs3.rest_tremor_lle || '',
-      updrs3.rest_tremor_lip_jaw || '',
-      updrs3.postural_tremor_amplitude || '',
-      updrs3.dyskinesia_present || '',
-      updrs3.dyskinesia_interfered || '',
-      data.data?.scoreMEEN || '',
-      meem.orientation_day || '',
-      meem.orientation_date || '',
-      meem.orientation_month || '',
-      meem.orientation_year || '',
-      meem.orientation_time || '',
-      meem.orientation_location || '',
-      meem.orientation_institution || '',
-      meem.orientation_city || '',
-      meem.orientation_state || '',
-      meem.orientation_country || '',
-      meem.registration_word1 || '',
-      meem.registration_word2 || '',
-      meem.registration_word3 || '',
-      meem.attention_calc1 || '',
-      meem.attention_calc2 || '',
-      meem.attention_calc3 || '',
-      meem.attention_calc4 || '',
-      meem.attention_calc5 || '',
-      meem.attention_spell || '',
-      meem.recall_word1 || '',
-      meem.recall_word2 || '',
-      meem.recall_word3 || '',
-      meem.language_naming || '',
-      meem.language_repetition || '',
-      meem.language_command1 || '',
-      meem.language_command2 || '',
-      meem.language_command3 || '',
-      meem.language_reading || '',
-      meem.language_writing || '',
-      meem.language_copying || '',
-      udysrs.historical_subscore || '',
-      udysrs.objective_subscore || '',
-      udysrs.total_score || '',
-      udysrs.q1 || '',
-      udysrs.q2 || '',
-      udysrs.q3 || '',
-      udysrs.q4 || '',
-      udysrs.q5 || '',
-      udysrs.q6 || '',
-      udysrs.q7 || '',
-      udysrs.q8 || '',
-      udysrs.q9 || '',
-      udysrs.q10 || '',
-      udysrs.q11 || '',
-      udysrs.q12 || '',
-      udysrs.q13 || '',
-      udysrs.q14 || '',
-      udysrs.q15 || '',
-      udysrs.q16 || '',
-      udysrs.q17 || '',
-      udysrs.q18 || '',
-      udysrs.q19 || '',
-      udysrs.q20 || '',
-      udysrs.q21 || '',
-      udysrs.q22 || '',
-      udysrs.q23 || '',
-      udysrs.q24 || '',
-      udysrs.q25 || '',
-      udysrs.q26 || '',
-      udysrs.q27 || '',
-      udysrs.q28 || '',
+      formData.scoreUPDRS3 || '',
+      formatNeurologicalScoreCsv(updrs3.speech),
+      formatNeurologicalScoreCsv(updrs3.facial_expression),
+      formatNeurologicalScoreCsv(updrs3.rigidity_neck),
+      formatNeurologicalScoreCsv(updrs3.rigidity_rue),
+      formatNeurologicalScoreCsv(updrs3.rigidity_lue),
+      formatNeurologicalScoreCsv(updrs3.rigidity_rle),
+      formatNeurologicalScoreCsv(updrs3.rigidity_lle),
+      formatNeurologicalScoreCsv(updrs3.finger_tapping_right),
+      formatNeurologicalScoreCsv(updrs3.finger_tapping_left),
+      formatNeurologicalScoreCsv(updrs3.hand_movements_right),
+      formatNeurologicalScoreCsv(updrs3.hand_movements_left),
+      formatNeurologicalScoreCsv(updrs3.pronation_supination_right),
+      formatNeurologicalScoreCsv(updrs3.pronation_supination_left),
+      formatNeurologicalScoreCsv(updrs3.toe_tapping_right),
+      formatNeurologicalScoreCsv(updrs3.toe_tapping_left),
+      formatNeurologicalScoreCsv(updrs3.leg_agility_right),
+      formatNeurologicalScoreCsv(updrs3.leg_agility_left),
+      formatNeurologicalScoreCsv(updrs3.rising_from_chair),
+      formatNeurologicalScoreCsv(updrs3.gait),
+      formatNeurologicalScoreCsv(updrs3.freezing_of_gait),
+      formatNeurologicalScoreCsv(updrs3.postural_stability),
+      formatNeurologicalScoreCsv(updrs3.posture),
+      formatNeurologicalScoreCsv(updrs3.global_bradykinesia),
+      formatNeurologicalScoreCsv(updrs3.postural_tremor_right),
+      formatNeurologicalScoreCsv(updrs3.postural_tremor_left),
+      formatNeurologicalScoreCsv(updrs3.kinetic_tremor_right),
+      formatNeurologicalScoreCsv(updrs3.kinetic_tremor_left),
+      formatNeurologicalScoreCsv(updrs3.rest_tremor_rue),
+      formatNeurologicalScoreCsv(updrs3.rest_tremor_lue),
+      formatNeurologicalScoreCsv(updrs3.rest_tremor_rle),
+      formatNeurologicalScoreCsv(updrs3.rest_tremor_lle),
+      formatNeurologicalScoreCsv(updrs3.rest_tremor_lip_jaw),
+      formatNeurologicalScoreCsv(updrs3.postural_tremor_amplitude),
+      formatNeurologicalScoreCsv(updrs3.dyskinesia_present),
+      formatNeurologicalScoreCsv(updrs3.dyskinesia_interfered),
+      formData.scoreMEEN || '',
+      formatNeurologicalScoreCsv(meem.orientation_day),
+      formatNeurologicalScoreCsv(meem.orientation_date),
+      formatNeurologicalScoreCsv(meem.orientation_month),
+      formatNeurologicalScoreCsv(meem.orientation_year),
+      formatNeurologicalScoreCsv(meem.orientation_time),
+      formatNeurologicalScoreCsv(meem.orientation_location),
+      formatNeurologicalScoreCsv(meem.orientation_institution),
+      formatNeurologicalScoreCsv(meem.orientation_city),
+      formatNeurologicalScoreCsv(meem.orientation_state),
+      formatNeurologicalScoreCsv(meem.orientation_country),
+      formatNeurologicalScoreCsv(meem.registration_word1),
+      formatNeurologicalScoreCsv(meem.registration_word2),
+      formatNeurologicalScoreCsv(meem.registration_word3),
+      formatNeurologicalScoreCsv(meem.attention_calc1),
+      formatNeurologicalScoreCsv(meem.attention_calc2),
+      formatNeurologicalScoreCsv(meem.attention_calc3),
+      formatNeurologicalScoreCsv(meem.attention_calc4),
+      formatNeurologicalScoreCsv(meem.attention_calc5),
+      formatNeurologicalScoreCsv(meem.recall_word1),
+      formatNeurologicalScoreCsv(meem.recall_word2),
+      formatNeurologicalScoreCsv(meem.recall_word3),
+      formatMeemLanguageNaming(meem),
+      formatNeurologicalScoreCsv(meem.language_repetition),
+      formatNeurologicalScoreCsv(meem.language_command1),
+      formatNeurologicalScoreCsv(meem.language_command2),
+      formatNeurologicalScoreCsv(meem.language_command3),
+      formatNeurologicalScoreCsv(meem.language_reading),
+      formatNeurologicalScoreCsv(meem.language_writing),
+      formatNeurologicalScoreCsv(meem.language_copying),
+      formatNeurologicalScoreCsv(udysrs.historical_subscore),
+      formatNeurologicalScoreCsv(udysrs.objective_subscore),
+      formatNeurologicalScoreCsv(udysrs.total_score),
+      ...udysrsQValues,
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3609,7 +3706,7 @@ export class QuestionnairesService {
       nmf.q17 || '',
       nmf.q18 || '',
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3618,6 +3715,19 @@ export class QuestionnairesService {
    * Generate CSV for Sleep Assessment (STOP-Bang, Epworth, PDSS-2, RBDSQ)
    */
   private generateSleepAssessmentCsv(data: any): string {
+    const d = data.data || {};
+    const stop = data.stopbang_score;
+    const epworth = data.epworth_score;
+    const pdss2 = data.pdss2_score;
+    const rbdsqBr = data.rbdsq_br_score;
+    const rbdsqLegacy = data.rbdsq_score;
+
+    const rbdsqField = (formKey: string, brKey?: string, legacyKey?: string) =>
+      pickExportValue(
+        d[formKey],
+        brKey && rbdsqBr ? (rbdsqBr as any)[brKey] : undefined,
+        legacyKey && rbdsqLegacy ? (rbdsqLegacy as any)[legacyKey] : undefined,
+      );
     const rows: string[] = [];
 
     // Header anonimizado (sem nome e CPF)
@@ -3680,56 +3790,60 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
-      data.data?.scoreStopBang || '',
-      data.data?.stopbang_snore || '',
-      data.data?.stopbang_tired || '',
-      data.data?.stopbang_observed || '',
-      data.data?.stopbang_pressure || '',
-      data.data?.stopbang_age || '',
-      data.data?.stopbang_neck || '',
-      data.data?.stopbang_gender || '',
-      data.data?.scoreEpworth || '',
-      data.data?.epworth_q1 || '',
-      data.data?.epworth_q2 || '',
-      data.data?.epworth_q3 || '',
-      data.data?.epworth_q4 || '',
-      data.data?.epworth_q5 || '',
-      data.data?.epworth_q6 || '',
-      data.data?.epworth_q7 || '',
-      data.data?.epworth_q8 || '',
-      data.data?.scorePDSS2 || '',
-      data.data?.pdss2_q1 || '',
-      data.data?.pdss2_q2 || '',
-      data.data?.pdss2_q3 || '',
-      data.data?.pdss2_q4 || '',
-      data.data?.pdss2_q5 || '',
-      data.data?.pdss2_q6 || '',
-      data.data?.pdss2_q7 || '',
-      data.data?.pdss2_q8 || '',
-      data.data?.pdss2_q9 || '',
-      data.data?.pdss2_q10 || '',
-      data.data?.pdss2_q11 || '',
-      data.data?.pdss2_q12 || '',
-      data.data?.pdss2_q13 || '',
-      data.data?.pdss2_q14 || '',
-      data.data?.pdss2_q15 || '',
-      data.data?.scoreRBDSQ || '',
-      data.data?.q1RBDSQ || '',
-      data.data?.q2RBDSQ || '',
-      data.data?.q3RBDSQ || '',
-      data.data?.q4RBDSQ || '',
-      data.data?.q5RBDSQ || '',
-      data.data?.q6_1RBDSQ || '',
-      data.data?.q6_2RBDSQ || '',
-      data.data?.q6_3RBDSQ || '',
-      data.data?.q6_4RBDSQ || '',
-      data.data?.q7RBDSQ || '',
-      data.data?.q8RBDSQ || '',
-      data.data?.q9RBDSQ || '',
-      data.data?.q10RBDSQ || '',
-      data.data?.rbdsqNeuroDiseaseDescription || '',
+      pickExportValue(d.scoreStopBang, stop?.total_score),
+      pickExportValue(d.stopbang_snore, stop?.snoring),
+      pickExportValue(d.stopbang_tired, stop?.tired),
+      pickExportValue(d.stopbang_observed, stop?.observed_apnea),
+      pickExportValue(d.stopbang_pressure, stop?.blood_pressure),
+      pickExportValue(d.stopbang_age, stop?.age_over_50),
+      pickExportValue(d.stopbang_neck, stop?.neck_circumference_large),
+      pickExportValue(d.stopbang_gender, stop?.gender_male),
+      pickExportValue(d.scoreEpworth, epworth?.total_score),
+      pickExportValue(d.epworth_q1, epworth?.sitting_reading),
+      pickExportValue(d.epworth_q2, epworth?.watching_tv),
+      pickExportValue(d.epworth_q3, epworth?.sitting_inactive_public),
+      pickExportValue(d.epworth_q4, epworth?.passenger_car),
+      pickExportValue(d.epworth_q5, epworth?.lying_down_afternoon),
+      pickExportValue(d.epworth_q6, epworth?.sitting_talking),
+      pickExportValue(d.epworth_q7, epworth?.sitting_after_lunch),
+      pickExportValue(d.epworth_q8, epworth?.car_stopped_traffic),
+      pickExportValue(d.scorePDSS2, pdss2?.total_score),
+      pickExportValue(d.pdss2_q1, pdss2?.q1),
+      pickExportValue(d.pdss2_q2, pdss2?.q2),
+      pickExportValue(d.pdss2_q3, pdss2?.q3),
+      pickExportValue(d.pdss2_q4, pdss2?.q4),
+      pickExportValue(d.pdss2_q5, pdss2?.q5),
+      pickExportValue(d.pdss2_q6, pdss2?.q6),
+      pickExportValue(d.pdss2_q7, pdss2?.q7),
+      pickExportValue(d.pdss2_q8, pdss2?.q8),
+      pickExportValue(d.pdss2_q9, pdss2?.q9),
+      pickExportValue(d.pdss2_q10, pdss2?.q10),
+      pickExportValue(d.pdss2_q11, pdss2?.q11),
+      pickExportValue(d.pdss2_q12, pdss2?.q12),
+      pickExportValue(d.pdss2_q13, pdss2?.q13),
+      pickExportValue(d.pdss2_q14, pdss2?.q14),
+      pickExportValue(d.pdss2_q15, pdss2?.q15),
+      pickExportValue(d.scoreRBDSQ, rbdsqBr?.total_score, rbdsqLegacy?.total_score),
+      rbdsqField('q1RBDSQ', 'q1_realistic_dreams', 'q1_vivid_dreams'),
+      rbdsqField('q2RBDSQ', 'q2_aggressive_dreams', 'q2_aggressive_content'),
+      rbdsqField('q3RBDSQ', 'q3_dream_enactment', 'q3_dream_enactment'),
+      rbdsqField('q4RBDSQ', 'q4_limb_movements', 'q4_limb_movements'),
+      rbdsqField('q5RBDSQ', 'q5_injury_potential', 'q5_injury_potential'),
+      rbdsqField('q6_1RBDSQ', 'q6_1_vocalizations', 'q6_bed_disruption'),
+      rbdsqField('q6_2RBDSQ', 'q6_2_fighting_movements'),
+      rbdsqField('q6_3RBDSQ', 'q6_3_complex_movements_or_falls'),
+      rbdsqField('q6_4RBDSQ', 'q6_4_objects_falling'),
+      rbdsqField('q7RBDSQ', 'q7_movements_cause_awakenings', 'q7_awakening_recall'),
+      rbdsqField('q8RBDSQ', 'q8_dream_recall', 'q8_sleep_disruption'),
+      rbdsqField('q9RBDSQ', 'q9_disturbed_sleep', 'q9_neurological_disorder'),
+      rbdsqField('q10RBDSQ', 'q10_neurological_disease', 'q10_rem_behavior_problem'),
+      pickExportValue(
+        d.rbdsqNeuroDiseaseDescription,
+        rbdsqBr?.neuro_disease_description,
+        rbdsqLegacy?.neuro_disease_description,
+      ),
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }
@@ -3759,14 +3873,14 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
-      data.data?.scoreFOGQ || '',
-      fogq.gait_worst_state || '',
-      fogq.impact_daily_activities || '',
-      fogq.feet_stuck || '',
-      fogq.longest_episode || '',
-      fogq.hesitation_turning || '',
+      pickExportValue(data.data?.scoreFOGQ, fogq.total_score),
+      pickExportValue(fogq.gait_worst_state),
+      pickExportValue(fogq.impact_daily_activities),
+      pickExportValue(fogq.feet_stuck),
+      pickExportValue(fogq.longest_episode),
+      pickExportValue(fogq.hesitation_turning),
     ];
-    rows.push(this.objectToCsvRow(values));
+    rows.push(joinSubjectDataCsvRow(values));
 
     return rows.join('\n');
   }

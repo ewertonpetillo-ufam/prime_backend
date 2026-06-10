@@ -15,6 +15,7 @@ interface BartSyncJobData {
     dateEnd?: string;
   };
   userId?: string | null;
+  runId?: string;
 }
 
 interface BartSyncProgress {
@@ -25,7 +26,10 @@ interface BartSyncProgress {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-@Processor(BART_SYNC_QUEUE, { concurrency: 1 })
+@Processor(BART_SYNC_QUEUE, {
+  concurrency: 1,
+  lockDuration: 4 * 60 * 60 * 1000,
+})
 export class BartSyncProcessor extends WorkerHost {
   private readonly logger = new Logger(BartSyncProcessor.name);
 
@@ -41,21 +45,36 @@ export class BartSyncProcessor extends WorkerHost {
     this.logger.log(`[Job ${job.id}] Iniciando sincronização com BART`);
 
     const { filters, userId = null } = job.data;
+    const jobProgress = job.progress as BartSyncProgress | null;
+    let runId = job.data.runId ?? jobProgress?.runId;
 
-    // Dispara o sync assíncrono — retorna imediatamente com { run_id }
-    const asyncResult = await this.samsungSyncService.runSyncAsync(
-      userId ?? null,
-      'manual',
-      filters,
-    );
-    const runId = asyncResult.run_id;
+    if (runId) {
+      const existing = await this.syncRunRepository.findOne({ where: { id: runId } });
+      if (existing) {
+        this.logger.log(
+          `[Job ${job.id}] Retomando polling do run existente ${runId} (idempotência pós-restart)`,
+        );
+      } else {
+        this.logger.warn(
+          `[Job ${job.id}] runId ${runId} do job não encontrado; criando novo run`,
+        );
+        runId = undefined;
+      }
+    }
 
-    this.logger.log(`[Job ${job.id}] run_id criado: ${runId}`);
+    if (!runId) {
+      const asyncResult = await this.samsungSyncService.runSyncAsync(
+        userId ?? null,
+        'manual',
+        filters,
+      );
+      runId = asyncResult.run_id;
+      await job.updateData({ ...job.data, runId });
+      this.logger.log(`[Job ${job.id}] run_id criado/reutilizado: ${runId}`);
+    }
 
-    // Publica o runId imediatamente para que o status endpoint possa usá-lo
     await job.updateProgress({ runId, current: 0, total: 0 } as BartSyncProgress);
 
-    // Aguarda o run completar — polling no banco a cada 3s
     let run: SamsungSyncRun | null = null;
     while (true) {
       await sleep(3000);
@@ -66,16 +85,14 @@ export class BartSyncProcessor extends WorkerHost {
         break;
       }
 
-      const total =
-        (run.total_patients ?? 0) > 0
-          ? run.total_patients
-          : (run.uploaded_files ?? 0) + (run.skipped_files ?? 0) + (run.error_files ?? 0) + (run.deleted_files ?? 0);
-      const current =
-        (run.uploaded_files ?? 0) + (run.skipped_files ?? 0) + (run.error_files ?? 0);
+      const total = run.total_patients ?? 0;
+      const current = (run.synced_patients ?? 0) + (run.errored_patients ?? 0);
 
       await job.updateProgress({ runId, current, total } as BartSyncProgress);
 
-      this.logger.log(`[Job ${job.id}] Status=${run.status} | ${current}/${total} arquivos`);
+      this.logger.log(
+        `[Job ${job.id}] Status=${run.status} | ${current}/${total} pacientes`,
+      );
 
       if (run.status !== SamsungSyncRunStatus.RUNNING) {
         break;

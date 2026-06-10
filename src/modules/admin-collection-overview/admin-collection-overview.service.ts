@@ -56,6 +56,33 @@ export type GenderKpis = {
   pacientesMulheres: number;
 };
 
+export type DemographicsBalanceRow = {
+  grupo: 'precoce' | 'saudavel' | 'avancado' | 'sem_classificacao';
+  grupoLabel: string;
+  faixaEtaria: string;
+  homens: number;
+  mulheres: number;
+  total: number;
+};
+
+export type DemographicsBalanceKpis = {
+  faixasEtarias: string[];
+  linhas: DemographicsBalanceRow[];
+};
+
+export type ReportPatientRowDto = {
+  questionnaireId: string;
+  patientLabel: string;
+  patientName: string;
+  sex: string;
+  age: number | null;
+  isAdvanced: boolean;
+  sleepTestRecommended: boolean;
+  sleepTestDone: boolean;
+  contactPhone: string | null;
+  contactEmail: string | null;
+};
+
 @Injectable()
 export class AdminCollectionOverviewService {
   constructor(
@@ -355,6 +382,178 @@ export class AdminCollectionOverviewService {
     return { pacientesHomens, pacientesMulheres };
   }
 
+  private computeAgeYears(dateOfBirth: Date | undefined): number | null {
+    if (!dateOfBirth) return null;
+    const today = new Date();
+    const birth = new Date(dateOfBirth);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birth.getDate())
+    ) {
+      age -= 1;
+    }
+    return Number.isFinite(age) ? age : null;
+  }
+
+  private ageBandLabel(age: number | null): string {
+    if (age == null || age < 0) return 'Sem idade';
+    if (age < 50) return '18–49';
+    if (age < 60) return '50–59';
+    if (age < 70) return '60–69';
+    if (age < 80) return '70–79';
+    return '80+';
+  }
+
+  private classifyPatientGroup(
+    q: Questionnaire,
+    clinicalRow: { age_at_onset: number | null; stage: string | number | null } | undefined,
+  ): DemographicsBalanceRow['grupo'] {
+    if (q.is_healthy_control === true) return 'saudavel';
+
+    const stageVal = clinicalRow?.stage;
+    const hyNum =
+      stageVal === null || stageVal === undefined
+        ? null
+        : Number.parseFloat(String(stageVal));
+    const hy = hyNum !== null && Number.isFinite(hyNum) ? hyNum : null;
+
+    const D = this.approximateDiseaseYears(
+      q.patient?.date_of_birth,
+      clinicalRow?.age_at_onset ?? null,
+    );
+
+    if (D === null || hy === null) return 'sem_classificacao';
+    if (D >= 5) return 'avancado';
+    if (D < 5 && hy <= 3) return 'precoce';
+    return 'sem_classificacao';
+  }
+
+  private async computeDemographicsBalanceKpis(
+    questionnaires: Questionnaire[],
+  ): Promise<DemographicsBalanceKpis> {
+    const faixasEtarias = ['18–49', '50–59', '60–69', '70–79', '80+', 'Sem idade'];
+    const empty: DemographicsBalanceKpis = { faixasEtarias, linhas: [] };
+    if (questionnaires.length === 0) return empty;
+
+    const onePerPatient = this.dedupeLatestQuestionnairePerPatient(questionnaires);
+    const qids = onePerPatient.map((q) => q.id);
+    if (qids.length === 0) return empty;
+
+    const raw = await this.clinicalRepo
+      .createQueryBuilder('ca')
+      .select('ca.questionnaire_id', 'questionnaire_id')
+      .addSelect('ca.age_at_onset', 'age_at_onset')
+      .addSelect('hy.stage', 'stage')
+      .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
+      .where('ca.questionnaire_id IN (:...qids)', { qids })
+      .getRawMany();
+
+    const byQid = new Map<
+      string,
+      { age_at_onset: number | null; stage: string | number | null }
+    >();
+    for (const row of raw) {
+      const qid = String((row as { questionnaire_id: string }).questionnaire_id);
+      const ageRaw = (row as { age_at_onset: unknown }).age_at_onset;
+      const stageRaw = (row as { stage: unknown }).stage;
+      byQid.set(qid, {
+        age_at_onset:
+          ageRaw !== null && ageRaw !== undefined && !Number.isNaN(Number(ageRaw))
+            ? Number(ageRaw)
+            : null,
+        stage: stageRaw as string | number | null,
+      });
+    }
+
+    const genderRaw = await this.questionnairesRepo.manager.query(
+      `
+      SELECT
+        q.id AS questionnaire_id,
+        COALESCE(gt.code, '') AS gender_code,
+        p.date_of_birth AS date_of_birth
+      FROM questionnaires q
+      INNER JOIN patients p ON p.id = q.patient_id
+      LEFT JOIN gender_types gt ON gt.id = p.gender_id
+      WHERE q.id = ANY($1::uuid[])
+      `,
+      [qids],
+    );
+
+    const genderByQid = new Map<
+      string,
+      { gender_code: string; date_of_birth: Date | string | null }
+    >();
+    for (const row of genderRaw as {
+      questionnaire_id: string;
+      gender_code: string;
+      date_of_birth: Date | string | null;
+    }[]) {
+      genderByQid.set(String(row.questionnaire_id), {
+        gender_code: String(row.gender_code || '').trim().toUpperCase(),
+        date_of_birth: row.date_of_birth,
+      });
+    }
+
+    const grupoLabels: Record<DemographicsBalanceRow['grupo'], string> = {
+      precoce: 'Precoce (DP)',
+      saudavel: 'Saudável (controle)',
+      avancado: 'Avançado (DP)',
+      sem_classificacao: 'Sem classificação',
+    };
+
+    const counts = new Map<string, DemographicsBalanceRow>();
+
+    for (const q of onePerPatient) {
+      const grupo = this.classifyPatientGroup(q, byQid.get(q.id));
+      const gRow = genderByQid.get(q.id);
+      const age = this.computeAgeYears(
+        gRow?.date_of_birth
+          ? new Date(gRow.date_of_birth as string | Date)
+          : q.patient?.date_of_birth,
+      );
+      const faixaEtaria = this.ageBandLabel(age);
+      const key = `${grupo}|${faixaEtaria}`;
+      const genderCode = gRow?.gender_code || '';
+      const isMale = genderCode === 'M';
+      const isFemale = genderCode === 'F';
+
+      let row = counts.get(key);
+      if (!row) {
+        row = {
+          grupo,
+          grupoLabel: grupoLabels[grupo],
+          faixaEtaria,
+          homens: 0,
+          mulheres: 0,
+          total: 0,
+        };
+        counts.set(key, row);
+      }
+      if (isMale) row.homens += 1;
+      else if (isFemale) row.mulheres += 1;
+      row.total += 1;
+    }
+
+    const grupoOrder: DemographicsBalanceRow['grupo'][] = [
+      'precoce',
+      'avancado',
+      'saudavel',
+      'sem_classificacao',
+    ];
+    const linhas = [...counts.values()].sort((a, b) => {
+      const ga = grupoOrder.indexOf(a.grupo);
+      const gb = grupoOrder.indexOf(b.grupo);
+      if (ga !== gb) return ga - gb;
+      const fa = faixasEtarias.indexOf(a.faixaEtaria);
+      const fb = faixasEtarias.indexOf(b.faixaEtaria);
+      return fa - fb;
+    });
+
+    return { faixasEtarias, linhas };
+  }
+
   private patientLabel(q: Questionnaire): string {
     const pid = q.patient?.public_identifier?.trim();
     if (pid) return pid;
@@ -557,7 +756,8 @@ export class AdminCollectionOverviewService {
       armazenamentoRelatoriosMinioBytes: number;
       armazenamentoTotalBytes: number;
     } & ClinicalStratificationKpis &
-      GenderKpis;
+      GenderKpis &
+      DemographicsBalanceKpis;
     filesByTask: { task_code: string; task_name: string; count: number }[];
     questionnaires: {
       questionnaireId: string;
@@ -677,6 +877,9 @@ export class AdminCollectionOverviewService {
       questionnaires,
     );
     const genderKpis = await this.computeGenderKpis(questionnaires);
+    const demographicsBalance = await this.computeDemographicsBalanceKpis(
+      questionnaires,
+    );
 
     const protocolTotals = this.computeProtocolStageTotals(
       matrixRows,
@@ -706,6 +909,7 @@ export class AdminCollectionOverviewService {
         armazenamentoTotalBytes,
         ...clinicalStrat,
         ...genderKpis,
+        ...demographicsBalance,
       },
       filesByTask,
       questionnaires: summaryQuestionnaires,
@@ -714,6 +918,124 @@ export class AdminCollectionOverviewService {
         statuses,
         expectedBinaryFilesTotal: EXPECTED_BINARY_FILES_TOTAL,
         atRiskDaysWithoutUpload: AT_RISK_DAYS,
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  async getReportsPatients(params: {
+    statuses?: string;
+    limit?: number;
+  }): Promise<{
+    patients: ReportPatientRowDto[];
+    meta: {
+      limit: number;
+      statuses: string[];
+      generatedAt: string;
+    };
+  }> {
+    const statuses = this.parseStatuses(params.statuses);
+    const limit = params.limit ?? DEFAULT_LIMIT;
+
+    const { questionnaires, countsRows, taskIdToCode } =
+      await this.loadScopeAndCounts(statuses, limit);
+    const byQ = this.buildCountsByQuestionnaire(countsRows, taskIdToCode);
+
+    if (questionnaires.length === 0) {
+      return {
+        patients: [],
+        meta: {
+          limit,
+          statuses,
+          generatedAt: new Date().toISOString(),
+        },
+      };
+    }
+
+    const qids = questionnaires.map((q) => q.id);
+
+    const clinicalRaw = await this.clinicalRepo
+      .createQueryBuilder('ca')
+      .select('ca.questionnaire_id', 'questionnaire_id')
+      .addSelect('ca.age_at_onset', 'age_at_onset')
+      .addSelect('hy.stage', 'stage')
+      .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
+      .where('ca.questionnaire_id IN (:...qids)', { qids })
+      .getRawMany();
+
+    const clinicalByQid = new Map<
+      string,
+      { age_at_onset: number | null; stage: string | number | null }
+    >();
+    for (const row of clinicalRaw) {
+      const qid = String((row as { questionnaire_id: string }).questionnaire_id);
+      const ageRaw = (row as { age_at_onset: unknown }).age_at_onset;
+      const stageRaw = (row as { stage: unknown }).stage;
+      clinicalByQid.set(qid, {
+        age_at_onset:
+          ageRaw !== null && ageRaw !== undefined && !Number.isNaN(Number(ageRaw))
+            ? Number(ageRaw)
+            : null,
+        stage: stageRaw as string | number | null,
+      });
+    }
+
+    const genderRaw = await this.questionnairesRepo.manager.query(
+      `
+      SELECT p.id AS patient_id, COALESCE(gt.code, '') AS gender_code
+      FROM patients p
+      LEFT JOIN gender_types gt ON gt.id = p.gender_id
+      WHERE p.id = ANY($1::uuid[])
+      `,
+      [questionnaires.map((q) => q.patient_id)],
+    );
+
+    const genderByPatientId = new Map<string, string>();
+    for (const row of genderRaw as { patient_id: string; gender_code: string }[]) {
+      genderByPatientId.set(String(row.patient_id), String(row.gender_code || ''));
+    }
+
+    const patients: ReportPatientRowDto[] = questionnaires.map((q) => {
+      const counts = byQ.get(q.id) || {};
+      const clinical = clinicalByQid.get(q.id);
+      const grupo = this.classifyPatientGroup(q, clinical);
+      const genderCode = genderByPatientId.get(q.patient_id)?.trim().toUpperCase() || '';
+      const sex =
+        genderCode === 'M'
+          ? 'Homem'
+          : genderCode === 'F'
+            ? 'Mulher'
+            : '—';
+
+      return {
+        questionnaireId: q.id,
+        patientLabel: this.patientLabel(q),
+        patientName: q.patient?.full_name || '',
+        sex,
+        age: this.computeAgeYears(q.patient?.date_of_birth),
+        isAdvanced: grupo === 'avancado',
+        sleepTestRecommended: q.sleep_test_recommended === true,
+        sleepTestDone: (counts['TA13'] || 0) > 0,
+        contactPhone:
+          q.patient?.phone_primary?.trim() ||
+          q.patient?.phone_secondary?.trim() ||
+          null,
+        contactEmail: q.patient?.email?.trim() || null,
+      };
+    });
+
+    patients.sort((a, b) =>
+      a.patientLabel.localeCompare(b.patientLabel, 'pt-BR', {
+        numeric: true,
+        sensitivity: 'base',
+      }),
+    );
+
+    return {
+      patients,
+      meta: {
+        limit,
+        statuses,
         generatedAt: new Date().toISOString(),
       },
     };

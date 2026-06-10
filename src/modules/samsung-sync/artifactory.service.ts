@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
+import { createReadStream, createWriteStream } from 'fs';
+import { stat, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { pipeline } from 'stream/promises';
+import type { Readable } from 'stream';
 
 type RemoteFileInfo = { sha256?: string | null };
 type ArtifactListItem = {
@@ -12,6 +18,7 @@ type ArtifactListItem = {
 type RequestOptions = {
   timeoutMs?: number;
   retries?: number;
+  signal?: AbortSignal;
 };
 
 @Injectable()
@@ -51,6 +58,14 @@ export class ArtifactoryService {
     return `${this.baseUrl}/api/storage/${repo}/${encodedPath}`;
   }
 
+  getPublicBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  getArtifactDownloadUrl(repo: string, artifactPath: string): string {
+    return this.buildArtifactUrl(repo, artifactPath);
+  }
+
   private buildArtifactUrl(repo: string, artifactPath: string): string {
     const encodedPath = artifactPath
       .split('/')
@@ -72,12 +87,15 @@ export class ArtifactoryService {
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const onExternalAbort = () => controller.abort();
+      options.signal?.addEventListener('abort', onExternalAbort);
       try {
         const response = await fetch(url, {
           ...init,
           signal: controller.signal,
         });
         clearTimeout(timer);
+        options.signal?.removeEventListener('abort', onExternalAbort);
         if (response.status >= 500 && attempt < retries) {
           this.logger.warn(
             `Artifactory ${init.method || 'GET'} ${url} retornou ${response.status}; tentativa ${attempt + 1}/${retries + 1}`,
@@ -87,6 +105,10 @@ export class ArtifactoryService {
         return response;
       } catch (error) {
         clearTimeout(timer);
+        options.signal?.removeEventListener('abort', onExternalAbort);
+        if (options.signal?.aborted) {
+          throw new Error('Upload cancelado pelo usuário');
+        }
         lastError = error;
         if (attempt < retries) {
           this.logger.warn(
@@ -104,6 +126,120 @@ export class ArtifactoryService {
 
   getSha256(buffer: Buffer): string {
     return createHash('sha256').update(buffer).digest('hex');
+  }
+
+  private async computeFileHashes(filePath: string): Promise<{
+    sha256: string;
+    sha1: string;
+    md5: string;
+  }> {
+    const sha256 = createHash('sha256');
+    const sha1 = createHash('sha1');
+    const md5 = createHash('md5');
+    const updateAll = (chunk: Buffer) => {
+      sha256.update(chunk);
+      sha1.update(chunk);
+      md5.update(chunk);
+    };
+
+    await new Promise<void>((resolve, reject) => {
+      const stream = createReadStream(filePath);
+      stream.on('data', updateAll);
+      stream.on('error', reject);
+      stream.on('end', () => resolve());
+    });
+
+    return {
+      sha256: sha256.digest('hex'),
+      sha1: sha1.digest('hex'),
+      md5: md5.digest('hex'),
+    };
+  }
+
+  /**
+   * Upload de arquivo grande via stream (duas passadas: hash + PUT).
+   * Evita carregar o ZIP inteiro em memória.
+   */
+  async uploadFileFromPath(
+    repo: string,
+    artifactPath: string,
+    filePath: string,
+    mimeType = 'application/octet-stream',
+    timeoutMs = 60 * 60 * 1000,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    this.ensureReady();
+    if (signal?.aborted) {
+      throw new Error('Upload cancelado pelo usuário');
+    }
+    const fileStat = await stat(filePath);
+    if (!fileStat.isFile() || fileStat.size === 0) {
+      throw new Error(`Arquivo inválido para upload: ${filePath}`);
+    }
+
+    const { sha256, sha1, md5 } = await this.computeFileHashes(filePath);
+    if (signal?.aborted) {
+      throw new Error('Upload cancelado pelo usuário');
+    }
+    const readStream = createReadStream(filePath);
+    signal?.addEventListener(
+      'abort',
+      () => {
+        readStream.destroy();
+      },
+      { once: true },
+    );
+    const body = readStream as unknown as ReadableStream<Uint8Array>;
+
+    const response = await this.requestWithRetry(
+      this.buildArtifactUrl(repo, artifactPath),
+      {
+        method: 'PUT',
+        headers: {
+          ...this.authHeaders,
+          'Content-Type': mimeType,
+          'Content-Length': String(fileStat.size),
+          'X-Checksum-Deploy': 'false',
+          'X-Checksum-Sha256': sha256,
+          'X-Checksum-Sha1': sha1,
+          'X-Checksum-Md5': md5,
+        },
+        body,
+        // @ts-expect-error Node fetch duplex for streaming request bodies
+        duplex: 'half',
+      },
+      { timeoutMs, retries: 2, signal },
+    );
+
+    if (!response.ok) {
+      throw new Error(`Falha no upload ${repo}/${artifactPath}: HTTP ${response.status}`);
+    }
+
+    this.logger.log(`Upload concluído (stream): ${repo}/${artifactPath}`);
+    return sha256;
+  }
+
+  /** Upload a partir de Readable — grava em temp e reutiliza uploadFileFromPath. */
+  async uploadFileStream(
+    repo: string,
+    artifactPath: string,
+    source: Readable,
+    mimeType = 'application/octet-stream',
+    timeoutMs = 60 * 60 * 1000,
+  ): Promise<string> {
+    const tmpPath = join(tmpdir(), `artifactory-upload-${randomUUID()}`);
+    try {
+      await pipeline(source, createWriteStream(tmpPath));
+      return await this.uploadFileFromPath(
+        repo,
+        artifactPath,
+        tmpPath,
+        mimeType,
+        timeoutMs,
+      );
+    } finally {
+      await unlink(tmpPath).catch(() => undefined);
+    }
   }
 
   async ping(): Promise<boolean> {
@@ -215,6 +351,60 @@ export class ArtifactoryService {
     if (!response.ok) {
       throw new Error(`Falha ao remover ${repo}/${artifactPath}: HTTP ${response.status}`);
     }
+  }
+
+  async listStorage(
+    repo: string,
+    folderPath: string,
+  ): Promise<
+    {
+      name: string;
+      path: string;
+      folder: boolean;
+      size: number;
+      last_modified: string | null;
+    }[]
+  > {
+    this.ensureReady();
+    const cleaned = folderPath.replace(/^\/+|\/+$/g, '');
+    const url = cleaned
+      ? `${this.baseUrl}/api/storage/${repo}/${cleaned}?list&deep=0&listFolders=1`
+      : `${this.baseUrl}/api/storage/${repo}?list&deep=0&listFolders=1`;
+    const response = await this.requestWithRetry(
+      url,
+      {
+        method: 'GET',
+        headers: this.authHeaders,
+      },
+      { timeoutMs: 30000, retries: 2 },
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) return [];
+      throw new Error(`Falha ao listar storage ${repo}/${cleaned || '/'}: HTTP ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { files?: ArtifactListItem[] };
+    const files = Array.isArray(payload.files) ? payload.files : [];
+    return files
+      .map((item) => {
+        const rawName = item.uri?.replace(/^\//, '') || '';
+        const isFolder = Boolean(item.folder) || rawName.endsWith('/');
+        const name = rawName.replace(/\/$/, '');
+        const path = cleaned ? `${cleaned}/${name}` : name;
+        return {
+          name,
+          path,
+          folder: isFolder,
+          size: Number(item.size || 0),
+          last_modified: item.lastModified || null,
+        };
+      })
+      .filter((item) => item.name.length > 0)
+      .sort((a, b) => {
+        if (a.folder !== b.folder) return a.folder ? -1 : 1;
+        return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+      });
   }
 
   async listArtifacts(repo: string, basePath: string): Promise<
