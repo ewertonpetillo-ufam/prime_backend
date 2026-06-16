@@ -100,6 +100,12 @@ export class ClinicalAssessment {
   other_medications: string;
 
   @Column({ type: 'text', nullable: true })
+  medication_allergies: string;
+
+  @Column({ type: 'text', nullable: true })
+  food_allergies: string;
+
+  @Column({ type: 'text', nullable: true })
   disease_evolution: string;
 
   @Column({ type: 'text', nullable: true })

@@ -120,6 +120,16 @@ export class SaveStep3Dto {
   @IsOptional()
   otherMedications?: string;
 
+  @ApiPropertyOptional({ description: 'Medication allergies', example: 'Dipirona' })
+  @IsString()
+  @IsOptional()
+  medicationAllergies?: string;
+
+  @ApiPropertyOptional({ description: 'Food allergies', example: 'Amendoim' })
+  @IsString()
+  @IsOptional()
+  foodAllergies?: string;
+
   @ApiPropertyOptional({ description: 'Has dyskinesia', example: false })
   @IsBoolean()
   @IsOptional()

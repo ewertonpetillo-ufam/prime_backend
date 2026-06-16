@@ -1071,6 +1071,8 @@ export class QuestionnairesService {
         dyskinesia_type_codes,
         comorbidities: dto.comorbidities,
         other_medications: dto.otherMedications,
+        medication_allergies: dto.medicationAllergies,
+        food_allergies: dto.foodAllergies,
         has_surgery_history,
         surgery_year,
         surgery_type_id,
@@ -1137,6 +1139,10 @@ export class QuestionnairesService {
         dto.comorbidities || clinicalAssessment.comorbidities;
       clinicalAssessment.other_medications =
         dto.otherMedications || clinicalAssessment.other_medications;
+      clinicalAssessment.medication_allergies =
+        dto.medicationAllergies || clinicalAssessment.medication_allergies;
+      clinicalAssessment.food_allergies =
+        dto.foodAllergies || clinicalAssessment.food_allergies;
       clinicalAssessment.has_surgery_history = has_surgery_history;
       clinicalAssessment.surgery_year =
         surgery_year !== null ? surgery_year : clinicalAssessment.surgery_year;
@@ -1278,6 +1284,8 @@ export class QuestionnairesService {
         surgery_target: null,
         comorbidities: null,
         other_medications: null,
+        medication_allergies: null,
+        food_allergies: null,
         disease_evolution: null,
         current_symptoms: null,
         physio_patient_description: physioPatientDescription ?? null,
@@ -1353,6 +1361,8 @@ export class QuestionnairesService {
         surgery_target: null,
         comorbidities: null,
         other_medications: null,
+        medication_allergies: null,
+        food_allergies: null,
         disease_evolution: null,
         current_symptoms: null,
         sleep_patient_description: sleepPatientDescription ?? null,
@@ -1426,6 +1436,8 @@ export class QuestionnairesService {
         surgery_target: null,
         comorbidities: null,
         other_medications: null,
+        medication_allergies: null,
+        food_allergies: null,
         disease_evolution: null,
         current_symptoms: null,
         speech_patient_description: speechPatientDescription ?? null,
@@ -2499,6 +2511,8 @@ export class QuestionnairesService {
         : '';
       formData.comorbidities = clinical.comorbidities || '';
       formData.otherMedications = clinical.other_medications || '';
+      formData.medicationAllergies = clinical.medication_allergies || '';
+      formData.foodAllergies = clinical.food_allergies || '';
 
       // Campos de cirurgia
       formData.surgery = clinical.has_surgery_history ? 'Sim' : 'Não';
@@ -3376,6 +3390,8 @@ export class QuestionnairesService {
       'schwab_england_score',
       'comorbidities',
       'other_medications',
+      'medication_allergies',
+      'food_allergies',
       'surgery',
       'surgery_year',
       'surgery_type',
@@ -3433,6 +3449,8 @@ export class QuestionnairesService {
       data.data?.scaleSE || '',
       data.data?.comorbidities || '',
       data.data?.otherMedications || '',
+      data.data?.medicationAllergies || '',
+      data.data?.foodAllergies || '',
       data.data?.surgery || '',
       data.data?.surgerrYear || '',
       data.data?.surgeryType || '',
