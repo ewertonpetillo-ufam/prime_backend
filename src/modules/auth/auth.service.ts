@@ -1,11 +1,26 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, IsNull, MoreThan } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { LoginDto } from './dto/login.dto';
 import { UserLoginDto } from './dto/user-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
+import { PasswordResetToken } from '../../entities/password-reset-token.entity';
+
+const FORGOT_PASSWORD_GENERIC_MESSAGE =
+  'Se o e-mail estiver cadastrado, você receberá instruções para redefinir sua senha.';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +28,9 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private usersService: UsersService,
+    private mailService: MailService,
+    @InjectRepository(PasswordResetToken)
+    private passwordResetTokenRepository: Repository<PasswordResetToken>,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -140,6 +158,98 @@ export class AuthService {
       success: true,
       message: 'Password changed successfully',
     };
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email } = forgotPasswordDto;
+    const user = await this.usersService.findByEmail(email);
+
+    if (user && user.active) {
+      const rawToken = randomBytes(32).toString('hex');
+      const tokenHash = this.hashResetToken(rawToken);
+      const expirationMinutes = this.getPasswordResetExpirationMinutes();
+      const expiresAt = new Date(Date.now() + expirationMinutes * 60 * 1000);
+
+      await this.passwordResetTokenRepository.update(
+        { user_id: user.id, used_at: IsNull() },
+        { used_at: new Date() },
+      );
+
+      const resetToken = this.passwordResetTokenRepository.create({
+        user_id: user.id,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+      });
+      await this.passwordResetTokenRepository.save(resetToken);
+
+      const frontendUrl = this.configService.get<string>(
+        'FRONTEND_PUBLIC_URL',
+        'http://localhost:3000',
+      );
+      const resetLink = `${frontendUrl.replace(/\/$/, '')}/redefinir-senha?token=${rawToken}`;
+
+      await this.mailService.sendPasswordResetEmail(
+        user.email,
+        resetLink,
+        expirationMinutes,
+      );
+    }
+
+    return {
+      success: true,
+      message: FORGOT_PASSWORD_GENERIC_MESSAGE,
+    };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { token, newPassword } = resetPasswordDto;
+    const tokenHash = this.hashResetToken(token);
+
+    const resetToken = await this.passwordResetTokenRepository.findOne({
+      where: {
+        token_hash: tokenHash,
+        used_at: IsNull(),
+        expires_at: MoreThan(new Date()),
+      },
+    });
+
+    if (!resetToken) {
+      throw new BadRequestException(
+        'Token inválido ou expirado. Solicite uma nova recuperação de senha.',
+      );
+    }
+
+    const user = await this.usersService.findOne(resetToken.user_id);
+    if (!user || !user.active) {
+      throw new BadRequestException(
+        'Token inválido ou expirado. Solicite uma nova recuperação de senha.',
+      );
+    }
+
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+    await this.usersService.updatePassword(user.id, newPasswordHash, false);
+
+    resetToken.used_at = new Date();
+    await this.passwordResetTokenRepository.save(resetToken);
+
+    return {
+      success: true,
+      message: 'Senha redefinida com sucesso. Você já pode fazer login.',
+    };
+  }
+
+  private hashResetToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private getPasswordResetExpirationMinutes(): number {
+    const raw = this.configService.get<string>(
+      'PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES',
+      '60',
+    );
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 60;
   }
 
   private getTokenExpirationInSeconds(): number {

@@ -1,13 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
+import { PasswordResetToken } from '../../entities/password-reset-token.entity';
 import { LoginDto } from './dto/login.dto';
 import { UserLoginDto } from './dto/user-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { User, UserRole } from '../../entities/user.entity';
 
 describe('AuthService', () => {
@@ -15,6 +21,7 @@ describe('AuthService', () => {
   let jwtService: JwtService;
   let configService: ConfigService;
   let usersService: UsersService;
+  let mailService: MailService;
 
   const mockJwtService = {
     sign: jest.fn(),
@@ -28,6 +35,18 @@ describe('AuthService', () => {
     findByEmail: jest.fn(),
     findOne: jest.fn(),
     updatePassword: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockMailService = {
+    sendPasswordResetEmail: jest.fn(),
+  };
+
+  const mockPasswordResetTokenRepository = {
+    update: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -46,6 +65,14 @@ describe('AuthService', () => {
           provide: UsersService,
           useValue: mockUsersService,
         },
+        {
+          provide: MailService,
+          useValue: mockMailService,
+        },
+        {
+          provide: getRepositoryToken(PasswordResetToken),
+          useValue: mockPasswordResetTokenRepository,
+        },
       ],
     }).compile();
 
@@ -53,6 +80,7 @@ describe('AuthService', () => {
     jwtService = module.get<JwtService>(JwtService);
     configService = module.get<ConfigService>(ConfigService);
     usersService = module.get<UsersService>(UsersService);
+    mailService = module.get<MailService>(MailService);
   });
 
   afterEach(() => {
@@ -139,6 +167,7 @@ describe('AuthService', () => {
         registration_number: null,
         specialty: null,
         phone: null,
+        last_login: null,
         created_at: new Date(),
         updated_at: new Date(),
         questionnaires: [],
@@ -261,6 +290,7 @@ describe('AuthService', () => {
         registration_number: null,
         specialty: null,
         phone: null,
+        last_login: null,
         created_at: new Date(),
         updated_at: new Date(),
         questionnaires: [],
@@ -323,13 +353,149 @@ describe('AuthService', () => {
     });
   });
 
+  describe('forgotPassword', () => {
+    const forgotPasswordDto: ForgotPasswordDto = {
+      email: 'test@example.com',
+    };
+
+    it('deve retornar mensagem genérica mesmo quando usuário não existe', async () => {
+      mockUsersService.findByEmail.mockResolvedValue(null);
+
+      const result = await service.forgotPassword(forgotPasswordDto);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('Se o e-mail estiver cadastrado');
+      expect(mockMailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('deve enviar e-mail quando usuário ativo existe', async () => {
+      const mockUser: User = {
+        id: 'user-id',
+        email: 'test@example.com',
+        full_name: 'Test User',
+        password_hash: 'hash',
+        role: UserRole.EVALUATOR,
+        active: true,
+        first_login: false,
+        registration_number: null,
+        specialty: null,
+        phone: null,
+        last_login: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        questionnaires: [],
+      };
+
+      mockUsersService.findByEmail.mockResolvedValue(mockUser);
+      mockConfigService.get.mockImplementation((key: string, defaultValue?: string) => {
+        if (key === 'PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES') return '60';
+        if (key === 'FRONTEND_PUBLIC_URL') return 'https://prime.icomp.ufam.edu.br/webapp';
+        return defaultValue;
+      });
+      mockPasswordResetTokenRepository.update.mockResolvedValue({});
+      mockPasswordResetTokenRepository.create.mockImplementation((data) => data);
+      mockPasswordResetTokenRepository.save.mockResolvedValue({});
+      mockMailService.sendPasswordResetEmail.mockResolvedValue(undefined);
+
+      const result = await service.forgotPassword(forgotPasswordDto);
+
+      expect(result.success).toBe(true);
+      expect(mockPasswordResetTokenRepository.update).toHaveBeenCalled();
+      expect(mockPasswordResetTokenRepository.save).toHaveBeenCalled();
+      expect(mockMailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        expect.stringContaining('/redefinir-senha?token='),
+        60,
+      );
+    });
+
+    it('não deve enviar e-mail para usuário inativo', async () => {
+      mockUsersService.findByEmail.mockResolvedValue({
+        id: 'user-id',
+        email: 'test@example.com',
+        active: false,
+      });
+
+      const result = await service.forgotPassword(forgotPasswordDto);
+
+      expect(result.success).toBe(true);
+      expect(mockMailService.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('deve redefinir senha com token válido', async () => {
+      const rawToken = 'a'.repeat(64);
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+      const resetPasswordDto: ResetPasswordDto = {
+        token: rawToken,
+        newPassword: 'new-password123',
+      };
+
+      const mockUser: User = {
+        id: 'user-id',
+        email: 'test@example.com',
+        full_name: 'Test User',
+        password_hash: 'old-hash',
+        role: UserRole.EVALUATOR,
+        active: true,
+        first_login: true,
+        registration_number: null,
+        specialty: null,
+        phone: null,
+        last_login: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+        questionnaires: [],
+      };
+
+      const resetToken = {
+        id: 'token-id',
+        user_id: 'user-id',
+        token_hash: tokenHash,
+        expires_at: new Date(Date.now() + 60_000),
+        used_at: null,
+      };
+
+      mockPasswordResetTokenRepository.findOne.mockResolvedValue(resetToken);
+      mockUsersService.findOne.mockResolvedValue(mockUser);
+      mockUsersService.updatePassword.mockResolvedValue(mockUser);
+      mockPasswordResetTokenRepository.save.mockResolvedValue({
+        ...resetToken,
+        used_at: new Date(),
+      });
+
+      const result = await service.resetPassword(resetPasswordDto);
+
+      expect(result.success).toBe(true);
+      expect(mockUsersService.updatePassword).toHaveBeenCalledWith(
+        'user-id',
+        expect.any(String),
+        false,
+      );
+      expect(mockPasswordResetTokenRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ used_at: expect.any(Date) }),
+      );
+    });
+
+    it('deve lançar BadRequestException para token inválido', async () => {
+      mockPasswordResetTokenRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.resetPassword({ token: 'invalid', newPassword: 'newpass1' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('getTokenExpirationInSeconds', () => {
     it('deve converter horas para segundos', () => {
       mockConfigService.get.mockReturnValue('24h');
-      const service = new AuthService(
+      const localService = new AuthService(
         mockJwtService as any,
         mockConfigService as any,
         mockUsersService as any,
+        mockMailService as any,
+        mockPasswordResetTokenRepository as any,
       );
 
       // Acessar método privado via reflection ou testar indiretamente
@@ -345,7 +511,7 @@ describe('AuthService', () => {
 
       mockJwtService.sign.mockReturnValue('token');
 
-      service.login(loginDto).then((result) => {
+      localService.login(loginDto).then((result) => {
         expect(result.expires_in).toBe(86400); // 24 * 3600
       });
     });
