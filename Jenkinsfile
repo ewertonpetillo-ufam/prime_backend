@@ -84,6 +84,17 @@ pipeline {
         REDIS_PORT = credentials('prime-redis-port')
         REDIS_PASSWORD = credentials('prime-redis-password')
         REDIS_DB = credentials('prime-redis-db')
+
+        // E-mail (Google Workspace SMTP) — recuperação de senha
+        SMTP_HOST = 'smtp.gmail.com'
+        SMTP_PORT = '587'
+        SMTP_SECURE = 'false'
+        SMTP_USER = credentials('prime-smtp-user')
+        SMTP_PASS = credentials('prime-smtp-password')
+        SMTP_FROM = credentials('prime-smtp-from')
+        SMTP_FROM_NAME = 'PRIME - UFAM'
+        FRONTEND_PUBLIC_URL = 'https://prime.icomp.ufam.edu.br/webapp'
+        PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES = '60'
     }
     
     triggers {
@@ -281,6 +292,17 @@ REDIS_HOST=${REDIS_HOST}
 REDIS_PORT=${REDIS_PORT}
 REDIS_PASSWORD=${REDIS_PASSWORD}
 REDIS_DB=${REDIS_DB}
+
+# E-mail (Google Workspace SMTP) — recuperação de senha
+SMTP_HOST=${SMTP_HOST}
+SMTP_PORT=${SMTP_PORT}
+SMTP_SECURE=${SMTP_SECURE}
+SMTP_USER=${SMTP_USER}
+SMTP_PASS=${SMTP_PASS}
+SMTP_FROM=${SMTP_FROM}
+SMTP_FROM_NAME=${SMTP_FROM_NAME}
+FRONTEND_PUBLIC_URL=${FRONTEND_PUBLIC_URL}
+PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES=${PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES}
 EOF
                     
                     echo "✅ Arquivo .env criado"
