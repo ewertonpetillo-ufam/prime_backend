@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { getDatabaseConfig } from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
+import { MailModule } from './modules/mail/mail.module';
 import { EvaluatorsModule } from './modules/evaluators/evaluators.module';
 import { PatientsModule } from './modules/patients/patients.module';
 import { BinaryCollectionsModule } from './modules/binary-collections/binary-collections.module';
@@ -37,6 +38,8 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
         getDatabaseConfig(configService),
       inject: [ConfigService],
     }),
+    // Mail module (global)
+    MailModule,
     // Authentication module
     AuthModule,
     // Feature modules

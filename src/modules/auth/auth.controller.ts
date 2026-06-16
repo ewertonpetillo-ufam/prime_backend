@@ -12,6 +12,8 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { UserLoginDto } from './dto/user-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
@@ -118,5 +120,42 @@ export class AuthController {
     @Body() changePasswordDto: ChangePasswordDto,
   ) {
     return this.authService.changePassword(user.userId, changePasswordDto);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Solicitar recuperação de senha por e-mail',
+    description:
+      'Envia um e-mail com link de redefinição se o endereço estiver cadastrado. ' +
+      'A resposta é sempre genérica por segurança.',
+  })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Solicitação processada (mensagem genérica)',
+  })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Redefinir senha com token de recuperação',
+    description: 'Valida o token recebido por e-mail e define uma nova senha.',
+  })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Senha redefinida com sucesso',
+  })
+  @ApiBadRequestResponse({
+    description: 'Token inválido ou expirado',
+  })
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }
