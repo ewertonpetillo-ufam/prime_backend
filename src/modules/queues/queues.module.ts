@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 export const EXPORT_ZIP_QUEUE = 'export-zip';
 export const EXPORT_PRIME_QUEUE = 'export-prime';
 export const BART_SYNC_QUEUE = 'bart-sync';
+export const PDF_REPORT_UPLOAD_QUEUE = 'pdf-report-upload';
 
 @Global()
 @Module({
@@ -27,6 +28,7 @@ export const BART_SYNC_QUEUE = 'bart-sync';
     BullModule.registerQueue({ name: EXPORT_ZIP_QUEUE }),
     BullModule.registerQueue({ name: EXPORT_PRIME_QUEUE }),
     BullModule.registerQueue({ name: BART_SYNC_QUEUE }),
+    BullModule.registerQueue({ name: PDF_REPORT_UPLOAD_QUEUE }),
   ],
   exports: [BullModule],
 })

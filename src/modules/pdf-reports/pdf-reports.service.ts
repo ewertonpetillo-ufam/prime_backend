@@ -5,7 +5,9 @@ import {
   InternalServerErrorException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { createReadStream } from 'fs';
@@ -14,7 +16,13 @@ import { Readable } from 'stream';
 import { PdfReport } from '../../entities/pdf-report.entity';
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { UploadPdfReportDto } from './dto/upload-pdf-report.dto';
+import { UploadPreflightDto } from './dto/upload-preflight.dto';
 import { MinioStorageService } from '../storage/minio-storage.service';
+import { PDF_REPORT_UPLOAD_QUEUE } from '../queues/queues.module';
+import {
+  PdfReportUploadJobData,
+  PdfReportUploadJobResult,
+} from './pdf-report-upload.types';
 
 function pdfReportTypeToFolder(reportType: string): string {
   const map: Record<string, string> = {
@@ -71,7 +79,196 @@ export class PdfReportsService {
     @InjectRepository(Questionnaire)
     private readonly questionnaireRepository: Repository<Questionnaire>,
     private readonly minioStorage: MinioStorageService,
+    @InjectQueue(PDF_REPORT_UPLOAD_QUEUE)
+    private readonly uploadQueue: Queue<PdfReportUploadJobData>,
   ) {}
+
+  private duplicateKey(fileName: string, fileSizeBytes: number): string {
+    return `${fileName}\0${fileSizeBytes}`;
+  }
+
+  async assertQuestionnaireExists(questionnaireId: string): Promise<void> {
+    const questionnaire = await this.questionnaireRepository.findOne({
+      where: { id: questionnaireId },
+    });
+    if (!questionnaire) {
+      throw new NotFoundException(`Questionnaire with ID ${questionnaireId} not found`);
+    }
+  }
+
+  async findExistingReport(
+    questionnaireId: string,
+    reportType: string,
+    fileName: string,
+    fileSizeBytes: number,
+  ): Promise<PdfReport | null> {
+    return this.pdfReportRepository.findOne({
+      where: {
+        questionnaire_id: questionnaireId,
+        report_type: reportType as PdfReport['report_type'],
+        file_name: fileName,
+        file_size_bytes: fileSizeBytes,
+      },
+    });
+  }
+
+  async preflightUpload(dto: UploadPreflightDto) {
+    await this.assertQuestionnaireExists(dto.questionnaireId);
+
+    const existing = await this.pdfReportRepository.find({
+      where: {
+        questionnaire_id: dto.questionnaireId,
+        report_type: dto.reportType,
+      },
+    });
+
+    const existingByKey = new Map(
+      existing.map((r) => [this.duplicateKey(r.file_name, r.file_size_bytes), r]),
+    );
+
+    const items = dto.files.map((file) => {
+      const match = existingByKey.get(this.duplicateKey(file.fileName, file.fileSizeBytes));
+      if (match) {
+        return {
+          fileName: file.fileName,
+          fileSizeBytes: file.fileSizeBytes,
+          action: 'skip' as const,
+          existingReportId: match.id,
+        };
+      }
+      return {
+        fileName: file.fileName,
+        fileSizeBytes: file.fileSizeBytes,
+        action: 'upload' as const,
+      };
+    });
+
+    return { items };
+  }
+
+  async enqueueUploadReport(
+    dto: UploadPdfReportDto,
+    file: Express.Multer.File,
+    uploadedBy?: string,
+  ): Promise<
+    | { skipped: true; existingReportId: string; id: string }
+    | { jobId: string; statusUrl: string }
+  > {
+    if (!file?.path) {
+      throw new BadRequestException('Arquivo temporário inválido após upload');
+    }
+
+    if (!this.minioStorage.isEnabled()) {
+      await unlink(file.path).catch(() => undefined);
+      throw new BadRequestException(
+        'Armazenamento de arquivos (MinIO) não está configurado. Defina MINIO_* no ambiente.',
+      );
+    }
+
+    await this.assertQuestionnaireExists(dto.questionnaireId);
+
+    const duplicate = await this.findExistingReport(
+      dto.questionnaireId,
+      dto.reportType,
+      file.originalname,
+      file.size,
+    );
+
+    if (duplicate) {
+      console.log('[pdf-report-upload] duplicate_skipped', {
+        questionnaireId: dto.questionnaireId,
+        reportType: dto.reportType,
+        fileName: file.originalname,
+        fileSizeBytes: file.size,
+        existingReportId: duplicate.id,
+      });
+      await unlink(file.path).catch(() => undefined);
+      return {
+        skipped: true,
+        existingReportId: duplicate.id,
+        id: duplicate.id,
+      };
+    }
+
+    const job = await this.uploadQueue.add(
+      'process-upload',
+      {
+        tempPath: file.path,
+        questionnaireId: dto.questionnaireId,
+        reportType: dto.reportType,
+        fileName: file.originalname,
+        fileSizeBytes: file.size,
+        mimeType: file.mimetype || 'application/octet-stream',
+        notes: dto.notes ?? null,
+        uploadedBy: uploadedBy ?? null,
+      },
+      {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 86400 },
+      },
+    );
+
+    return {
+      jobId: String(job.id),
+      statusUrl: `/pdf-reports/upload/status/${job.id}`,
+    };
+  }
+
+  /** Persiste relatório a partir de arquivo temporário (worker assíncrono). Não lê file_data legado. */
+  async persistUploadFromTemp(
+    data: PdfReportUploadJobData,
+  ): Promise<PdfReportUploadJobResult> {
+    const id = randomUUID();
+    const folder = pdfReportTypeToFolder(data.reportType);
+    const safeName = sanitizeOriginalFileName(data.fileName);
+    const key = `${folder}/${data.questionnaireId}/${id}_${safeName}`;
+
+    try {
+      const stream = createReadStream(data.tempPath);
+      await this.minioStorage.putObjectStream(key, stream, data.mimeType);
+    } catch (e) {
+      const err = e as Error & { code?: string; name?: string };
+      const msg = e instanceof Error ? e.message : 'Falha ao enviar arquivo ao MinIO';
+      console.error('[pdf-reports] MinIO upload failed (async)', {
+        key,
+        fileSizeBytes: data.fileSizeBytes,
+        message: msg,
+        code: err.code,
+        name: err.name,
+      });
+      if (isMinioConnectivityError(e)) {
+        throw new ServiceUnavailableException(
+          `Armazenamento de arquivos (MinIO) indisponível: ${msg}. Verifique MINIO_ENDPOINT e se o serviço MinIO está acessível a partir do container do backend.`,
+        );
+      }
+      throw new InternalServerErrorException(msg);
+    } finally {
+      await unlink(data.tempPath).catch(() => undefined);
+    }
+
+    const pdfReport = this.pdfReportRepository.create({
+      id,
+      questionnaire_id: data.questionnaireId,
+      report_type: data.reportType,
+      file_name: data.fileName,
+      file_size_bytes: data.fileSizeBytes,
+      mime_type: data.mimeType,
+      file_path: key,
+      file_data: null,
+      file_sync_pending: false,
+      file_synced_at: new Date(),
+      notes: data.notes ?? null,
+      uploaded_by: data.uploadedBy ?? null,
+    });
+
+    const saved = await this.pdfReportRepository.save(pdfReport);
+    const fileDownloadUrl = await this.getPresignedDownloadUrl(saved.file_path);
+    return {
+      id: saved.id,
+      fileName: saved.file_name,
+      fileDownloadUrl,
+    };
+  }
 
   async uploadReport(
     dto: UploadPdfReportDto,
