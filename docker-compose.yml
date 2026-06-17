@@ -68,8 +68,10 @@ services:
       - "traefik.http.serversTransports.backend-upload-long.forwardingTimeouts.dialTimeout=30s"
       - "traefik.http.serversTransports.backend-upload-long.forwardingTimeouts.responseHeaderTimeout=900s"
       - "traefik.http.serversTransports.backend-upload-long.forwardingTimeouts.idleConnTimeout=900s"
-      - "traefik.http.middlewares.backend-upload-buffer.buffering.maxRequestBodyBytes=734003200"
-      - "traefik.http.routers.backend-api-secure.middlewares=backend-upload-buffer"
+      # NÃO usar buffering aqui — bufferiza o body inteiro antes de encaminhar ao NestJS.
+      # Uploads de 128MB+ falhavam em silêncio (sem logs no backend até o buffer completar).
+      # Ajuste readTimeout no entrypoint static do Traefik se uploads longos ainda caírem:
+      # entryPoints.websecure.transport.respondingTimeouts.readTimeout=0
       
       # Forçar detecção pelo Traefik (importante!)
       - "traefik.docker.network=frontend"

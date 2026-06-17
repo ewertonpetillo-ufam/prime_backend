@@ -79,6 +79,43 @@ async function bootstrap() {
     maxAge: isProduction ? 86400 : 0, // Cache preflight por 24h em produção
   });
 
+  // Log quando conexão de upload abre (antes do Multer receber o body completo)
+  app.use((req, res, next) => {
+    if (req.method !== 'POST') {
+      return next();
+    }
+    const path = req.path || req.url || '';
+    if (!path.includes('pdf-reports/upload') && !path.includes('binary-collections/upload')) {
+      return next();
+    }
+
+    const contentLength = req.headers['content-length'];
+    const startedAt = Date.now();
+    console.log('[upload] connection_opened', {
+      path,
+      contentLengthBytes: contentLength ?? 'unknown',
+      contentType: req.headers['content-type'],
+    });
+
+    req.on('aborted', () => {
+      console.error('[upload] connection_aborted', {
+        path,
+        contentLengthBytes: contentLength ?? 'unknown',
+        elapsedMs: Date.now() - startedAt,
+      });
+    });
+
+    req.on('end', () => {
+      console.log('[upload] request_body_fully_received', {
+        path,
+        contentLengthBytes: contentLength ?? 'unknown',
+        elapsedMs: Date.now() - startedAt,
+      });
+    });
+
+    return next();
+  });
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
