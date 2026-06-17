@@ -8,6 +8,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
+import { createReadStream } from 'fs';
+import { unlink } from 'fs/promises';
 import { Readable } from 'stream';
 import { PdfReport } from '../../entities/pdf-report.entity';
 import { Questionnaire } from '../../entities/questionnaire.entity';
@@ -98,17 +100,22 @@ export class PdfReportsService {
     const folder = pdfReportTypeToFolder(dto.reportType);
     const safeName = sanitizeOriginalFileName(file.originalname);
     const key = `${folder}/${dto.questionnaireId}/${id}_${safeName}`;
+    const tempPath = file.path;
+    const mimeType = file.mimetype || 'application/octet-stream';
 
     try {
-      await this.minioStorage.putObject(
-        key,
-        file.buffer,
-        file.mimetype || 'application/octet-stream',
-      );
+      if (tempPath) {
+        const stream = createReadStream(tempPath);
+        await this.minioStorage.putObjectStream(key, stream, mimeType);
+      } else if (file.buffer) {
+        await this.minioStorage.putObject(key, file.buffer, mimeType);
+      } else {
+        throw new BadRequestException('Arquivo temporário inválido após upload');
+      }
     } catch (e) {
       const err = e as Error & { code?: string; name?: string };
       const msg = e instanceof Error ? e.message : 'Falha ao enviar arquivo ao MinIO';
-      console.error('[pdf-reports] MinIO putObject failed', {
+      console.error('[pdf-reports] MinIO upload failed', {
         key,
         fileSizeBytes: file.size,
         message: msg,
@@ -121,6 +128,10 @@ export class PdfReportsService {
         );
       }
       throw new InternalServerErrorException(msg);
+    } finally {
+      if (tempPath) {
+        await unlink(tempPath).catch(() => undefined);
+      }
     }
 
     const pdfReport = this.pdfReportRepository.create({

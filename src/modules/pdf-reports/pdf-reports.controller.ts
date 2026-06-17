@@ -13,6 +13,10 @@ import {
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { randomUUID } from 'crypto';
+import * as os from 'os';
+import * as path from 'path';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -74,6 +78,13 @@ export class PdfReportsController {
   @ApiResponse({ status: 400, description: 'Arquivo inválido' })
   @UseInterceptors(
     FileInterceptor('file', {
+      storage: diskStorage({
+        destination: os.tmpdir(),
+        filename: (_req, file, cb) => {
+          const ext = path.extname(file.originalname || '');
+          cb(null, `pdf-upload-${randomUUID()}${ext}`);
+        },
+      }),
       limits: { fileSize: MAX_UPLOAD_FILE_SIZE_BYTES },
     }),
   )
@@ -83,6 +94,12 @@ export class PdfReportsController {
     @CurrentUser() user: { userId: string },
   ) {
     const startedAt = Date.now();
+    console.log('[pdf-reports] upload_report_started', {
+      questionnaireId: dto.questionnaireId,
+      reportType: dto.reportType,
+      fileSizeBytes: file?.size ?? 0,
+      originalName: file?.originalname,
+    });
     if (file && file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
       throw new PayloadTooLargeException(
         `Arquivo excede o limite de ${MAX_UPLOAD_FILE_SIZE_BYTES} bytes`,
