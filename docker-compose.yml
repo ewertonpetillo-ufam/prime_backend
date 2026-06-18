@@ -64,14 +64,11 @@ services:
       # Serviço - aponta para a porta do container
       - "traefik.http.services.backend-api.loadbalancer.server.port=4000"
       - "traefik.http.services.backend-api.loadbalancer.responseForwarding.flushInterval=1s"
-      - "traefik.http.services.backend-api.loadbalancer.serversTransport=backend-upload-long"
-      - "traefik.http.serversTransports.backend-upload-long.forwardingTimeouts.dialTimeout=30s"
-      - "traefik.http.serversTransports.backend-upload-long.forwardingTimeouts.responseHeaderTimeout=900s"
-      - "traefik.http.serversTransports.backend-upload-long.forwardingTimeouts.idleConnTimeout=900s"
-      # NÃO usar buffering aqui — bufferiza o body inteiro antes de encaminhar ao NestJS.
-      # Uploads de 128MB+ falhavam em silêncio (sem logs no backend até o buffer completar).
-      # Ajuste readTimeout no entrypoint static do Traefik se uploads longos ainda caírem:
-      # entryPoints.websecure.transport.respondingTimeouts.readTimeout=0
+      # Traefik v3.x: serversTransport NÃO funciona via label Docker no mesmo container
+      # (erro: servers transport not found backend-upload-long@docker → rota /api/v1 retorna 404).
+      # Timeouts longos para upload: copie deploy/traefik/dynamic/backend-upload-long.yml para o
+      # diretório dynamic do Traefik e descomente a linha abaixo:
+      # - "traefik.http.services.backend-api.loadbalancer.serversTransport=backend-upload-long@file"
       
       # Forçar detecção pelo Traefik (importante!)
       - "traefik.docker.network=frontend"
