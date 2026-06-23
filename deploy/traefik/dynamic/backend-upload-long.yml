@@ -1,7 +1,6 @@
-# Timeouts longos entre Traefik e prime-backend (uploads EDF/PDF até ~700 MiB).
-# Copie para o diretório dynamic do Traefik (ex.: /opt/traefik/dynamic/) e recarregue o Traefik.
-# No docker-compose do backend, use:
-#   traefik.http.services.backend-api.loadbalancer.serversTransport=backend-upload-long@file
+# DEPRECADO para backend-api — NÃO usar no serviço backend-api (Traefik v3 retorna 404 em /api/v1).
+# Uploads grandes do webapp usam nextjs-upload-long@file — ver prime/deploy/traefik/dynamic/.
+# Este arquivo permanece apenas como referência histórica; não copiar para produção no backend-api.
 http:
   serversTransports:
     backend-upload-long:

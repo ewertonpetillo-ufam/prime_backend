@@ -150,7 +150,7 @@ export class PdfReportsController {
   @ApiOperation({
     summary: 'Upload de relatório de arquivo',
     description:
-      'Modo assíncrono (padrão): grava temp, enfileira job e retorna 202. Duplicata retorna 200 skipped. Use X-Upload-Mode: sync ou ?async=false para modo síncrono.',
+      'Modo assíncrono (padrão): grava temp, enfileira job e retorna 202. Use X-Upload-Mode: sync ou ?async=false para modo síncrono.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -172,7 +172,6 @@ export class PdfReportsController {
     },
   })
   @ApiResponse({ status: 202, description: 'Job enfileirado — use statusUrl para acompanhar' })
-  @ApiResponse({ status: 200, description: 'Duplicata ignorada' })
   @ApiResponse({ status: 201, description: 'Relatório salvo (modo síncrono)' })
   @ApiResponse({ status: 400, description: 'Arquivo inválido' })
   @UseInterceptors(
@@ -236,24 +235,6 @@ export class PdfReportsController {
       file,
       user?.userId,
     );
-
-    if ('skipped' in enqueueResult && enqueueResult.skipped) {
-      this.logMemoryTelemetry('upload_report_skipped', {
-        questionnaireId: dto.questionnaireId,
-        reportType: dto.reportType,
-        fileSizeBytes: file.size,
-        existingReportId: enqueueResult.existingReportId,
-        durationMs: Date.now() - startedAt,
-      });
-      if (res) {
-        res.status(HttpStatus.OK);
-      }
-      return {
-        skipped: true,
-        existingReportId: enqueueResult.existingReportId,
-        id: enqueueResult.id,
-      };
-    }
 
     this.logMemoryTelemetry('upload_report_enqueued', {
       questionnaireId: dto.questionnaireId,
