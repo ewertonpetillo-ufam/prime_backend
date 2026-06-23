@@ -83,10 +83,6 @@ export class PdfReportsService {
     private readonly uploadQueue: Queue<PdfReportUploadJobData>,
   ) {}
 
-  private duplicateKey(fileName: string, fileSizeBytes: number): string {
-    return `${fileName}\0${fileSizeBytes}`;
-  }
-
   async assertQuestionnaireExists(questionnaireId: string): Promise<void> {
     const questionnaire = await this.questionnaireRepository.findOne({
       where: { id: questionnaireId },
@@ -96,52 +92,14 @@ export class PdfReportsService {
     }
   }
 
-  async findExistingReport(
-    questionnaireId: string,
-    reportType: string,
-    fileName: string,
-    fileSizeBytes: number,
-  ): Promise<PdfReport | null> {
-    return this.pdfReportRepository.findOne({
-      where: {
-        questionnaire_id: questionnaireId,
-        report_type: reportType as PdfReport['report_type'],
-        file_name: fileName,
-        file_size_bytes: fileSizeBytes,
-      },
-    });
-  }
-
   async preflightUpload(dto: UploadPreflightDto) {
     await this.assertQuestionnaireExists(dto.questionnaireId);
 
-    const existing = await this.pdfReportRepository.find({
-      where: {
-        questionnaire_id: dto.questionnaireId,
-        report_type: dto.reportType,
-      },
-    });
-
-    const existingByKey = new Map(
-      existing.map((r) => [this.duplicateKey(r.file_name, r.file_size_bytes), r]),
-    );
-
-    const items = dto.files.map((file) => {
-      const match = existingByKey.get(this.duplicateKey(file.fileName, file.fileSizeBytes));
-      if (match) {
-        return {
-          fileName: file.fileName,
-          fileSizeBytes: file.fileSizeBytes,
-          action: 'skip' as const,
-          existingReportId: match.id,
-        };
-      }
-      return {
-        fileName: file.fileName,
-        fileSizeBytes: file.fileSizeBytes,
-        action: 'upload' as const,
-      };
-    });
+    const items = dto.files.map((file) => ({
+      fileName: file.fileName,
+      fileSizeBytes: file.fileSizeBytes,
+      action: 'upload' as const,
+    }));
 
     return { items };
   }
@@ -150,10 +108,7 @@ export class PdfReportsService {
     dto: UploadPdfReportDto,
     file: Express.Multer.File,
     uploadedBy?: string,
-  ): Promise<
-    | { skipped: true; existingReportId: string; id: string }
-    | { jobId: string; statusUrl: string }
-  > {
+  ): Promise<{ jobId: string; statusUrl: string }> {
     if (!file?.path) {
       throw new BadRequestException('Arquivo temporário inválido após upload');
     }
@@ -166,29 +121,6 @@ export class PdfReportsService {
     }
 
     await this.assertQuestionnaireExists(dto.questionnaireId);
-
-    const duplicate = await this.findExistingReport(
-      dto.questionnaireId,
-      dto.reportType,
-      file.originalname,
-      file.size,
-    );
-
-    if (duplicate) {
-      console.log('[pdf-report-upload] duplicate_skipped', {
-        questionnaireId: dto.questionnaireId,
-        reportType: dto.reportType,
-        fileName: file.originalname,
-        fileSizeBytes: file.size,
-        existingReportId: duplicate.id,
-      });
-      await unlink(file.path).catch(() => undefined);
-      return {
-        skipped: true,
-        existingReportId: duplicate.id,
-        id: duplicate.id,
-      };
-    }
 
     const job = await this.uploadQueue.add(
       'process-upload',
