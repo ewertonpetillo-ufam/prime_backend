@@ -14,6 +14,54 @@ import { samsungPdfReportDataPath } from '../samsung-sync/samsung-dataset.utils'
  *     └── Active_Tasks/{arquivos de coleta}
  */
 
+export type ExportPrimePdfType = 'BIOBIT' | 'DELSYS' | 'POLYSOMNOGRAPHY';
+
+export interface ExportPrimeSelectiveFilters {
+  includeClinicalQuestionnaires?: boolean;
+  includeSleepQuestionnaires?: boolean;
+  taskCodes?: string[];
+  pdfTypes?: ExportPrimePdfType[];
+  /**
+   * Quando true (Baixar todos):
+   * - Sono: só pacientes com TA13
+   * - Clínico: só pacientes com alguma TA clínica (≠ TA13)
+   */
+  onlyPatientsWithTaskData?: boolean;
+  requireSleepTa13?: boolean;
+  requireAnyClinicalTask?: boolean;
+}
+
+/** True quando o request pede export filtrado (não o ZIP completo legado). */
+export function isSelectivePrimeExport(
+  filters: ExportPrimeSelectiveFilters,
+): boolean {
+  return (
+    filters.includeClinicalQuestionnaires !== undefined ||
+    filters.includeSleepQuestionnaires !== undefined ||
+    filters.taskCodes !== undefined ||
+    filters.pdfTypes !== undefined
+  );
+}
+
+export function resolvePrimeZipName(filters: ExportPrimeSelectiveFilters): string {
+  if (!isSelectivePrimeExport(filters)) {
+    return 'Dados_Todos_Pacientes.zip';
+  }
+
+  const hasClinic =
+    filters.includeClinicalQuestionnaires === true ||
+    (filters.taskCodes?.some((c) => c.toUpperCase() !== 'TA13') ?? false) ||
+    (filters.pdfTypes?.some((t) => t === 'BIOBIT' || t === 'DELSYS') ?? false);
+  const hasSleep =
+    filters.includeSleepQuestionnaires === true ||
+    (filters.taskCodes?.some((c) => c.toUpperCase() === 'TA13') ?? false) ||
+    (filters.pdfTypes?.includes('POLYSOMNOGRAPHY') ?? false);
+
+  if (hasClinic && !hasSleep) return 'Dados_Clinicos.zip';
+  if (hasSleep && !hasClinic) return 'Dados_Sono.zip';
+  return 'Dados_Selecionados.zip';
+}
+
 /** PDFs no ZIP UFAM/PRIME: Clinic|Sleep/{device}/... */
 export const ufamPrimePdfReportZipPath = (reportType: string | undefined): string => {
   const { protocol, device } = samsungPdfReportDataPath(reportType);
