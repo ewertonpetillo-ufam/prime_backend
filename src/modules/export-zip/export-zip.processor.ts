@@ -1,8 +1,8 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import archiver = require('archiver');
 import pLimit from 'p-limit';
 import { PassThrough } from 'stream';
@@ -41,6 +41,7 @@ interface ExportZipJobData {
     dateStart?: string;
     dateEnd?: string;
   };
+  cancelled?: boolean;
 }
 
 @Processor(EXPORT_ZIP_QUEUE, {
@@ -51,6 +52,7 @@ export class ExportZipProcessor extends WorkerHost {
   private readonly logger = new Logger(ExportZipProcessor.name);
 
   constructor(
+    @InjectQueue(EXPORT_ZIP_QUEUE) private readonly exportZipQueue: Queue,
     private readonly questionnairesService: QuestionnairesService,
     private readonly minioService: MinioStorageService,
     @InjectDataSource() private readonly db: DataSource,
@@ -60,6 +62,13 @@ export class ExportZipProcessor extends WorkerHost {
 
   private async updateStep(job: Job<ExportZipJobData>, percent: number, step: string) {
     await job.updateProgress({ percent, step } as unknown as number);
+  }
+
+  private async assertNotCancelled(job: Job<ExportZipJobData>) {
+    const fresh = await this.exportZipQueue.getJob(String(job.id));
+    if (fresh?.data?.cancelled) {
+      throw new Error('Exportação cancelada pelo usuário');
+    }
   }
 
   async process(job: Job<ExportZipJobData>): Promise<{ minioKey: string; zipName: string }> {
@@ -79,6 +88,7 @@ export class ExportZipProcessor extends WorkerHost {
     };
 
     await this.updateStep(job, 0, 'Iniciando geração do ZIP...');
+    await this.assertNotCancelled(job);
 
     await this.updateStep(job, 2, 'Consultando banco de dados...');
     const questionnaireIds =
@@ -86,6 +96,7 @@ export class ExportZipProcessor extends WorkerHost {
 
     const allData: any[] = [];
     for (const questionnaireId of questionnaireIds) {
+      await this.assertNotCancelled(job);
       allData.push(
         await this.questionnairesService.exportQuestionnaireData(questionnaireId, {
           skipPresignedUrls: true,

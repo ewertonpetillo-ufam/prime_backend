@@ -45,6 +45,7 @@ export class ExportZipController {
           dateStart: body.dateStart,
           dateEnd: body.dateEnd,
         },
+        cancelled: false,
       },
       {
         removeOnComplete: { age: 3600 },
@@ -56,6 +57,33 @@ export class ExportZipController {
       jobId: job.id,
       statusUrl: `/export/zip/status/${job.id}`,
     };
+  }
+
+  @Post('cancel/:jobId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancela geração assíncrona de ZIP Samsung' })
+  async cancelZipExport(@Param('jobId') jobId: string) {
+    const job = await this.exportZipQueue.getJob(jobId);
+    if (!job) {
+      return { cancelled: true, message: 'Job já inexistente' };
+    }
+
+    const state = await job.getState();
+    await job.updateData({
+      ...job.data,
+      cancelled: true,
+    });
+
+    if (
+      state === 'waiting' ||
+      state === 'delayed' ||
+      state === 'prioritized' ||
+      state === 'waiting-children'
+    ) {
+      await job.remove();
+    }
+
+    return { cancelled: true, previousState: state };
   }
 
   @Get('status/:jobId')

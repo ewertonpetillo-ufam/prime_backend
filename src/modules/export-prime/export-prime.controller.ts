@@ -14,8 +14,15 @@ import { Response } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { EXPORT_PRIME_QUEUE } from '../queues/queues.module';
 import { MinioStorageService } from '../storage/minio-storage.service';
+import {
+  ExportPrimePdfType,
+  ExportPrimeSelectiveFilters,
+} from './ufam-prime-dataset.utils';
 
-export interface ExportPrimeRequestDto {
+export type { ExportPrimePdfType };
+export type { ExportPrimeSelectiveFilters };
+
+export interface ExportPrimeRequestDto extends ExportPrimeSelectiveFilters {
   patientStart?: string;
   patientEnd?: string;
   dateStart?: string;
@@ -43,7 +50,15 @@ export class ExportPrimeController {
           patientEnd: body.patientEnd,
           dateStart: body.dateStart,
           dateEnd: body.dateEnd,
+          includeClinicalQuestionnaires: body.includeClinicalQuestionnaires,
+          includeSleepQuestionnaires: body.includeSleepQuestionnaires,
+          taskCodes: body.taskCodes,
+          pdfTypes: body.pdfTypes,
+          onlyPatientsWithTaskData: body.onlyPatientsWithTaskData,
+          requireSleepTa13: body.requireSleepTa13,
+          requireAnyClinicalTask: body.requireAnyClinicalTask,
         },
+        cancelled: false,
       },
       {
         removeOnComplete: { age: 3600 },
@@ -55,6 +70,33 @@ export class ExportPrimeController {
       jobId: job.id,
       statusUrl: `/export/prime/status/${job.id}`,
     };
+  }
+
+  @Post('cancel/:jobId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancela geração assíncrona de ZIP UFAM/PRIME' })
+  async cancelPrimeExport(@Param('jobId') jobId: string) {
+    const job = await this.exportPrimeQueue.getJob(jobId);
+    if (!job) {
+      return { cancelled: true, message: 'Job já inexistente' };
+    }
+
+    const state = await job.getState();
+    await job.updateData({
+      ...job.data,
+      cancelled: true,
+    });
+
+    if (
+      state === 'waiting' ||
+      state === 'delayed' ||
+      state === 'prioritized' ||
+      state === 'waiting-children'
+    ) {
+      await job.remove();
+    }
+
+    return { cancelled: true, previousState: state };
   }
 
   @Get('status/:jobId')

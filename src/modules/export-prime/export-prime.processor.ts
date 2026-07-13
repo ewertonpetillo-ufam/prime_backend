@@ -1,21 +1,19 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost, InjectQueue } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import archiver = require('archiver');
 import { PassThrough } from 'stream';
 import { EXPORT_PRIME_QUEUE } from '../queues/queues.module';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';
 import { MinioStorageService } from '../storage/minio-storage.service';
 import { BinaryCollectionsService } from '../binary-collections/binary-collections.service';
+import { ExportPrimeRequestDto } from './export-prime.controller';
+import { resolvePrimeZipName } from './ufam-prime-dataset.utils';
 import { appendUfamBulkPatientToArchive } from './ufam-prime-zip.builder';
 
 interface ExportPrimeJobData {
-  filters?: {
-    patientStart?: string;
-    patientEnd?: string;
-    dateStart?: string;
-    dateEnd?: string;
-  };
+  filters?: ExportPrimeRequestDto;
+  cancelled?: boolean;
 }
 
 /** Export em massa pode levar >1h com EDF grandes; lock longo evita job "stalled" prematuro. */
@@ -27,6 +25,7 @@ export class ExportPrimeProcessor extends WorkerHost {
   private readonly logger = new Logger(ExportPrimeProcessor.name);
 
   constructor(
+    @InjectQueue(EXPORT_PRIME_QUEUE) private readonly exportPrimeQueue: Queue,
     private readonly questionnairesService: QuestionnairesService,
     private readonly minioService: MinioStorageService,
     private readonly binaryCollectionsService: BinaryCollectionsService,
@@ -45,12 +44,21 @@ export class ExportPrimeProcessor extends WorkerHost {
     );
   }
 
+  private async assertNotCancelled(job: Job<ExportPrimeJobData>) {
+    const fresh = await this.exportPrimeQueue.getJob(String(job.id));
+    if (fresh?.data?.cancelled) {
+      throw new Error('Exportação cancelada pelo usuário');
+    }
+  }
+
   async process(job: Job<ExportPrimeJobData>): Promise<{ minioKey: string; zipName: string }> {
     this.logger.log(`[Job ${job.id}] Iniciando geração do ZIP UFAM/PRIME`);
 
+    await this.assertNotCancelled(job);
+
     const filters = job.data.filters ?? {};
     const minioKey = `exports/prime/${job.id}.zip`;
-    const zipName = 'Dados_Todos_Pacientes.zip';
+    const zipName = resolvePrimeZipName(filters);
 
     await this.updateStep(job, 0, 'Iniciando geração do ZIP UFAM/PRIME...');
     await this.updateStep(job, 2, 'Consultando banco de dados...');
@@ -61,6 +69,8 @@ export class ExportPrimeProcessor extends WorkerHost {
     if (questionnaireIds.length === 0) {
       throw new Error('Nenhum questionário encontrado para os filtros informados.');
     }
+
+    await this.assertNotCancelled(job);
 
     await this.updateStep(
       job,
@@ -86,38 +96,61 @@ export class ExportPrimeProcessor extends WorkerHost {
       'application/zip',
     );
 
-    for (let i = 0; i < questionnaireIds.length; i++) {
-      const questionnaireId = questionnaireIds[i];
-      const item = await this.questionnairesService.exportQuestionnaireData(questionnaireId, {
-        skipPresignedUrls: true,
-      });
+    try {
+      for (let i = 0; i < questionnaireIds.length; i++) {
+        await this.assertNotCancelled(job);
 
-      const folderName = await appendUfamBulkPatientToArchive(archive, item, {
-        minioService: this.minioService,
-        binaryCollectionsService: this.binaryCollectionsService,
-        onPdfError: (reportId, message) => {
-          this.logger.warn(`[Job ${job.id}] PDF omitido (${reportId}): ${message}`);
-        },
-        onBinaryError: (collectionId, message) => {
-          this.logger.warn(`[Job ${job.id}] Binário omitido (${collectionId}): ${message}`);
-        },
-      });
+        const questionnaireId = questionnaireIds[i];
+        const item = await this.questionnairesService.exportQuestionnaireData(questionnaireId, {
+          skipPresignedUrls: true,
+        });
 
-      const percent = Math.round(5 + ((i + 1) / questionnaireIds.length) * 85);
-      await this.updateStep(
-        job,
-        percent,
-        `Montando pasta no ZIP: ${folderName} (${i + 1}/${questionnaireIds.length})`,
-      );
-      this.logger.log(
-        `[Job ${job.id}] Paciente ${i + 1}/${questionnaireIds.length} (${folderName}) adicionado ao ZIP`,
-      );
-      this.logMemory(job, `Após paciente ${i + 1}/${questionnaireIds.length}`);
+        const folderName = await appendUfamBulkPatientToArchive(archive, item, {
+          minioService: this.minioService,
+          binaryCollectionsService: this.binaryCollectionsService,
+          selective: {
+            includeClinicalQuestionnaires: filters.includeClinicalQuestionnaires,
+            includeSleepQuestionnaires: filters.includeSleepQuestionnaires,
+            taskCodes: filters.taskCodes,
+            pdfTypes: filters.pdfTypes,
+          },
+          onPdfError: (reportId, message) => {
+            this.logger.warn(`[Job ${job.id}] PDF omitido (${reportId}): ${message}`);
+          },
+          onBinaryError: (collectionId, message) => {
+            this.logger.warn(`[Job ${job.id}] Binário omitido (${collectionId}): ${message}`);
+          },
+        });
+
+        const percent = Math.round(5 + ((i + 1) / questionnaireIds.length) * 85);
+        await this.updateStep(
+          job,
+          percent,
+          `Montando pasta no ZIP: ${folderName} (${i + 1}/${questionnaireIds.length})`,
+        );
+        this.logger.log(
+          `[Job ${job.id}] Paciente ${i + 1}/${questionnaireIds.length} (${folderName}) adicionado ao ZIP`,
+        );
+        this.logMemory(job, `Após paciente ${i + 1}/${questionnaireIds.length}`);
+      }
+
+      await this.assertNotCancelled(job);
+      await this.updateStep(job, 91, 'Compactando todas as pastas em um único ZIP...');
+      await archive.finalize();
+      await uploadPromise;
+    } catch (err) {
+      try {
+        archive.abort();
+      } catch {
+        /* ignore */
+      }
+      try {
+        passThrough.destroy();
+      } catch {
+        /* ignore */
+      }
+      throw err;
     }
-
-    await this.updateStep(job, 91, 'Compactando todas as pastas em um único ZIP...');
-    await archive.finalize();
-    await uploadPromise;
 
     await this.updateStep(job, 100, 'ZIP gerado com sucesso!');
     this.logger.log(`[Job ${job.id}] ZIP disponível: ${minioKey} (${zipName})`);

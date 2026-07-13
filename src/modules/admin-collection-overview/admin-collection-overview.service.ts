@@ -76,9 +76,11 @@ export type ReportPatientRowDto = {
   patientName: string;
   sex: string;
   age: number | null;
+  patientGroup: DemographicsBalanceRow['grupo'];
   isAdvanced: boolean;
   sleepTestRecommended: boolean;
   sleepTestDone: boolean;
+  sleepTestUploadedAt: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
 };
@@ -176,7 +178,10 @@ export class AdminCollectionOverviewService {
 
     const countsRaw = await this.binaryRepo.manager.query(
       `
-      SELECT q.id AS questionnaire_id, bc.task_id, COUNT(*)::text AS cnt
+      SELECT q.id AS questionnaire_id,
+             bc.task_id,
+             COUNT(*)::text AS cnt,
+             MAX(bc.uploaded_at) AS last_uploaded_at
       FROM questionnaires q
       INNER JOIN patients p ON p.id = q.patient_id
       INNER JOIN binary_collections bc ON (
@@ -212,19 +217,56 @@ export class AdminCollectionOverviewService {
   }
 
   private buildCountsByQuestionnaire(
-    countsRows: { questionnaire_id: string; task_id: number; cnt: string }[],
+    countsRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      cnt: string;
+      last_uploaded_at?: Date | string | null;
+    }[],
     taskIdToCode: Map<number, string>,
   ): Map<string, Record<string, number>> {
     const map = new Map<string, Record<string, number>>();
     for (const row of countsRows) {
-      const code = taskIdToCode.get(row.task_id);
+      const code = taskIdToCode.get(Number(row.task_id));
       if (!code) continue;
-      const qid = row.questionnaire_id;
+      const qid = String(row.questionnaire_id);
       if (!map.has(qid)) map.set(qid, {});
       const rec = map.get(qid)!;
       rec[code] = (rec[code] || 0) + parseInt(row.cnt, 10);
     }
     return map;
+  }
+
+  /** Data ISO do último upload por questionário para um task_code (ex.: TA13). */
+  private buildTaskUploadAtByQuestionnaire(
+    countsRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      last_uploaded_at?: Date | string | null;
+    }[],
+    taskIdToCode: Map<number, string>,
+    taskCode: string,
+  ): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const row of countsRows) {
+      const code = taskIdToCode.get(Number(row.task_id));
+      if (code !== taskCode) continue;
+      const iso = this.toIsoDateTime(row.last_uploaded_at);
+      if (!iso) continue;
+      const qid = String(row.questionnaire_id);
+      const prev = map.get(qid);
+      if (!prev || iso > prev) {
+        map.set(qid, iso);
+      }
+    }
+    return map;
+  }
+
+  private toIsoDateTime(value: Date | string | null | undefined): string | null {
+    if (value == null) return null;
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
   }
 
   /** Um questionário por paciente: primeiro na lista já ordenada por `updated_at` DESC. */
@@ -644,7 +686,7 @@ export class AdminCollectionOverviewService {
     }[] = [];
 
     for (const q of questionnaires) {
-      const counts = byQ.get(q.id) || {};
+      const counts = byQ.get(String(q.id)) || byQ.get(q.id) || {};
       const totalFiles = Object.values(counts).reduce((a, b) => a + b, 0);
       const completionPercent =
         expectedRowTotal > 0
@@ -995,11 +1037,46 @@ export class AdminCollectionOverviewService {
       genderByPatientId.set(String(row.patient_id), String(row.gender_code || ''));
     }
 
+    // Mesma agregação que define sleepTestDone (contagens TA13).
+    const ta13ByQid = this.buildTaskUploadAtByQuestionnaire(
+      countsRows,
+      taskIdToCode,
+      'TA13',
+    );
+
+    // Fallback: PDF de polissonografia (exame TA13 no formulário).
+    const pdfUploadRaw = await this.pdfReportRepo.manager.query(
+      `
+      SELECT pr.questionnaire_id, MAX(pr.uploaded_at) AS pdf_uploaded_at
+      FROM pdf_reports pr
+      WHERE pr.questionnaire_id = ANY($1::uuid[])
+        AND pr.report_type = 'POLYSOMNOGRAPHY'
+      GROUP BY pr.questionnaire_id
+      `,
+      [qids],
+    );
+
+    for (const row of pdfUploadRaw as {
+      questionnaire_id: string;
+      pdf_uploaded_at: Date | string | null;
+    }[]) {
+      const iso = this.toIsoDateTime(row.pdf_uploaded_at);
+      if (!iso) continue;
+      const qid = String(row.questionnaire_id);
+      const prev = ta13ByQid.get(qid);
+      // Prefere a data do binário TA13; se não houver, usa o PDF.
+      if (!prev) {
+        ta13ByQid.set(qid, iso);
+      }
+    }
+
     const patients: ReportPatientRowDto[] = questionnaires.map((q) => {
-      const counts = byQ.get(q.id) || {};
-      const clinical = clinicalByQid.get(q.id);
+      const qid = String(q.id);
+      const counts = byQ.get(qid) || {};
+      const clinical = clinicalByQid.get(qid);
       const grupo = this.classifyPatientGroup(q, clinical);
-      const genderCode = genderByPatientId.get(q.patient_id)?.trim().toUpperCase() || '';
+      const genderCode =
+        genderByPatientId.get(String(q.patient_id))?.trim().toUpperCase() || '';
       const sex =
         genderCode === 'M'
           ? 'Homem'
@@ -1013,9 +1090,11 @@ export class AdminCollectionOverviewService {
         patientName: q.patient?.full_name || '',
         sex,
         age: this.computeAgeYears(q.patient?.date_of_birth),
+        patientGroup: grupo,
         isAdvanced: grupo === 'avancado',
         sleepTestRecommended: q.sleep_test_recommended === true,
         sleepTestDone: (counts['TA13'] || 0) > 0,
+        sleepTestUploadedAt: ta13ByQid.get(qid) ?? null,
         contactPhone:
           q.patient?.phone_primary?.trim() ||
           q.patient?.phone_secondary?.trim() ||

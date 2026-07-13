@@ -4074,6 +4074,9 @@ export class QuestionnairesService {
       patientEnd?: string;
       dateStart?: string;
       dateEnd?: string;
+      onlyPatientsWithTaskData?: boolean;
+      requireSleepTa13?: boolean;
+      requireAnyClinicalTask?: boolean;
     },
   ): void {
     qb.andWhere(
@@ -4116,6 +4119,42 @@ export class QuestionnairesService {
         dateEnd: filters.dateEnd,
       });
     }
+
+    // Baixar todos: restringe a pacientes que já têm as TAs do protocolo selecionado
+    if (filters?.onlyPatientsWithTaskData) {
+      const requireSleep = filters.requireSleepTa13 === true;
+      const requireClinic = filters.requireAnyClinicalTask === true;
+
+      const hasTaSql = (taskPredicate: string, alias: string) => `
+        EXISTS (
+          SELECT 1
+          FROM binary_collections ${alias}
+          INNER JOIN active_task_definitions ${alias}_at
+            ON ${alias}_at.id = ${alias}.task_id
+          WHERE (
+            ${alias}.questionnaire_id = q.id
+            OR (
+              patient.cpf_hash IS NOT NULL
+              AND ${alias}.patient_cpf_hash = patient.cpf_hash
+            )
+          )
+          AND ${taskPredicate}
+        )
+      `;
+
+      if (requireSleep && requireClinic) {
+        qb.andWhere(
+          `(${hasTaSql("UPPER(TRIM(bc_sleep_at.task_code)) = 'TA13'", 'bc_sleep')}
+            OR ${hasTaSql("UPPER(TRIM(bc_clinic_at.task_code)) <> 'TA13'", 'bc_clinic')})`,
+        );
+      } else if (requireSleep) {
+        qb.andWhere(hasTaSql("UPPER(TRIM(bc_sleep_at.task_code)) = 'TA13'", 'bc_sleep'));
+      } else if (requireClinic) {
+        qb.andWhere(
+          hasTaSql("UPPER(TRIM(bc_clinic_at.task_code)) <> 'TA13'", 'bc_clinic'),
+        );
+      }
+    }
   }
 
   /** IDs para export em massa (ZIP) — evita carregar todos os pacientes na memória de uma vez. */
@@ -4124,6 +4163,9 @@ export class QuestionnairesService {
     patientEnd?: string;
     dateStart?: string;
     dateEnd?: string;
+    onlyPatientsWithTaskData?: boolean;
+    requireSleepTa13?: boolean;
+    requireAnyClinicalTask?: boolean;
   }): Promise<string[]> {
     const qb = this.questionnairesRepository
       .createQueryBuilder('q')
