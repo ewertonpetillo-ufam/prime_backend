@@ -83,6 +83,11 @@ export type ReportPatientRowDto = {
   sleepTestUploadedAt: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
+  weightKg: number | null;
+  bmi: number | null;
+  isCurrentSmoker: boolean;
+  usesMedication: boolean;
+  medications: string | null;
 };
 
 @Injectable()
@@ -1000,6 +1005,7 @@ export class AdminCollectionOverviewService {
       .createQueryBuilder('ca')
       .select('ca.questionnaire_id', 'questionnaire_id')
       .addSelect('ca.age_at_onset', 'age_at_onset')
+      .addSelect('ca.other_medications', 'other_medications')
       .addSelect('hy.stage', 'stage')
       .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
       .where('ca.questionnaire_id IN (:...qids)', { qids })
@@ -1007,18 +1013,27 @@ export class AdminCollectionOverviewService {
 
     const clinicalByQid = new Map<
       string,
-      { age_at_onset: number | null; stage: string | number | null }
+      {
+        age_at_onset: number | null;
+        stage: string | number | null;
+        other_medications: string | null;
+      }
     >();
     for (const row of clinicalRaw) {
       const qid = String((row as { questionnaire_id: string }).questionnaire_id);
       const ageRaw = (row as { age_at_onset: unknown }).age_at_onset;
       const stageRaw = (row as { stage: unknown }).stage;
+      const otherMeds = (row as { other_medications: unknown }).other_medications;
       clinicalByQid.set(qid, {
         age_at_onset:
           ageRaw !== null && ageRaw !== undefined && !Number.isNaN(Number(ageRaw))
             ? Number(ageRaw)
             : null,
         stage: stageRaw as string | number | null,
+        other_medications:
+          typeof otherMeds === 'string' && otherMeds.trim()
+            ? otherMeds.trim()
+            : null,
       });
     }
 
@@ -1035,6 +1050,64 @@ export class AdminCollectionOverviewService {
     const genderByPatientId = new Map<string, string>();
     for (const row of genderRaw as { patient_id: string; gender_code: string }[]) {
       genderByPatientId.set(String(row.patient_id), String(row.gender_code || ''));
+    }
+
+    const anthroRaw = await this.questionnairesRepo.manager.query(
+      `
+      SELECT ad.questionnaire_id, ad.weight_kg, ad.bmi
+      FROM anthropometric_data ad
+      WHERE ad.questionnaire_id = ANY($1::uuid[])
+      `,
+      [qids],
+    );
+
+    const anthroByQid = new Map<
+      string,
+      { weightKg: number | null; bmi: number | null }
+    >();
+    for (const row of anthroRaw as {
+      questionnaire_id: string;
+      weight_kg: unknown;
+      bmi: unknown;
+    }[]) {
+      const weightRaw = row.weight_kg;
+      const bmiRaw = row.bmi;
+      anthroByQid.set(String(row.questionnaire_id), {
+        weightKg:
+          weightRaw !== null &&
+          weightRaw !== undefined &&
+          !Number.isNaN(Number(weightRaw))
+            ? Number(weightRaw)
+            : null,
+        bmi:
+          bmiRaw !== null && bmiRaw !== undefined && !Number.isNaN(Number(bmiRaw))
+            ? Number(bmiRaw)
+            : null,
+      });
+    }
+
+    const medsRaw = await this.questionnairesRepo.manager.query(
+      `
+      SELECT pm.questionnaire_id, mr.drug_name
+      FROM patient_medications pm
+      LEFT JOIN medications_reference mr ON mr.id = pm.medication_id
+      WHERE pm.questionnaire_id = ANY($1::uuid[])
+      ORDER BY pm.questionnaire_id, mr.drug_name
+      `,
+      [qids],
+    );
+
+    const drugNamesByQid = new Map<string, string[]>();
+    for (const row of medsRaw as {
+      questionnaire_id: string;
+      drug_name: string | null;
+    }[]) {
+      const qid = String(row.questionnaire_id);
+      const name = (row.drug_name || '').trim();
+      if (!name) continue;
+      const list = drugNamesByQid.get(qid) || [];
+      list.push(name);
+      drugNamesByQid.set(qid, list);
     }
 
     // Mesma agregação que define sleepTestDone (contagens TA13).
@@ -1083,6 +1156,15 @@ export class AdminCollectionOverviewService {
           : genderCode === 'F'
             ? 'Mulher'
             : '—';
+      const anthro = anthroByQid.get(qid);
+      const drugNames = drugNamesByQid.get(qid) || [];
+      const otherMeds = clinical?.other_medications || null;
+      const medParts = [...drugNames];
+      if (otherMeds) {
+        medParts.push(`Outros: ${otherMeds}`);
+      }
+      const medications = medParts.length > 0 ? medParts.join('; ') : null;
+      const usesMedication = drugNames.length > 0 || !!otherMeds;
 
       return {
         questionnaireId: q.id,
@@ -1100,6 +1182,11 @@ export class AdminCollectionOverviewService {
           q.patient?.phone_secondary?.trim() ||
           null,
         contactEmail: q.patient?.email?.trim() || null,
+        weightKg: anthro?.weightKg ?? null,
+        bmi: anthro?.bmi ?? null,
+        isCurrentSmoker: q.patient?.is_current_smoker === true,
+        usesMedication,
+        medications,
       };
     });
 
