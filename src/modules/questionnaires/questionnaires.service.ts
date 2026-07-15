@@ -3344,6 +3344,7 @@ export class QuestionnairesService {
     // Header anonimizado (sem nomes, CPF, telefones e e-mail)
     const headers = [
       'questionnaire_id',
+      'is_healthy_control',
       'collection_date',
       // removed: birthday (date of birth)
       'age',
@@ -3404,6 +3405,7 @@ export class QuestionnairesService {
     // Data row
     const values = [
       data.id || '',
+      data.data?.isHealthyControl === true,
       data.data?.dataColeta || '',
       data.data?.age || '',
       data.data?.gender || '',
@@ -3751,6 +3753,7 @@ export class QuestionnairesService {
     // Header anonimizado (sem nome e CPF)
     const headers = [
       'questionnaire_id',
+      'sleep_test_recommended',
       'stopbang_total_score',
       'stopbang_snore',
       'stopbang_tired',
@@ -3808,6 +3811,7 @@ export class QuestionnairesService {
 
     const values = [
       data.id || '',
+      d.sleepTestRecommended === true,
       pickExportValue(d.scoreStopBang, stop?.total_score),
       pickExportValue(d.stopbang_snore, stop?.snoring),
       pickExportValue(d.stopbang_tired, stop?.tired),
