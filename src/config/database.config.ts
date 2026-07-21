@@ -20,9 +20,8 @@ export const getDatabaseConfig = (
       max: 20,
       connectionTimeoutMillis: 30_000,
       idleTimeoutMillis: 30_000,
-      // Safety net against runaway statements (e.g. accidental BYTEA materialization).
-      // Per-statement limit; the sync job itself can run for hours across many queries.
-      options: '-c statement_timeout=300000',
+      // Sem statement_timeout global: confirmRunDelivery e syncs longos
+      // legítimos excedem limites curtos e marcariam FAILED após o ZIP já no BART.
     },
   };
 };

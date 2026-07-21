@@ -177,7 +177,7 @@ describe('SamsungSyncService.recoverStaleRuns', () => {
 });
 
 describe('getDatabaseConfig pool hardening', () => {
-  it('configures idleTimeoutMillis and statement_timeout', () => {
+  it('configures idleTimeoutMillis without global statement_timeout', () => {
     const configService = {
       get: (key: string) => {
         const map: Record<string, string | number> = {
@@ -198,8 +198,8 @@ describe('getDatabaseConfig pool hardening', () => {
         max: 20,
         connectionTimeoutMillis: 30_000,
         idleTimeoutMillis: 30_000,
-        options: '-c statement_timeout=300000',
       }),
     );
+    expect((config.extra as { options?: string } | undefined)?.options).toBeUndefined();
   });
 });
