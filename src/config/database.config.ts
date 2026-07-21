@@ -19,6 +19,10 @@ export const getDatabaseConfig = (
       // Connection pool settings
       max: 20,
       connectionTimeoutMillis: 30_000,
+      idleTimeoutMillis: 30_000,
+      // Safety net against runaway statements (e.g. accidental BYTEA materialization).
+      // Per-statement limit; the sync job itself can run for hours across many queries.
+      options: '-c statement_timeout=300000',
     },
   };
 };
