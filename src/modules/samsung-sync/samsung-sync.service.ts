@@ -62,7 +62,6 @@ type PendingFile = {
   file_hash: string | null;
   file_sync_pending: boolean;
   deleted_pending: boolean;
-  csv_data: Buffer | null;
   collected_at: string | null;
 };
 
@@ -159,6 +158,7 @@ export class SamsungSyncService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    this.attachPoolErrorHandler();
     await this.recoverStaleRuns();
 
     const enabled =
@@ -177,19 +177,24 @@ export class SamsungSyncService implements OnModuleInit {
     }, intervalMs);
   }
 
+  /** Evita que erros assíncronos do pg-pool derrubem o processo Nest. */
+  private attachPoolErrorHandler() {
+    const driver = this.db.driver as { master?: NodeJS.EventEmitter };
+    const pool = driver?.master;
+    if (!pool || typeof pool.on !== 'function') return;
+    pool.on('error', (error: Error) => {
+      this.logger.error(
+        `Erro no pool PostgreSQL (não fatal): ${error?.message || String(error)}`,
+      );
+    });
+  }
+
   private async recoverStaleRuns(): Promise<void> {
-    const staleMs = 5 * 60 * 1000;
-    const cutoff = Date.now() - staleMs;
+    // executeRun vive só na memória do processo — qualquer RUNNING após restart é órfão.
     const running = await this.syncRunRepository.find({
       where: { status: SamsungSyncRunStatus.RUNNING },
     });
     for (const run of running) {
-      const summary = (run.summary || {}) as { lastHeartbeatAt?: string };
-      const lastActivity = summary.lastHeartbeatAt
-        ? new Date(summary.lastHeartbeatAt).getTime()
-        : new Date(run.started_at).getTime();
-      if (lastActivity >= cutoff) continue;
-
       await this.syncRunRepository.update(run.id, {
         status: SamsungSyncRunStatus.FAILED,
         finished_at: new Date(),
@@ -197,6 +202,7 @@ export class SamsungSyncService implements OnModuleInit {
       });
       await cleanupSamsungSyncTempDir(run.id);
       this.cancelledRunIds.delete(run.id);
+      this.runAbortControllers.delete(run.id);
       this.logger.warn(`Run órfão ${run.id} marcado como failed após reinício`);
     }
   }
@@ -743,6 +749,8 @@ export class SamsungSyncService implements OnModuleInit {
       throw new Error('Faixa de datas inválida: início maior que o fim.');
     }
 
+    // Metadados apenas — csv_data (BYTEA) é carregado sob demanda via getBinaryPayloadMap
+    // por paciente, evitando materializar todos os payloads de uma vez no pool/memória.
     const rows = await this.db.query(`
       SELECT
         p.id,
@@ -760,7 +768,6 @@ export class SamsungSyncService implements OnModuleInit {
               'file_hash', bc.file_hash,
               'file_sync_pending', bc.file_sync_pending,
               'deleted_pending', bc.deleted_pending,
-              'csv_data', encode(bc.csv_data, 'escape'),
               'collected_at', bc.collected_at
             )
           ) FILTER (
@@ -803,10 +810,7 @@ export class SamsungSyncService implements OnModuleInit {
 
     return rows.map((row: any) => ({
       ...row,
-      files: (row.files || []).map((file: any) => ({
-        ...file,
-        csv_data: file.csv_data ? Buffer.from(file.csv_data, 'binary') : null,
-      })),
+      files: Array.isArray(row.files) ? row.files : [],
     }));
   }
 
@@ -1015,7 +1019,10 @@ export class SamsungSyncService implements OnModuleInit {
     const startHeartbeat = () => {
       heartbeatTimer = setInterval(() => {
         summary.lastHeartbeatAt = new Date().toISOString();
-        void this.updateRunProgress(run.id, summary);
+        void this.updateRunProgress(run.id, summary).catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Run ${run.id}: falha no heartbeat: ${message}`);
+        });
       }, 10000);
     };
     const stopHeartbeat = () => {
@@ -1042,10 +1049,14 @@ export class SamsungSyncService implements OnModuleInit {
           message: connectivity.warning,
         });
       }
+      await setCurrentStep(0, 'Listando pacientes pendentes');
       const patients = await this.getPendingPatients(filters);
       this.ensureRunNotCancelled(run.id);
       summary.totalPatients = patients.length;
       await this.updateRunProgress(run.id, summary);
+      this.logger.log(
+        `Run ${run.id}: ${patients.length} paciente(s) pendente(s) para sincronização`,
+      );
 
       if (patients.length === 0) {
         await this.syncRunRepository.update(run.id, {
@@ -1505,7 +1516,7 @@ export class SamsungSyncService implements OnModuleInit {
               });
               continue;
             }
-            const payload = patientBinaryPayloadMap.get(file.id) || file.csv_data;
+            const payload = patientBinaryPayloadMap.get(file.id);
             if (!payload) {
               patientHasCriticalError = true;
               summary.errorFiles += 1;

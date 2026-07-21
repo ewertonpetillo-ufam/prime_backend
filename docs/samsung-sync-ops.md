@@ -31,7 +31,7 @@
 
 ## Após o deploy
 
-1. Reiniciar o backend uma vez (recovery de runs órfãos no `onModuleInit`).
+1. Reiniciar o backend uma vez (`onModuleInit` marca **todos** os runs `RUNNING` como `failed` — execução é in-process).
 2. Reexecutar sync **P013–P030** somente após deploy.
 3. Validar com `docker stats prime-backend` — RSS deve permanecer estável (sem salto para 3–4 GB).
 4. Confirmar entrega no Artifactory: `Data/YYYYMMDD.zip` e `Metadata/YYYYMMDD_metadata.csv`.
