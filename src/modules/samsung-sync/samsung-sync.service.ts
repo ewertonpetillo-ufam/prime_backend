@@ -626,7 +626,27 @@ export class SamsungSyncService implements OnModuleInit {
   }
 
   async getPendingSummary() {
+    // Agrega pendências em CTEs (1 scan cada) em vez de LEFT JOIN + EXISTS
+    // correlacionados por paciente — muito mais rápido na tela de sync.
     const rows = await this.db.query(`
+      WITH pending_bc AS (
+        SELECT
+          bc.patient_cpf_hash,
+          COUNT(*)::int AS pending_files
+        FROM binary_collections bc
+        WHERE (bc.file_sync_pending = TRUE OR bc.deleted_pending = TRUE)
+          AND NOT binary_collection_is_samsung_speech_excluded(bc.task_id, bc.metadata)
+        GROUP BY bc.patient_cpf_hash
+      ),
+      pending_pdf AS (
+        SELECT
+          q.patient_id,
+          COUNT(*)::int AS pending_pdf_reports
+        FROM pdf_reports pr
+        JOIN questionnaires q ON q.id = pr.questionnaire_id
+        WHERE pr.file_sync_pending = TRUE
+        GROUP BY q.patient_id
+      )
       SELECT
         p.id,
         p.full_name,
@@ -634,58 +654,23 @@ export class SamsungSyncService implements OnModuleInit {
         p.sync_pending,
         p.sync_pending_at,
         p.synced_at,
-        COUNT(bc.*) FILTER (
-          WHERE bc.id IS NOT NULL
-            AND NOT binary_collection_is_samsung_speech_excluded(bc.task_id, bc.metadata)
-            AND (bc.file_sync_pending = TRUE OR bc.deleted_pending = TRUE)
-        )::int AS pending_files,
-        COALESCE((
-          SELECT COUNT(*)::int
-            FROM pdf_reports pr
-            JOIN questionnaires q ON q.id = pr.questionnaire_id
-           WHERE q.patient_id = p.id
-             AND pr.file_sync_pending = TRUE
-        ), 0) AS pending_pdf_reports,
+        COALESCE(pb.pending_files, 0)::int AS pending_files,
+        COALESCE(pp.pending_pdf_reports, 0)::int AS pending_pdf_reports,
         (
           p.synced_at IS NOT NULL
-          AND NOT EXISTS (
-            SELECT 1
-              FROM binary_collections bc_sync
-             WHERE bc_sync.patient_cpf_hash = p.cpf_hash
-               AND NOT binary_collection_is_samsung_speech_excluded(bc_sync.task_id, bc_sync.metadata)
-               AND (bc_sync.file_sync_pending = TRUE OR bc_sync.deleted_pending = TRUE)
-          )
-          AND NOT EXISTS (
-            SELECT 1
-              FROM pdf_reports pr_sync
-              JOIN questionnaires q_sync ON q_sync.id = pr_sync.questionnaire_id
-             WHERE q_sync.patient_id = p.id
-               AND pr_sync.file_sync_pending = TRUE
-          )
+          AND COALESCE(pb.pending_files, 0) = 0
+          AND COALESCE(pp.pending_pdf_reports, 0) = 0
         ) AS is_bart_synced
       FROM patients p
-      LEFT JOIN binary_collections bc ON bc.patient_cpf_hash = p.cpf_hash
-        AND NOT binary_collection_is_samsung_speech_excluded(bc.task_id, bc.metadata)
+      LEFT JOIN pending_bc pb ON pb.patient_cpf_hash = p.cpf_hash
+      LEFT JOIN pending_pdf pp ON pp.patient_id = p.id
       WHERE UPPER(COALESCE(p.public_identifier, '')) NOT IN ('P000', 'P00')
-      GROUP BY p.id
       ORDER BY
         (
           p.sync_pending = TRUE
           OR p.synced_at IS NULL
-          OR EXISTS (
-            SELECT 1
-              FROM binary_collections bc_ord
-             WHERE bc_ord.patient_cpf_hash = p.cpf_hash
-               AND NOT binary_collection_is_samsung_speech_excluded(bc_ord.task_id, bc_ord.metadata)
-               AND (bc_ord.file_sync_pending = TRUE OR bc_ord.deleted_pending = TRUE)
-          )
-          OR EXISTS (
-            SELECT 1
-              FROM pdf_reports pr_ord
-              JOIN questionnaires q_ord ON q_ord.id = pr_ord.questionnaire_id
-             WHERE q_ord.patient_id = p.id
-               AND pr_ord.file_sync_pending = TRUE
-          )
+          OR COALESCE(pb.pending_files, 0) > 0
+          OR COALESCE(pp.pending_pdf_reports, 0) > 0
         ) DESC,
         p.sync_pending DESC,
         p.sync_pending_at ASC NULLS LAST,
@@ -1689,6 +1674,15 @@ export class SamsungSyncService implements OnModuleInit {
   private async confirmRunDelivery(patientIds: string[]) {
     if (patientIds.length === 0) return;
 
+    // Lotes pequenos evitam UPDATEs longos (triggers + muitas binary_collections).
+    const batchSize = 5;
+    for (let i = 0; i < patientIds.length; i += batchSize) {
+      const batch = patientIds.slice(i, i + batchSize);
+      await this.confirmRunDeliveryBatch(batch);
+    }
+  }
+
+  private async confirmRunDeliveryBatch(patientIds: string[]) {
     await this.db.query(
       `
       UPDATE patients
@@ -1710,6 +1704,7 @@ export class SamsungSyncService implements OnModuleInit {
       [patientIds],
     );
 
+    // Só linhas ainda pendentes — speech excluída já deve ter file_sync_pending=FALSE.
     await this.db.query(
       `
       UPDATE binary_collections bc
@@ -1719,7 +1714,6 @@ export class SamsungSyncService implements OnModuleInit {
         FROM patients p
        WHERE bc.patient_cpf_hash = p.cpf_hash
          AND p.id = ANY($1::uuid[])
-         AND NOT binary_collection_is_samsung_speech_excluded(bc.task_id, bc.metadata)
          AND (bc.file_sync_pending = TRUE OR bc.deleted_pending = TRUE)
       `,
       [patientIds],
