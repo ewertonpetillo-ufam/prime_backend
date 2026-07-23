@@ -1316,7 +1316,7 @@ export class QuestionnairesService {
     dto: SaveSleepPatientDescriptionDto,
     evaluatorId: string,
   ): Promise<ClinicalAssessment> {
-    const { questionnaireId, sleepPatientDescription } = dto;
+    const { questionnaireId, sleepPatientDescription, sleepExamDate } = dto;
 
     const questionnaire = await this.questionnairesRepository.findOne({
       where: { id: questionnaireId },
@@ -1327,6 +1327,11 @@ export class QuestionnairesService {
         `Questionnaire with ID ${questionnaireId} not found`,
       );
     }
+
+    const parsedSleepExamDate =
+      sleepExamDate && /^\d{4}-\d{2}-\d{2}$/.test(sleepExamDate)
+        ? sleepExamDate
+        : null;
 
     let clinicalAssessment: ClinicalAssessment | null =
       await this.clinicalAssessmentRepository.findOne({
@@ -1366,11 +1371,16 @@ export class QuestionnairesService {
         disease_evolution: null,
         current_symptoms: null,
         sleep_patient_description: sleepPatientDescription ?? null,
+        sleep_exam_date: parsedSleepExamDate as unknown as Date | null,
       };
       clinicalAssessment = this.clinicalAssessmentRepository.create(payload);
     } else {
       clinicalAssessment.sleep_patient_description =
         sleepPatientDescription ?? null;
+      if (sleepExamDate !== undefined) {
+        clinicalAssessment.sleep_exam_date =
+          parsedSleepExamDate as unknown as Date | null;
+      }
     }
 
     const saved =
@@ -2457,6 +2467,20 @@ export class QuestionnairesService {
         clinical.physio_patient_description || '';
       (formData as any).sleepPatientDescription =
         clinical.sleep_patient_description || '';
+      (formData as any).sleepExamDate = (() => {
+        const raw = clinical.sleep_exam_date;
+        if (!raw) return '';
+        if (typeof raw === 'string') {
+          return raw.slice(0, 10);
+        }
+        if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+          const y = raw.getUTCFullYear();
+          const m = String(raw.getUTCMonth() + 1).padStart(2, '0');
+          const d = String(raw.getUTCDate()).padStart(2, '0');
+          return `${y}-${m}-${d}`;
+        }
+        return '';
+      })();
       (formData as any).speechPatientDescription =
         clinical.speech_patient_description || '';
 
