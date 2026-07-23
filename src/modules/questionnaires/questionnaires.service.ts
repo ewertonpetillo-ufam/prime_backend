@@ -2468,7 +2468,7 @@ export class QuestionnairesService {
       (formData as any).sleepPatientDescription =
         clinical.sleep_patient_description || '';
       (formData as any).sleepExamDate = (() => {
-        const raw = clinical.sleep_exam_date;
+        const raw = clinical.sleep_exam_date as unknown;
         if (!raw) return '';
         if (typeof raw === 'string') {
           return raw.slice(0, 10);
