@@ -117,6 +117,9 @@ export class ClinicalAssessment {
   @Column({ type: 'text', nullable: true })
   sleep_patient_description: string;
 
+  @Column({ type: 'date', nullable: true })
+  sleep_exam_date: Date | null;
+
   @Column({ type: 'text', nullable: true })
   speech_patient_description: string;
 

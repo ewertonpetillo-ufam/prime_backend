@@ -81,6 +81,7 @@ export type ReportPatientRowDto = {
   sleepTestRecommended: boolean;
   sleepTestDone: boolean;
   sleepTestUploadedAt: string | null;
+  sleepExamDate: string | null;
   contactPhone: string | null;
   contactEmail: string | null;
   weightKg: number | null;
@@ -1006,6 +1007,7 @@ export class AdminCollectionOverviewService {
       .select('ca.questionnaire_id', 'questionnaire_id')
       .addSelect('ca.age_at_onset', 'age_at_onset')
       .addSelect('ca.other_medications', 'other_medications')
+      .addSelect('ca.sleep_exam_date', 'sleep_exam_date')
       .addSelect('hy.stage', 'stage')
       .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
       .where('ca.questionnaire_id IN (:...qids)', { qids })
@@ -1017,6 +1019,7 @@ export class AdminCollectionOverviewService {
         age_at_onset: number | null;
         stage: string | number | null;
         other_medications: string | null;
+        sleep_exam_date: string | null;
       }
     >();
     for (const row of clinicalRaw) {
@@ -1024,6 +1027,16 @@ export class AdminCollectionOverviewService {
       const ageRaw = (row as { age_at_onset: unknown }).age_at_onset;
       const stageRaw = (row as { stage: unknown }).stage;
       const otherMeds = (row as { other_medications: unknown }).other_medications;
+      const examRaw = (row as { sleep_exam_date: unknown }).sleep_exam_date;
+      let sleepExamDate: string | null = null;
+      if (examRaw instanceof Date && !Number.isNaN(examRaw.getTime())) {
+        const y = examRaw.getUTCFullYear();
+        const m = String(examRaw.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(examRaw.getUTCDate()).padStart(2, '0');
+        sleepExamDate = `${y}-${m}-${d}`;
+      } else if (typeof examRaw === 'string' && examRaw.trim()) {
+        sleepExamDate = examRaw.trim().slice(0, 10);
+      }
       clinicalByQid.set(qid, {
         age_at_onset:
           ageRaw !== null && ageRaw !== undefined && !Number.isNaN(Number(ageRaw))
@@ -1034,6 +1047,7 @@ export class AdminCollectionOverviewService {
           typeof otherMeds === 'string' && otherMeds.trim()
             ? otherMeds.trim()
             : null,
+        sleep_exam_date: sleepExamDate,
       });
     }
 
@@ -1177,6 +1191,7 @@ export class AdminCollectionOverviewService {
         sleepTestRecommended: q.sleep_test_recommended === true,
         sleepTestDone: (counts['TA13'] || 0) > 0,
         sleepTestUploadedAt: ta13ByQid.get(qid) ?? null,
+        sleepExamDate: clinical?.sleep_exam_date ?? null,
         contactPhone:
           q.patient?.phone_primary?.trim() ||
           q.patient?.phone_secondary?.trim() ||

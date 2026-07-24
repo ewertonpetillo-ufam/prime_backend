@@ -15,7 +15,7 @@ export const EXPECTED_BINARY_FILES_BY_TASK: Record<string, number> = {
   TA10: 4,
   TA11: 6,
   TA12: 6,
-  TA13: 3,
+  TA13: 6,
   TA14: 12,
   TA15: 8,
   TA16: 36,
