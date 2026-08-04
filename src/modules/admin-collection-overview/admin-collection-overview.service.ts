@@ -8,6 +8,7 @@ import { ClinicalAssessment } from '../../entities/clinical-assessment.entity';
 import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
 import { PdfReport } from '../../entities/pdf-report.entity';
 import {
+  EXPECTED_BINARY_FILES_BY_TASK,
   EXPECTED_BINARY_FILES_TOTAL,
   CollectionProtocolStage,
   expectedFilesForTaskCode,
@@ -68,6 +69,26 @@ export type DemographicsBalanceRow = {
 export type DemographicsBalanceKpis = {
   faixasEtarias: string[];
   linhas: DemographicsBalanceRow[];
+};
+
+/** Pacientes com TA13 completo + PDF do polissonógrafo, estratificados como a classificação clínica. */
+export type SleepCompletenessSexRow = {
+  grupo: DemographicsBalanceRow['grupo'];
+  grupoLabel: string;
+  homens: number;
+  mulheres: number;
+  total: number;
+};
+
+export type SleepCompletenessKpis = {
+  sonoPacientesCompletos: number;
+  sonoPacientesPrecoces: number;
+  sonoPacientesSaudaveis: number;
+  sonoPacientesAvancados: number;
+  sonoPacientesSemClassificacao: number;
+  sonoPacientesHomens: number;
+  sonoPacientesMulheres: number;
+  sonoLinhas: SleepCompletenessSexRow[];
 };
 
 export type ReportPatientRowDto = {
@@ -602,6 +623,182 @@ export class AdminCollectionOverviewService {
     return { faixasEtarias, linhas };
   }
 
+  /**
+   * Pacientes com protocolo de sono completo: meta de binários TA13
+   * e pelo menos um PDF POLYSOMNOGRAPHY, classificados clinicamente e por sexo.
+   */
+  private async computeSleepCompletenessKpis(
+    questionnaires: Questionnaire[],
+    countsByQuestionnaire: Map<string, Record<string, number>>,
+  ): Promise<SleepCompletenessKpis> {
+    const empty: SleepCompletenessKpis = {
+      sonoPacientesCompletos: 0,
+      sonoPacientesPrecoces: 0,
+      sonoPacientesSaudaveis: 0,
+      sonoPacientesAvancados: 0,
+      sonoPacientesSemClassificacao: 0,
+      sonoPacientesHomens: 0,
+      sonoPacientesMulheres: 0,
+      sonoLinhas: [],
+    };
+    if (questionnaires.length === 0) return empty;
+
+    const onePerPatient = this.dedupeLatestQuestionnairePerPatient(questionnaires);
+    const qids = onePerPatient.map((q) => q.id);
+    if (qids.length === 0) return empty;
+
+    const ta13Expected = EXPECTED_BINARY_FILES_BY_TASK.TA13 ?? 6;
+
+    const pdfRaw = await this.pdfReportRepo.manager.query(
+      `
+      SELECT pr.questionnaire_id, COUNT(*)::int AS pdf_count
+      FROM pdf_reports pr
+      WHERE pr.questionnaire_id = ANY($1::uuid[])
+        AND pr.report_type = 'POLYSOMNOGRAPHY'
+        AND pr.file_path IS NOT NULL
+        AND TRIM(pr.file_path) <> ''
+      GROUP BY pr.questionnaire_id
+      `,
+      [qids],
+    );
+
+    const hasPsgByQid = new Set<string>();
+    for (const row of pdfRaw as {
+      questionnaire_id: string;
+      pdf_count: string | number;
+    }[]) {
+      if (Number(row.pdf_count || 0) > 0) {
+        hasPsgByQid.add(String(row.questionnaire_id));
+      }
+    }
+
+    const completeQs = onePerPatient.filter((q) => {
+      const counts = countsByQuestionnaire.get(String(q.id)) || {};
+      const ta13Count = counts['TA13'] || 0;
+      return ta13Count >= ta13Expected && hasPsgByQid.has(String(q.id));
+    });
+
+    if (completeQs.length === 0) return empty;
+
+    const completeQids = completeQs.map((q) => q.id);
+
+    const clinicalRaw = await this.clinicalRepo
+      .createQueryBuilder('ca')
+      .select('ca.questionnaire_id', 'questionnaire_id')
+      .addSelect('ca.age_at_onset', 'age_at_onset')
+      .addSelect('hy.stage', 'stage')
+      .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
+      .where('ca.questionnaire_id IN (:...qids)', { qids: completeQids })
+      .getRawMany();
+
+    const byQid = new Map<
+      string,
+      { age_at_onset: number | null; stage: string | number | null }
+    >();
+    for (const row of clinicalRaw) {
+      const qid = String((row as { questionnaire_id: string }).questionnaire_id);
+      const ageRaw = (row as { age_at_onset: unknown }).age_at_onset;
+      const stageRaw = (row as { stage: unknown }).stage;
+      byQid.set(qid, {
+        age_at_onset:
+          ageRaw !== null && ageRaw !== undefined && !Number.isNaN(Number(ageRaw))
+            ? Number(ageRaw)
+            : null,
+        stage: stageRaw as string | number | null,
+      });
+    }
+
+    const genderRaw = await this.questionnairesRepo.manager.query(
+      `
+      SELECT
+        q.id AS questionnaire_id,
+        COALESCE(gt.code, '') AS gender_code
+      FROM questionnaires q
+      INNER JOIN patients p ON p.id = q.patient_id
+      LEFT JOIN gender_types gt ON gt.id = p.gender_id
+      WHERE q.id = ANY($1::uuid[])
+      `,
+      [completeQids],
+    );
+
+    const genderByQid = new Map<string, string>();
+    for (const row of genderRaw as {
+      questionnaire_id: string;
+      gender_code: string;
+    }[]) {
+      genderByQid.set(
+        String(row.questionnaire_id),
+        String(row.gender_code || '').trim().toUpperCase(),
+      );
+    }
+
+    const grupoLabels: Record<DemographicsBalanceRow['grupo'], string> = {
+      precoce: 'Precoce (DP)',
+      saudavel: 'Saudável (controle)',
+      avancado: 'Avançado (DP)',
+      sem_classificacao: 'Sem classificação',
+    };
+
+    let sonoPacientesPrecoces = 0;
+    let sonoPacientesSaudaveis = 0;
+    let sonoPacientesAvancados = 0;
+    let sonoPacientesSemClassificacao = 0;
+    let sonoPacientesHomens = 0;
+    let sonoPacientesMulheres = 0;
+
+    const counts = new Map<string, SleepCompletenessSexRow>();
+
+    for (const q of completeQs) {
+      const grupo = this.classifyPatientGroup(q, byQid.get(q.id));
+      if (grupo === 'precoce') sonoPacientesPrecoces++;
+      else if (grupo === 'saudavel') sonoPacientesSaudaveis++;
+      else if (grupo === 'avancado') sonoPacientesAvancados++;
+      else sonoPacientesSemClassificacao++;
+
+      const genderCode = genderByQid.get(String(q.id)) || '';
+      const isMale = genderCode === 'M';
+      const isFemale = genderCode === 'F';
+      if (isMale) sonoPacientesHomens++;
+      if (isFemale) sonoPacientesMulheres++;
+
+      let row = counts.get(grupo);
+      if (!row) {
+        row = {
+          grupo,
+          grupoLabel: grupoLabels[grupo],
+          homens: 0,
+          mulheres: 0,
+          total: 0,
+        };
+        counts.set(grupo, row);
+      }
+      if (isMale) row.homens += 1;
+      else if (isFemale) row.mulheres += 1;
+      row.total += 1;
+    }
+
+    const grupoOrder: DemographicsBalanceRow['grupo'][] = [
+      'precoce',
+      'avancado',
+      'saudavel',
+      'sem_classificacao',
+    ];
+    const sonoLinhas = [...counts.values()].sort(
+      (a, b) => grupoOrder.indexOf(a.grupo) - grupoOrder.indexOf(b.grupo),
+    );
+
+    return {
+      sonoPacientesCompletos: completeQs.length,
+      sonoPacientesPrecoces,
+      sonoPacientesSaudaveis,
+      sonoPacientesAvancados,
+      sonoPacientesSemClassificacao,
+      sonoPacientesHomens,
+      sonoPacientesMulheres,
+      sonoLinhas,
+    };
+  }
+
   private patientLabel(q: Questionnaire): string {
     const pid = q.patient?.public_identifier?.trim();
     if (pid) return pid;
@@ -805,7 +1002,8 @@ export class AdminCollectionOverviewService {
       armazenamentoTotalBytes: number;
     } & ClinicalStratificationKpis &
       GenderKpis &
-      DemographicsBalanceKpis;
+      DemographicsBalanceKpis &
+      SleepCompletenessKpis;
     filesByTask: { task_code: string; task_name: string; count: number }[];
     questionnaires: {
       questionnaireId: string;
@@ -928,6 +1126,10 @@ export class AdminCollectionOverviewService {
     const demographicsBalance = await this.computeDemographicsBalanceKpis(
       questionnaires,
     );
+    const sleepCompleteness = await this.computeSleepCompletenessKpis(
+      questionnaires,
+      byQ,
+    );
 
     const protocolTotals = this.computeProtocolStageTotals(
       matrixRows,
@@ -958,6 +1160,7 @@ export class AdminCollectionOverviewService {
         ...clinicalStrat,
         ...genderKpis,
         ...demographicsBalance,
+        ...sleepCompleteness,
       },
       filesByTask,
       questionnaires: summaryQuestionnaires,
