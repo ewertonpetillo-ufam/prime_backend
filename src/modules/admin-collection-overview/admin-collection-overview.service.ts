@@ -8,7 +8,6 @@ import { ClinicalAssessment } from '../../entities/clinical-assessment.entity';
 import { HoehnYahrScale } from '../../entities/hoehn-yahr-scale.entity';
 import { PdfReport } from '../../entities/pdf-report.entity';
 import {
-  EXPECTED_BINARY_FILES_BY_TASK,
   EXPECTED_BINARY_FILES_TOTAL,
   CollectionProtocolStage,
   expectedFilesForTaskCode,
@@ -71,7 +70,7 @@ export type DemographicsBalanceKpis = {
   linhas: DemographicsBalanceRow[];
 };
 
-/** Pacientes com TA13 completo + PDF do polissonógrafo, estratificados como a classificação clínica. */
+/** Pacientes com teste de sono realizado (TA13 >= 3), estratificados como a classificação clínica. */
 export type SleepCompletenessSexRow = {
   grupo: DemographicsBalanceRow['grupo'];
   grupoLabel: string;
@@ -624,8 +623,8 @@ export class AdminCollectionOverviewService {
   }
 
   /**
-   * Pacientes com protocolo de sono completo: meta de binários TA13
-   * e pelo menos um PDF POLYSOMNOGRAPHY, classificados clinicamente e por sexo.
+   * Pacientes com teste de sono realizado: contagem de binários TA13 >= 3.
+   * Classificados clinicamente e por sexo.
    */
   private async computeSleepCompletenessKpis(
     questionnaires: Questionnaire[],
@@ -643,44 +642,17 @@ export class AdminCollectionOverviewService {
     };
     if (questionnaires.length === 0) return empty;
 
-    const onePerPatient = this.dedupeLatestQuestionnairePerPatient(questionnaires);
-    const qids = onePerPatient.map((q) => q.id);
-    if (qids.length === 0) return empty;
+    const TA13_MIN_DONE = 3;
 
-    const ta13Expected = EXPECTED_BINARY_FILES_BY_TASK.TA13 ?? 6;
-
-    const pdfRaw = await this.pdfReportRepo.manager.query(
-      `
-      SELECT pr.questionnaire_id, COUNT(*)::int AS pdf_count
-      FROM pdf_reports pr
-      WHERE pr.questionnaire_id = ANY($1::uuid[])
-        AND pr.report_type = 'POLYSOMNOGRAPHY'
-        AND pr.file_path IS NOT NULL
-        AND TRIM(pr.file_path) <> ''
-      GROUP BY pr.questionnaire_id
-      `,
-      [qids],
-    );
-
-    const hasPsgByQid = new Set<string>();
-    for (const row of pdfRaw as {
-      questionnaire_id: string;
-      pdf_count: string | number;
-    }[]) {
-      if (Number(row.pdf_count || 0) > 0) {
-        hasPsgByQid.add(String(row.questionnaire_id));
-      }
-    }
-
-    const completeQs = onePerPatient.filter((q) => {
+    // Mesmo universo que getReportsPatients (sem dedupe): protocolos no escopo.
+    const doneQs = questionnaires.filter((q) => {
       const counts = countsByQuestionnaire.get(String(q.id)) || {};
-      const ta13Count = counts['TA13'] || 0;
-      return ta13Count >= ta13Expected && hasPsgByQid.has(String(q.id));
+      return (counts['TA13'] || 0) >= TA13_MIN_DONE;
     });
 
-    if (completeQs.length === 0) return empty;
+    if (doneQs.length === 0) return empty;
 
-    const completeQids = completeQs.map((q) => q.id);
+    const doneQids = doneQs.map((q) => q.id);
 
     const clinicalRaw = await this.clinicalRepo
       .createQueryBuilder('ca')
@@ -688,7 +660,7 @@ export class AdminCollectionOverviewService {
       .addSelect('ca.age_at_onset', 'age_at_onset')
       .addSelect('hy.stage', 'stage')
       .leftJoin(HoehnYahrScale, 'hy', 'hy.id = ca.hoehn_yahr_stage_id')
-      .where('ca.questionnaire_id IN (:...qids)', { qids: completeQids })
+      .where('ca.questionnaire_id IN (:...qids)', { qids: doneQids })
       .getRawMany();
 
     const byQid = new Map<
@@ -718,7 +690,7 @@ export class AdminCollectionOverviewService {
       LEFT JOIN gender_types gt ON gt.id = p.gender_id
       WHERE q.id = ANY($1::uuid[])
       `,
-      [completeQids],
+      [doneQids],
     );
 
     const genderByQid = new Map<string, string>();
@@ -748,7 +720,7 @@ export class AdminCollectionOverviewService {
 
     const counts = new Map<string, SleepCompletenessSexRow>();
 
-    for (const q of completeQs) {
+    for (const q of doneQs) {
       const grupo = this.classifyPatientGroup(q, byQid.get(q.id));
       if (grupo === 'precoce') sonoPacientesPrecoces++;
       else if (grupo === 'saudavel') sonoPacientesSaudaveis++;
@@ -788,7 +760,7 @@ export class AdminCollectionOverviewService {
     );
 
     return {
-      sonoPacientesCompletos: completeQs.length,
+      sonoPacientesCompletos: doneQs.length,
       sonoPacientesPrecoces,
       sonoPacientesSaudaveis,
       sonoPacientesAvancados,
