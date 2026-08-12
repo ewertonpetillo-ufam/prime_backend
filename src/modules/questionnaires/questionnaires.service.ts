@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, DeepPartial, SelectQueryBuilder } from 'typeorm';
+import { Repository, In, DeepPartial, SelectQueryBuilder, Brackets } from 'typeorm';
 import { Questionnaire } from '../../entities/questionnaire.entity';
 import { Patient } from '../../entities/patient.entity';
 import { AnthropometricData } from '../../entities/anthropometric-data.entity';
@@ -4015,16 +4015,26 @@ export class QuestionnairesService {
       (questionnaire as any).patient = questionnaireEntity.patient;
     }
 
-    // Load ALL binary collections for this patient (by questionnaire_id OR by patient_cpf_hash)
-    // This ensures we get all collections including repetitions
+    // Load binary collections for this patient (by questionnaire_id OR patient_cpf_hash).
+    // Exclude soft-deleted rows and records without binary payload (would 404 on download).
     const binaryCollectionsQuery = this.binaryCollectionRepository
       .createQueryBuilder('bc')
       .leftJoinAndSelect('bc.active_task', 'active_task')
-      .where('bc.questionnaire_id = :questionnaireId', { questionnaireId });
+      .where('bc.deleted_pending = :deletedPending', { deletedPending: false })
+      .andWhere('length(bc.csv_data) > 0');
 
     if (patientCpfHash) {
-      binaryCollectionsQuery.orWhere('bc.patient_cpf_hash = :patientCpfHash', {
-        patientCpfHash,
+      binaryCollectionsQuery.andWhere(
+        new Brackets((qb) => {
+          qb.where('bc.questionnaire_id = :questionnaireId', { questionnaireId }).orWhere(
+            'bc.patient_cpf_hash = :patientCpfHash',
+            { patientCpfHash },
+          );
+        }),
+      );
+    } else {
+      binaryCollectionsQuery.andWhere('bc.questionnaire_id = :questionnaireId', {
+        questionnaireId,
       });
     }
 
@@ -4060,6 +4070,7 @@ export class QuestionnairesService {
         mime_type: mimeType,
         file_sync_pending: collection.file_sync_pending,
         deleted_pending: collection.deleted_pending,
+        downloadable: true,
         download_path: `/api/binary-collections/${collection.id}/download`,
       };
     });

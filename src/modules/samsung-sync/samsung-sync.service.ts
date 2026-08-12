@@ -1693,16 +1693,19 @@ export class SamsungSyncService implements OnModuleInit {
       [patientIds],
     );
 
-    await this.db.query(
-      `
-      DELETE FROM binary_collections bc
-       USING patients p
-       WHERE bc.patient_cpf_hash = p.cpf_hash
-         AND p.id = ANY($1::uuid[])
-         AND bc.deleted_pending = TRUE
-      `,
-      [patientIds],
-    );
+    await this.db.transaction(async (manager) => {
+      await manager.query(`SET LOCAL app.hard_delete = 'true'`);
+      await manager.query(
+        `
+        DELETE FROM binary_collections bc
+         USING patients p
+         WHERE bc.patient_cpf_hash = p.cpf_hash
+           AND p.id = ANY($1::uuid[])
+           AND bc.deleted_pending = TRUE
+        `,
+        [patientIds],
+      );
+    });
 
     // Só linhas ainda pendentes — speech excluída já deve ter file_sync_pending=FALSE.
     await this.db.query(

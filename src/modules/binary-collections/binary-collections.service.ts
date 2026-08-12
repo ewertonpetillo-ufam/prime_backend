@@ -77,9 +77,9 @@ export class BinaryCollectionsService {
       throw new NotFoundException(`Task with code ${task_code} not found`);
     }
 
-    // Validate file
-    if (!file || !file.buffer) {
-      throw new BadRequestException('File is required');
+    // Validate file (empty Buffer is truthy in Node.js — check size explicitly)
+    if (!file?.buffer || file.size === 0 || file.buffer.length === 0) {
+      throw new BadRequestException('File is empty or missing');
     }
 
     // Find the most recent questionnaire for this patient
@@ -135,6 +135,7 @@ export class BinaryCollectionsService {
 
   async findAll(): Promise<BinaryCollection[]> {
     return this.binaryCollectionsRepository.find({
+      where: { deleted_pending: false },
       select: [
         'id',
         'questionnaire_id',
@@ -183,7 +184,7 @@ export class BinaryCollectionsService {
 
     // Find all binary collections for this patient
     const collections = await this.binaryCollectionsRepository.find({
-      where: { patient_cpf_hash: cpf_hash },
+      where: { patient_cpf_hash: cpf_hash, deleted_pending: false },
       select: [
         'id',
         'questionnaire_id',
@@ -210,18 +211,20 @@ export class BinaryCollectionsService {
 
   async remove(id: string): Promise<void> {
     const collection = await this.findOne(id);
-    await this.binaryCollectionsRepository.remove(collection);
+    await this.binaryCollectionsRepository.manager.transaction(async (manager) => {
+      await manager.query(`SET LOCAL app.hard_delete = 'true'`);
+      await manager.remove(collection);
+    });
   }
 
   /**
    * Obtém o binário da coleção (CSV, áudio, etc.) para download.
-   * Não filtra por deleted_pending — esse flag é só para fila da sincronização Samsung/BART.
    */
   async downloadCsv(
     id: string,
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const collection = await this.binaryCollectionsRepository.findOne({
-      where: { id },
+      where: { id, deleted_pending: false },
       select: ['id', 'csv_data', 'metadata', 'patient_cpf_hash'],
     });
 
@@ -286,13 +289,14 @@ export class BinaryCollectionsService {
             patientCpfHash,
           },
         )
+        .andWhere('bc.deleted_pending = :deletedPending', { deletedPending: false })
         .getCount();
 
       return count;
     } else {
       // If no patient CPF hash, only count by questionnaire_id
       const count = await this.binaryCollectionsRepository.count({
-        where: { questionnaire_id: questionnaireId },
+        where: { questionnaire_id: questionnaireId, deleted_pending: false },
       });
 
       return count;
