@@ -104,8 +104,8 @@ export class BinaryCollectionsController {
     @Body('task_code') task_code: string,
   ) {
     const startedAt = Date.now();
-    if (!file) {
-      throw new BadRequestException('File is required');
+    if (!file?.buffer || file.size === 0 || file.buffer.length === 0) {
+      throw new BadRequestException('File is empty or missing');
     }
     if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
       throw new PayloadTooLargeException(
