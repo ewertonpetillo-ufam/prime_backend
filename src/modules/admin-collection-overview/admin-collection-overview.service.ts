@@ -14,6 +14,16 @@ import {
   sumExpectedForTaskCodes,
   taskCodesInProtocolStage,
 } from './expected-binary-files.constants';
+import {
+  DeviceBreakdownCell,
+  PendingUploadDto,
+  SLEEP_TASK_CODE,
+  buildPendingUploads,
+  classifyBinaryFileName,
+  emptyBreakdownForTask,
+  isDeviceBreakdownTask,
+  isPolysomnographyEdf,
+} from './device-upload-status.utils';
 
 const DEFAULT_LIMIT = 200;
 const AT_RISK_DAYS = 7;
@@ -39,9 +49,12 @@ export type MatrixRowDto = {
   patientName: string;
   status: string;
   countsByTask: Record<string, number>;
+  deviceBreakdownByTask: Record<string, DeviceBreakdownCell>;
   totalFiles: number;
   expectedTotal: number;
   completionPercent: number;
+  createdAt: string | null;
+  pendingUploads: PendingUploadDto[];
 };
 
 export type ClinicalStratificationKpis = {
@@ -168,6 +181,16 @@ export class AdminCollectionOverviewService {
     questionnaires: Questionnaire[];
     countsRows: { questionnaire_id: string; task_id: number; cnt: string }[];
     lastUploadRows: { questionnaire_id: string; last_upload: Date | null }[];
+    fileRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      file_name: string;
+    }[];
+    psgRows: {
+      questionnaire_id: string;
+      file_name: string;
+      mime_type: string | null;
+    }[];
     taskIdToCode: Map<number, string>;
   }> {
     const excludedUpper = [...EXCLUDED_COLLECTION_PUBLIC_IDS].map((id) =>
@@ -196,6 +219,8 @@ export class AdminCollectionOverviewService {
         questionnaires: [],
         countsRows: [],
         lastUploadRows: [],
+        fileRows: [],
+        psgRows: [],
         taskIdToCode,
       };
     }
@@ -215,6 +240,7 @@ export class AdminCollectionOverviewService {
       )
       WHERE q.id = ANY($1::uuid[])
         AND bc.task_id IS NOT NULL
+        AND COALESCE(bc.deleted_pending, false) = false
       GROUP BY q.id, bc.task_id
       `,
       [ids],
@@ -226,10 +252,40 @@ export class AdminCollectionOverviewService {
       FROM questionnaires q
       INNER JOIN patients p ON p.id = q.patient_id
       LEFT JOIN binary_collections bc ON (
-        bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
+        (bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash)
+        AND COALESCE(bc.deleted_pending, false) = false
       )
       WHERE q.id = ANY($1::uuid[])
       GROUP BY q.id
+      `,
+      [ids],
+    );
+
+    const fileRowsRaw = await this.binaryRepo.manager.query(
+      `
+      SELECT q.id AS questionnaire_id,
+             bc.task_id,
+             COALESCE(bc.metadata->>'file_name', '') AS file_name
+      FROM questionnaires q
+      INNER JOIN patients p ON p.id = q.patient_id
+      INNER JOIN binary_collections bc ON (
+        bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
+      )
+      WHERE q.id = ANY($1::uuid[])
+        AND bc.task_id IS NOT NULL
+        AND COALESCE(bc.deleted_pending, false) = false
+      `,
+      [ids],
+    );
+
+    const psgRowsRaw = await this.pdfReportRepo.manager.query(
+      `
+      SELECT pr.questionnaire_id,
+             COALESCE(pr.file_name, '') AS file_name,
+             pr.mime_type
+      FROM pdf_reports pr
+      WHERE pr.questionnaire_id = ANY($1::uuid[])
+        AND pr.report_type = 'POLYSOMNOGRAPHY'
       `,
       [ids],
     );
@@ -238,8 +294,87 @@ export class AdminCollectionOverviewService {
       questionnaires,
       countsRows: countsRaw,
       lastUploadRows: lastUploadRaw,
+      fileRows: fileRowsRaw,
+      psgRows: psgRowsRaw,
       taskIdToCode,
     };
+  }
+
+  private buildDeviceBreakdownByQuestionnaire(
+    fileRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      file_name: string;
+    }[],
+    taskIdToCode: Map<number, string>,
+    psgRows: {
+      questionnaire_id: string;
+      file_name: string;
+      mime_type: string | null;
+    }[],
+  ): {
+    breakdownByQ: Map<string, Record<string, DeviceBreakdownCell>>;
+    psgFlagsByQ: Map<
+      string,
+      { hasPolysomnographyPdf: boolean; hasPolysomnographyEdf: boolean }
+    >;
+  } {
+    const breakdownByQ = new Map<string, Record<string, DeviceBreakdownCell>>();
+
+    const ensureCell = (
+      qid: string,
+      taskCode: string,
+    ): DeviceBreakdownCell => {
+      if (!breakdownByQ.has(qid)) breakdownByQ.set(qid, {});
+      const rec = breakdownByQ.get(qid)!;
+      if (!rec[taskCode]) {
+        rec[taskCode] = emptyBreakdownForTask(taskCode);
+      }
+      return rec[taskCode];
+    };
+
+    for (const row of fileRows) {
+      const code = taskIdToCode.get(Number(row.task_id));
+      if (!code) continue;
+      if (!isDeviceBreakdownTask(code) && code !== SLEEP_TASK_CODE) continue;
+
+      const qid = String(row.questionnaire_id);
+      const cell = ensureCell(qid, code);
+      const kind = classifyBinaryFileName(row.file_name || '', code);
+
+      if (kind === 'baiobit' && cell.baiobit != null) {
+        cell.baiobit += 1;
+      } else if (kind === 'delsys' && cell.delsys != null) {
+        cell.delsys += 1;
+      } else if (kind === 'edf' && cell.edf != null) {
+        cell.edf += 1;
+      } else if (kind === 'csv') {
+        cell.csv += 1;
+      }
+      // 'other' (wav, etc.) não entra nas subcolunas Csv/Baiobit/Delsys/EDF
+    }
+
+    const psgFlagsByQ = new Map<
+      string,
+      { hasPolysomnographyPdf: boolean; hasPolysomnographyEdf: boolean }
+    >();
+
+    for (const row of psgRows) {
+      const qid = String(row.questionnaire_id);
+      const prev = psgFlagsByQ.get(qid) || {
+        hasPolysomnographyPdf: false,
+        hasPolysomnographyEdf: false,
+      };
+      prev.hasPolysomnographyPdf = true;
+      if (isPolysomnographyEdf(row.file_name, row.mime_type)) {
+        prev.hasPolysomnographyEdf = true;
+        const cell = ensureCell(qid, SLEEP_TASK_CODE);
+        if (cell.edf != null) cell.edf += 1;
+      }
+      psgFlagsByQ.set(qid, prev);
+    }
+
+    return { breakdownByQ, psgFlagsByQ };
   }
 
   private buildCountsByQuestionnaire(
@@ -830,6 +965,11 @@ export class AdminCollectionOverviewService {
     questionnaires: Questionnaire[],
     byQ: Map<string, Record<string, number>>,
     lastByQ: Map<string, Date | null | undefined>,
+    breakdownByQ: Map<string, Record<string, DeviceBreakdownCell>>,
+    psgFlagsByQ: Map<
+      string,
+      { hasPolysomnographyPdf: boolean; hasPolysomnographyEdf: boolean }
+    >,
     expectedRowTotal: number,
     now: number,
     atRiskMs: number,
@@ -876,15 +1016,37 @@ export class AdminCollectionOverviewService {
         q.status === 'in_progress' &&
         (!last || now - new Date(last).getTime() > atRiskMs);
 
+      const deviceBreakdownByTask =
+        breakdownByQ.get(String(q.id)) || breakdownByQ.get(q.id) || {};
+      const psgFlags = psgFlagsByQ.get(String(q.id)) ||
+        psgFlagsByQ.get(q.id) || {
+          hasPolysomnographyPdf: false,
+          hasPolysomnographyEdf: false,
+        };
+
+      const createdAt = q.created_at
+        ? new Date(q.created_at).toISOString()
+        : null;
+
       matrixRows.push({
         questionnaireId: q.id,
         patientLabel: this.patientLabel(q),
         patientName: q.patient?.full_name || '',
         status: q.status,
         countsByTask: counts,
+        deviceBreakdownByTask,
         totalFiles,
         expectedTotal: expectedRowTotal,
         completionPercent,
+        createdAt,
+        pendingUploads: buildPendingUploads({
+          createdAt: q.created_at,
+          nowMs: now,
+          countsByTask: counts,
+          deviceBreakdownByTask,
+          hasPolysomnographyPdf: psgFlags.hasPolysomnographyPdf,
+          hasPolysomnographyEdf: psgFlags.hasPolysomnographyEdf,
+        }),
       });
 
       summaryQuestionnaires.push({
@@ -921,14 +1083,25 @@ export class AdminCollectionOverviewService {
     const taskCodes = taskColumns.map((c) => c.task_code);
     const expectedRowTotal = sumExpectedForTaskCodes(taskCodes);
 
-    const { questionnaires, countsRows, lastUploadRows, taskIdToCode } =
-      await this.loadScopeAndCounts(statuses, limit);
+    const {
+      questionnaires,
+      countsRows,
+      lastUploadRows,
+      fileRows,
+      psgRows,
+      taskIdToCode,
+    } = await this.loadScopeAndCounts(statuses, limit);
     const byQ = this.buildCountsByQuestionnaire(countsRows, taskIdToCode);
     const lastByQ = new Map(
       lastUploadRows.map((r) => [
         r.questionnaire_id,
         r.last_upload ? new Date(r.last_upload) : null,
       ]),
+    );
+    const { breakdownByQ, psgFlagsByQ } = this.buildDeviceBreakdownByQuestionnaire(
+      fileRows,
+      taskIdToCode,
+      psgRows,
     );
 
     const now = Date.now();
@@ -937,6 +1110,8 @@ export class AdminCollectionOverviewService {
       questionnaires,
       byQ,
       lastByQ,
+      breakdownByQ,
+      psgFlagsByQ,
       expectedRowTotal,
       now,
       atRiskMs,
@@ -1002,14 +1177,25 @@ export class AdminCollectionOverviewService {
     const taskCodes = taskColumns.map((c) => c.task_code);
     const expectedRowTotal = sumExpectedForTaskCodes(taskCodes);
 
-    const { questionnaires, countsRows, lastUploadRows, taskIdToCode } =
-      await this.loadScopeAndCounts(statuses, limit);
+    const {
+      questionnaires,
+      countsRows,
+      lastUploadRows,
+      fileRows,
+      psgRows,
+      taskIdToCode,
+    } = await this.loadScopeAndCounts(statuses, limit);
     const byQ = this.buildCountsByQuestionnaire(countsRows, taskIdToCode);
     const lastByQ = new Map(
       lastUploadRows.map((r) => [
         r.questionnaire_id,
         r.last_upload ? new Date(r.last_upload) : null,
       ]),
+    );
+    const { breakdownByQ, psgFlagsByQ } = this.buildDeviceBreakdownByQuestionnaire(
+      fileRows,
+      taskIdToCode,
+      psgRows,
     );
 
     const now = Date.now();
@@ -1018,6 +1204,8 @@ export class AdminCollectionOverviewService {
       questionnaires,
       byQ,
       lastByQ,
+      breakdownByQ,
+      psgFlagsByQ,
       expectedRowTotal,
       now,
       atRiskMs,

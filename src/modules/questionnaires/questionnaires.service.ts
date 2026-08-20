@@ -56,6 +56,16 @@ import { SavePhysioDto } from './dto/save-physio.dto';
 import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
 import { SaveSpeechPatientDescriptionDto } from './dto/save-speech-patient-description.dto';
 import { PdfReportsService } from '../pdf-reports/pdf-reports.service';
+import {
+  DeviceBreakdownCell,
+  SLEEP_TASK_CODE,
+  buildPendingUploads,
+  classifyBinaryFileName,
+  emptyBreakdownForTask,
+  isDeviceBreakdownTask,
+  isPolysomnographyEdf,
+} from '../admin-collection-overview/device-upload-status.utils';
+import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
 
 const UPDRS_SCORE_FIELDS = [
   'speech',
@@ -290,6 +300,8 @@ export class QuestionnairesService {
     private binaryCollectionRepository: Repository<BinaryCollection>,
     @InjectRepository(PdfReport)
     private pdfReportRepository: Repository<PdfReport>,
+    @InjectRepository(ActiveTaskDefinition)
+    private activeTaskRepository: Repository<ActiveTaskDefinition>,
     private patientsService: PatientsService,
     private pdfReportsService: PdfReportsService,
   ) {}
@@ -2098,6 +2110,8 @@ export class QuestionnairesService {
 
     const questionnaires = await queryBuilder.getMany();
 
+    const pendingByQid = await this.buildPendingDeviceUploadsMap(questionnaires);
+
     // Retornar apenas dados básicos para a listagem
     return questionnaires.map((q) => ({
       id: q.id,
@@ -2111,8 +2125,144 @@ export class QuestionnairesService {
       completedAt: q.completed_at,
       status: q.status,
       collectionTimeSeconds: q.collection_time_seconds ?? 0,
+      pendingDeviceUploads: pendingByQid.get(q.id) || [],
       data: null, // Dados completos serão carregados apenas quando necessário
     }));
+  }
+
+  /**
+   * Calcula badges de upload pendente (Baiobit / Delsys / Polissonógrafo) com risco 3/5/7.
+   */
+  private async buildPendingDeviceUploadsMap(
+    questionnaires: Questionnaire[],
+  ): Promise<Map<string, ReturnType<typeof buildPendingUploads>>> {
+    const result = new Map<string, ReturnType<typeof buildPendingUploads>>();
+    if (questionnaires.length === 0) return result;
+
+    const ids = questionnaires.map((q) => q.id);
+    const nowMs = Date.now();
+
+    const allTasks = await this.activeTaskRepository.find({
+      where: { active: true },
+    });
+    const taskIdToCode = new Map(
+      allTasks.map((t) => [t.id, t.task_code] as const),
+    );
+
+    const fileRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      file_name: string;
+      cnt?: string;
+    }[] = await this.binaryCollectionRepository.manager.query(
+      `
+      SELECT q.id AS questionnaire_id,
+             bc.task_id,
+             COALESCE(bc.metadata->>'file_name', '') AS file_name
+      FROM questionnaires q
+      INNER JOIN patients p ON p.id = q.patient_id
+      INNER JOIN binary_collections bc ON (
+        bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
+      )
+      WHERE q.id = ANY($1::uuid[])
+        AND bc.task_id IS NOT NULL
+        AND COALESCE(bc.deleted_pending, false) = false
+      `,
+      [ids],
+    );
+
+    const countsByQ = new Map<string, Record<string, number>>();
+    const breakdownByQ = new Map<string, Record<string, DeviceBreakdownCell>>();
+
+    const ensureCell = (
+      qid: string,
+      taskCode: string,
+    ): DeviceBreakdownCell => {
+      if (!breakdownByQ.has(qid)) breakdownByQ.set(qid, {});
+      const rec = breakdownByQ.get(qid)!;
+      if (!rec[taskCode]) {
+        rec[taskCode] = emptyBreakdownForTask(taskCode);
+      }
+      return rec[taskCode];
+    };
+
+    for (const row of fileRows) {
+      const code = taskIdToCode.get(Number(row.task_id));
+      if (!code) continue;
+      const qid = String(row.questionnaire_id);
+
+      if (!countsByQ.has(qid)) countsByQ.set(qid, {});
+      const counts = countsByQ.get(qid)!;
+      counts[code] = (counts[code] || 0) + 1;
+
+      if (!isDeviceBreakdownTask(code) && code !== SLEEP_TASK_CODE) continue;
+
+      const cell = ensureCell(qid, code);
+      const kind = classifyBinaryFileName(row.file_name || '', code);
+      if (kind === 'baiobit' && cell.baiobit != null) cell.baiobit += 1;
+      else if (kind === 'delsys' && cell.delsys != null) cell.delsys += 1;
+      else if (kind === 'edf' && cell.edf != null) cell.edf += 1;
+      else if (kind === 'csv') cell.csv += 1;
+    }
+
+    const psgRows: {
+      questionnaire_id: string;
+      file_name: string;
+      mime_type: string | null;
+    }[] = await this.pdfReportRepository.manager.query(
+      `
+      SELECT pr.questionnaire_id,
+             COALESCE(pr.file_name, '') AS file_name,
+             pr.mime_type
+      FROM pdf_reports pr
+      WHERE pr.questionnaire_id = ANY($1::uuid[])
+        AND pr.report_type = 'POLYSOMNOGRAPHY'
+      `,
+      [ids],
+    );
+
+    const psgFlagsByQ = new Map<
+      string,
+      { hasPolysomnographyPdf: boolean; hasPolysomnographyEdf: boolean }
+    >();
+
+    for (const row of psgRows) {
+      const qid = String(row.questionnaire_id);
+      const prev = psgFlagsByQ.get(qid) || {
+        hasPolysomnographyPdf: false,
+        hasPolysomnographyEdf: false,
+      };
+      prev.hasPolysomnographyPdf = true;
+      if (isPolysomnographyEdf(row.file_name, row.mime_type)) {
+        prev.hasPolysomnographyEdf = true;
+        const cell = ensureCell(qid, SLEEP_TASK_CODE);
+        if (cell.edf != null) cell.edf += 1;
+      }
+      psgFlagsByQ.set(qid, prev);
+    }
+
+    for (const q of questionnaires) {
+      const qid = q.id;
+      const counts = countsByQ.get(qid) || {};
+      const deviceBreakdownByTask = breakdownByQ.get(qid) || {};
+      const psgFlags = psgFlagsByQ.get(qid) || {
+        hasPolysomnographyPdf: false,
+        hasPolysomnographyEdf: false,
+      };
+      result.set(
+        qid,
+        buildPendingUploads({
+          createdAt: q.created_at,
+          nowMs,
+          countsByTask: counts,
+          deviceBreakdownByTask,
+          hasPolysomnographyPdf: psgFlags.hasPolysomnographyPdf,
+          hasPolysomnographyEdf: psgFlags.hasPolysomnographyEdf,
+        }),
+      );
+    }
+
+    return result;
   }
 
   /**

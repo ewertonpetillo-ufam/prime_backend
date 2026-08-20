@@ -27,6 +27,7 @@ import { RbdsqBrScore } from '../../entities/rbdsq-br-score.entity';
 import { FogqScore } from '../../entities/fogq-score.entity';
 import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { PdfReport } from '../../entities/pdf-report.entity';
+import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
 import { PatientsModule } from '../patients/patients.module';
 import { PdfReportsModule } from '../pdf-reports/pdf-reports.module';
 
@@ -58,6 +59,7 @@ import { PdfReportsModule } from '../pdf-reports/pdf-reports.module';
       FogqScore,
       BinaryCollection,
       PdfReport,
+      ActiveTaskDefinition,
     ]),
     PatientsModule,
     PdfReportsModule,

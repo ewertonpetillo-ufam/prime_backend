@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -82,6 +83,26 @@ export class BinaryCollectionsService {
       throw new BadRequestException('File is empty or missing');
     }
 
+    const originalName = (file.originalname || '').trim();
+    if (originalName) {
+      const existing = await this.binaryCollectionsRepository
+        .createQueryBuilder('bc')
+        .where('bc.patient_cpf_hash = :cpfHash', { cpfHash: cpf_hash })
+        .andWhere('bc.task_id = :taskId', { taskId: activeTask.id })
+        .andWhere('COALESCE(bc.deleted_pending, false) = false')
+        .andWhere(
+          `LOWER(TRIM(COALESCE(bc.metadata->>'file_name', ''))) = LOWER(:fileName)`,
+          { fileName: originalName },
+        )
+        .getOne();
+
+      if (existing) {
+        throw new ConflictException(
+          `Arquivo já enviado para esta tarefa: "${originalName}". Evite duplicar o mesmo arquivo.`,
+        );
+      }
+    }
+
     // Find the most recent questionnaire for this patient
     // Prefer questionnaires with status 'in_progress' or 'completed'
     let questionnaire = await this.questionnairesRepository
@@ -116,7 +137,7 @@ export class BinaryCollectionsService {
         uploaded_at: new Date().toISOString(),
         patient_id: patient.id,
         task_code: task_code,
-        file_name: file.originalname,
+        file_name: originalName || file.originalname,
         file_format: file.mimetype,
         questionnaire_id: questionnaire?.id || null,
       },
