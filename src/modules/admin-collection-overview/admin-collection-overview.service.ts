@@ -14,6 +14,25 @@ import {
   sumExpectedForTaskCodes,
   taskCodesInProtocolStage,
 } from './expected-binary-files.constants';
+import {
+  DeviceBreakdownCell,
+  DevicePresenceFlags,
+  PendingUploadDto,
+  PendingUploadKind,
+  SLEEP_TASK_CODE,
+  applyPdfCountsToBreakdown,
+  applyPdfReportToPresence,
+  buildPendingUploads,
+  classifyBinaryFileName,
+  emptyBreakdownForTask,
+  emptyPdfPresence,
+  incrementBreakdownCell,
+  isDeviceBreakdownTask,
+  listMissingDeviceKinds,
+  pdfFilesTotal,
+  reconcileBreakdownWithTaskTotal,
+  resolveTaskCode,
+} from './device-upload-status.utils';
 
 const DEFAULT_LIMIT = 200;
 const AT_RISK_DAYS = 7;
@@ -39,9 +58,14 @@ export type MatrixRowDto = {
   patientName: string;
   status: string;
   countsByTask: Record<string, number>;
+  deviceBreakdownByTask: Record<string, DeviceBreakdownCell>;
   totalFiles: number;
   expectedTotal: number;
   completionPercent: number;
+  createdAt: string | null;
+  collectionDate: string | null;
+  pendingUploads: PendingUploadDto[];
+  missingDeviceKinds: PendingUploadKind[];
 };
 
 export type ClinicalStratificationKpis = {
@@ -168,6 +192,20 @@ export class AdminCollectionOverviewService {
     questionnaires: Questionnaire[];
     countsRows: { questionnaire_id: string; task_id: number; cnt: string }[];
     lastUploadRows: { questionnaire_id: string; last_upload: Date | null }[];
+    fileRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      file_name: string;
+      device_type?: string | null;
+      file_format?: string | null;
+      meta_task_code?: string | null;
+    }[];
+    pdfRows: {
+      questionnaire_id: string;
+      file_name: string;
+      mime_type: string | null;
+      report_type: string | null;
+    }[];
     taskIdToCode: Map<number, string>;
   }> {
     const excludedUpper = [...EXCLUDED_COLLECTION_PUBLIC_IDS].map((id) =>
@@ -186,7 +224,7 @@ export class AdminCollectionOverviewService {
 
     const questionnaires = await qb.getMany();
 
-    const allTasks = await this.tasksRepo.find({ where: { active: true } });
+    const allTasks = await this.tasksRepo.find();
     const taskIdToCode = new Map(
       allTasks.map((t) => [t.id, t.task_code] as const),
     );
@@ -196,6 +234,8 @@ export class AdminCollectionOverviewService {
         questionnaires: [],
         countsRows: [],
         lastUploadRows: [],
+        fileRows: [],
+        pdfRows: [],
         taskIdToCode,
       };
     }
@@ -206,6 +246,7 @@ export class AdminCollectionOverviewService {
       `
       SELECT q.id AS questionnaire_id,
              bc.task_id,
+             COALESCE(bc.metadata->>'task_code', '') AS meta_task_code,
              COUNT(*)::text AS cnt,
              MAX(bc.uploaded_at) AS last_uploaded_at
       FROM questionnaires q
@@ -214,8 +255,12 @@ export class AdminCollectionOverviewService {
         bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
       )
       WHERE q.id = ANY($1::uuid[])
-        AND bc.task_id IS NOT NULL
-      GROUP BY q.id, bc.task_id
+        AND COALESCE(bc.deleted_pending, false) = false
+        AND (
+          bc.task_id IS NOT NULL
+          OR COALESCE(NULLIF(TRIM(bc.metadata->>'task_code'), ''), '') <> ''
+        )
+      GROUP BY q.id, bc.task_id, COALESCE(bc.metadata->>'task_code', '')
       `,
       [ids],
     );
@@ -226,10 +271,52 @@ export class AdminCollectionOverviewService {
       FROM questionnaires q
       INNER JOIN patients p ON p.id = q.patient_id
       LEFT JOIN binary_collections bc ON (
-        bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
+        (bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash)
+        AND COALESCE(bc.deleted_pending, false) = false
       )
       WHERE q.id = ANY($1::uuid[])
       GROUP BY q.id
+      `,
+      [ids],
+    );
+
+    const fileRowsRaw = await this.binaryRepo.manager.query(
+      `
+      SELECT q.id AS questionnaire_id,
+             bc.task_id,
+             COALESCE(
+               NULLIF(TRIM(bc.metadata->>'file_name'), ''),
+               NULLIF(TRIM(bc.metadata->>'originalname'), ''),
+               NULLIF(TRIM(bc.metadata->>'original_name'), ''),
+               NULLIF(TRIM(bc.metadata->>'filename'), ''),
+               ''
+             ) AS file_name,
+             bc.device_type,
+             COALESCE(bc.metadata->>'file_format', '') AS file_format,
+             COALESCE(bc.metadata->>'task_code', '') AS meta_task_code
+      FROM questionnaires q
+      INNER JOIN patients p ON p.id = q.patient_id
+      INNER JOIN binary_collections bc ON (
+        bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
+      )
+      WHERE q.id = ANY($1::uuid[])
+        AND COALESCE(bc.deleted_pending, false) = false
+        AND (
+          bc.task_id IS NOT NULL
+          OR COALESCE(NULLIF(TRIM(bc.metadata->>'task_code'), ''), '') <> ''
+        )
+      `,
+      [ids],
+    );
+
+    const pdfRowsRaw = await this.pdfReportRepo.manager.query(
+      `
+      SELECT pr.questionnaire_id,
+             COALESCE(pr.file_name, '') AS file_name,
+             pr.mime_type,
+             pr.report_type
+      FROM pdf_reports pr
+      WHERE pr.questionnaire_id = ANY($1::uuid[])
       `,
       [ids],
     );
@@ -238,8 +325,79 @@ export class AdminCollectionOverviewService {
       questionnaires,
       countsRows: countsRaw,
       lastUploadRows: lastUploadRaw,
+      fileRows: fileRowsRaw,
+      pdfRows: pdfRowsRaw,
       taskIdToCode,
     };
+  }
+
+  private buildDeviceBreakdownByQuestionnaire(
+    fileRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      file_name: string;
+      device_type?: string | null;
+      file_format?: string | null;
+      meta_task_code?: string | null;
+    }[],
+    taskIdToCode: Map<number, string>,
+    pdfRows: {
+      questionnaire_id: string;
+      file_name: string;
+      mime_type: string | null;
+      report_type?: string | null;
+    }[],
+  ): {
+    breakdownByQ: Map<string, Record<string, DeviceBreakdownCell>>;
+    pdfFlagsByQ: Map<string, DevicePresenceFlags>;
+  } {
+    const breakdownByQ = new Map<string, Record<string, DeviceBreakdownCell>>();
+
+    const ensureCell = (
+      qid: string,
+      taskCode: string,
+    ): DeviceBreakdownCell => {
+      if (!breakdownByQ.has(qid)) breakdownByQ.set(qid, {});
+      const rec = breakdownByQ.get(qid)!;
+      if (!rec[taskCode]) {
+        rec[taskCode] = emptyBreakdownForTask(taskCode);
+      }
+      return rec[taskCode];
+    };
+
+    for (const row of fileRows) {
+      const code = resolveTaskCode(
+        row.task_id,
+        row.meta_task_code,
+        taskIdToCode,
+      );
+      if (!code) continue;
+      if (!isDeviceBreakdownTask(code) && code !== SLEEP_TASK_CODE) continue;
+
+      const qid = String(row.questionnaire_id);
+      const cell = ensureCell(qid, code);
+      const kind = classifyBinaryFileName(row.file_name || '', code, {
+        deviceType: row.device_type,
+        mimeType: row.file_format,
+      });
+      incrementBreakdownCell(cell, kind);
+    }
+
+    const pdfFlagsByQ = new Map<string, DevicePresenceFlags>();
+
+    for (const row of pdfRows) {
+      const qid = String(row.questionnaire_id);
+      const prev = pdfFlagsByQ.get(qid) || emptyPdfPresence();
+      applyPdfReportToPresence(
+        prev,
+        row.report_type || '',
+        row.file_name || '',
+        row.mime_type,
+      );
+      pdfFlagsByQ.set(qid, prev);
+    }
+
+    return { breakdownByQ, pdfFlagsByQ };
   }
 
   private buildCountsByQuestionnaire(
@@ -248,12 +406,17 @@ export class AdminCollectionOverviewService {
       task_id: number | string;
       cnt: string;
       last_uploaded_at?: Date | string | null;
+      meta_task_code?: string | null;
     }[],
     taskIdToCode: Map<number, string>,
   ): Map<string, Record<string, number>> {
     const map = new Map<string, Record<string, number>>();
     for (const row of countsRows) {
-      const code = taskIdToCode.get(Number(row.task_id));
+      const code = resolveTaskCode(
+        row.task_id,
+        row.meta_task_code,
+        taskIdToCode,
+      );
       if (!code) continue;
       const qid = String(row.questionnaire_id);
       if (!map.has(qid)) map.set(qid, {});
@@ -275,7 +438,11 @@ export class AdminCollectionOverviewService {
   ): Map<string, string> {
     const map = new Map<string, string>();
     for (const row of countsRows) {
-      const code = taskIdToCode.get(Number(row.task_id));
+      const code = resolveTaskCode(
+        row.task_id,
+        (row as { meta_task_code?: string | null }).meta_task_code,
+        taskIdToCode,
+      );
       if (code !== taskCode) continue;
       const iso = this.toIsoDateTime(row.last_uploaded_at);
       if (!iso) continue;
@@ -293,6 +460,21 @@ export class AdminCollectionOverviewService {
     const d = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(d.getTime())) return null;
     return d.toISOString();
+  }
+
+  /** Data da consulta (DATE) em YYYY-MM-DD, sem deslocar fuso. */
+  private toIsoDateOnly(value: Date | string | null | undefined): string | null {
+    if (value == null) return null;
+    if (typeof value === 'string') {
+      const m = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim());
+      if (m) return m[1];
+    }
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${mo}-${day}`;
   }
 
   /** Um questionário por paciente: primeiro na lista já ordenada por `updated_at` DESC. */
@@ -830,6 +1012,8 @@ export class AdminCollectionOverviewService {
     questionnaires: Questionnaire[],
     byQ: Map<string, Record<string, number>>,
     lastByQ: Map<string, Date | null | undefined>,
+    breakdownByQ: Map<string, Record<string, DeviceBreakdownCell>>,
+    pdfFlagsByQ: Map<string, DevicePresenceFlags>,
     expectedRowTotal: number,
     now: number,
     atRiskMs: number,
@@ -862,7 +1046,31 @@ export class AdminCollectionOverviewService {
 
     for (const q of questionnaires) {
       const counts = byQ.get(String(q.id)) || byQ.get(q.id) || {};
-      const totalFiles = Object.values(counts).reduce((a, b) => a + b, 0);
+      const pdfFlags = pdfFlagsByQ.get(String(q.id)) ||
+        pdfFlagsByQ.get(q.id) ||
+        emptyPdfPresence();
+      const sourceBreakdown =
+        breakdownByQ.get(String(q.id)) || breakdownByQ.get(q.id) || {};
+      const deviceBreakdownByTask: Record<string, DeviceBreakdownCell> = {};
+      for (const [code, cell] of Object.entries(sourceBreakdown)) {
+        deviceBreakdownByTask[code] = { ...cell };
+      }
+      for (const code of Object.keys(counts)) {
+        if (
+          !deviceBreakdownByTask[code] &&
+          (isDeviceBreakdownTask(code) || code === SLEEP_TASK_CODE)
+        ) {
+          deviceBreakdownByTask[code] = emptyBreakdownForTask(code);
+        }
+      }
+      for (const [taskCode, cell] of Object.entries(deviceBreakdownByTask)) {
+        reconcileBreakdownWithTaskTotal(cell, counts[taskCode] || 0);
+      }
+      applyPdfCountsToBreakdown(deviceBreakdownByTask, pdfFlags);
+
+      const totalFiles =
+        Object.values(counts).reduce((a, b) => a + b, 0) +
+        pdfFilesTotal(pdfFlags);
       const completionPercent =
         expectedRowTotal > 0
           ? Math.min(
@@ -876,15 +1084,40 @@ export class AdminCollectionOverviewService {
         q.status === 'in_progress' &&
         (!last || now - new Date(last).getTime() > atRiskMs);
 
+      const createdAt = q.created_at
+        ? new Date(q.created_at).toISOString()
+        : null;
+
       matrixRows.push({
         questionnaireId: q.id,
         patientLabel: this.patientLabel(q),
         patientName: q.patient?.full_name || '',
         status: q.status,
         countsByTask: counts,
+        deviceBreakdownByTask,
         totalFiles,
         expectedTotal: expectedRowTotal,
         completionPercent,
+        createdAt,
+        collectionDate: this.toIsoDateOnly(q.collection_date),
+        pendingUploads: buildPendingUploads({
+          createdAt: q.created_at,
+          nowMs: now,
+          countsByTask: counts,
+          deviceBreakdownByTask,
+          hasPolysomnographyPdf: pdfFlags.hasPolysomnographyPdf,
+          hasPolysomnographyEdf: pdfFlags.hasPolysomnographyEdf,
+          hasBaiobitPdf: pdfFlags.hasBaiobitPdf,
+          hasDelsysPdf: pdfFlags.hasDelsysPdf,
+        }),
+        missingDeviceKinds: listMissingDeviceKinds({
+          countsByTask: counts,
+          deviceBreakdownByTask,
+          hasPolysomnographyPdf: pdfFlags.hasPolysomnographyPdf,
+          hasPolysomnographyEdf: pdfFlags.hasPolysomnographyEdf,
+          hasBaiobitPdf: pdfFlags.hasBaiobitPdf,
+          hasDelsysPdf: pdfFlags.hasDelsysPdf,
+        }),
       });
 
       summaryQuestionnaires.push({
@@ -921,14 +1154,25 @@ export class AdminCollectionOverviewService {
     const taskCodes = taskColumns.map((c) => c.task_code);
     const expectedRowTotal = sumExpectedForTaskCodes(taskCodes);
 
-    const { questionnaires, countsRows, lastUploadRows, taskIdToCode } =
-      await this.loadScopeAndCounts(statuses, limit);
+    const {
+      questionnaires,
+      countsRows,
+      lastUploadRows,
+      fileRows,
+      pdfRows,
+      taskIdToCode,
+    } = await this.loadScopeAndCounts(statuses, limit);
     const byQ = this.buildCountsByQuestionnaire(countsRows, taskIdToCode);
     const lastByQ = new Map(
       lastUploadRows.map((r) => [
         r.questionnaire_id,
         r.last_upload ? new Date(r.last_upload) : null,
       ]),
+    );
+    const { breakdownByQ, pdfFlagsByQ } = this.buildDeviceBreakdownByQuestionnaire(
+      fileRows,
+      taskIdToCode,
+      pdfRows,
     );
 
     const now = Date.now();
@@ -937,6 +1181,8 @@ export class AdminCollectionOverviewService {
       questionnaires,
       byQ,
       lastByQ,
+      breakdownByQ,
+      pdfFlagsByQ,
       expectedRowTotal,
       now,
       atRiskMs,
@@ -1002,14 +1248,25 @@ export class AdminCollectionOverviewService {
     const taskCodes = taskColumns.map((c) => c.task_code);
     const expectedRowTotal = sumExpectedForTaskCodes(taskCodes);
 
-    const { questionnaires, countsRows, lastUploadRows, taskIdToCode } =
-      await this.loadScopeAndCounts(statuses, limit);
+    const {
+      questionnaires,
+      countsRows,
+      lastUploadRows,
+      fileRows,
+      pdfRows,
+      taskIdToCode,
+    } = await this.loadScopeAndCounts(statuses, limit);
     const byQ = this.buildCountsByQuestionnaire(countsRows, taskIdToCode);
     const lastByQ = new Map(
       lastUploadRows.map((r) => [
         r.questionnaire_id,
         r.last_upload ? new Date(r.last_upload) : null,
       ]),
+    );
+    const { breakdownByQ, pdfFlagsByQ } = this.buildDeviceBreakdownByQuestionnaire(
+      fileRows,
+      taskIdToCode,
+      pdfRows,
     );
 
     const now = Date.now();
@@ -1018,6 +1275,8 @@ export class AdminCollectionOverviewService {
       questionnaires,
       byQ,
       lastByQ,
+      breakdownByQ,
+      pdfFlagsByQ,
       expectedRowTotal,
       now,
       atRiskMs,

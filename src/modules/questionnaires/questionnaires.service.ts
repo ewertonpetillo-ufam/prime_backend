@@ -56,6 +56,23 @@ import { SavePhysioDto } from './dto/save-physio.dto';
 import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
 import { SaveSpeechPatientDescriptionDto } from './dto/save-speech-patient-description.dto';
 import { PdfReportsService } from '../pdf-reports/pdf-reports.service';
+import {
+  DeviceBreakdownCell,
+  DevicePresenceFlags,
+  SLEEP_TASK_CODE,
+  applyPdfCountsToBreakdown,
+  applyPdfReportToPresence,
+  buildPendingUploads,
+  classifyBinaryFileName,
+  emptyBreakdownForTask,
+  emptyPdfPresence,
+  incrementBreakdownCell,
+  isDeviceBreakdownTask,
+  listMissingDeviceKinds,
+  reconcileBreakdownWithTaskTotal,
+  resolveTaskCode,
+} from '../admin-collection-overview/device-upload-status.utils';
+import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
 
 const UPDRS_SCORE_FIELDS = [
   'speech',
@@ -290,6 +307,8 @@ export class QuestionnairesService {
     private binaryCollectionRepository: Repository<BinaryCollection>,
     @InjectRepository(PdfReport)
     private pdfReportRepository: Repository<PdfReport>,
+    @InjectRepository(ActiveTaskDefinition)
+    private activeTaskRepository: Repository<ActiveTaskDefinition>,
     private patientsService: PatientsService,
     private pdfReportsService: PdfReportsService,
   ) {}
@@ -2098,6 +2117,8 @@ export class QuestionnairesService {
 
     const questionnaires = await queryBuilder.getMany();
 
+    const pendingByQid = await this.buildPendingDeviceUploadsMap(questionnaires);
+
     // Retornar apenas dados básicos para a listagem
     return questionnaires.map((q) => ({
       id: q.id,
@@ -2111,8 +2132,178 @@ export class QuestionnairesService {
       completedAt: q.completed_at,
       status: q.status,
       collectionTimeSeconds: q.collection_time_seconds ?? 0,
+      pendingDeviceUploads: pendingByQid.get(q.id)?.pending || [],
+      missingDeviceKinds: pendingByQid.get(q.id)?.missing || [],
       data: null, // Dados completos serão carregados apenas quando necessário
     }));
+  }
+
+  /**
+   * Calcula badges de upload pendente (Baiobit / Delsys / Polissonógrafo) com risco 3/5/7.
+   */
+  private async buildPendingDeviceUploadsMap(
+    questionnaires: Questionnaire[],
+  ): Promise<
+    Map<
+      string,
+      {
+        pending: ReturnType<typeof buildPendingUploads>;
+        missing: ReturnType<typeof listMissingDeviceKinds>;
+      }
+    >
+  > {
+    const result = new Map<
+      string,
+      {
+        pending: ReturnType<typeof buildPendingUploads>;
+        missing: ReturnType<typeof listMissingDeviceKinds>;
+      }
+    >();
+    if (questionnaires.length === 0) return result;
+
+    const ids = questionnaires.map((q) => q.id);
+    const nowMs = Date.now();
+
+    const allTasks = await this.activeTaskRepository.find();
+    const taskIdToCode = new Map(
+      allTasks.map((t) => [t.id, t.task_code] as const),
+    );
+
+    const fileRows: {
+      questionnaire_id: string;
+      task_id: number | string;
+      file_name: string;
+      device_type?: string | null;
+      file_format?: string | null;
+      meta_task_code?: string | null;
+    }[] = await this.binaryCollectionRepository.manager.query(
+      `
+      SELECT q.id AS questionnaire_id,
+             bc.task_id,
+             COALESCE(
+               NULLIF(TRIM(bc.metadata->>'file_name'), ''),
+               NULLIF(TRIM(bc.metadata->>'originalname'), ''),
+               NULLIF(TRIM(bc.metadata->>'original_name'), ''),
+               NULLIF(TRIM(bc.metadata->>'filename'), ''),
+               ''
+             ) AS file_name,
+             bc.device_type,
+             COALESCE(bc.metadata->>'file_format', '') AS file_format,
+             COALESCE(bc.metadata->>'task_code', '') AS meta_task_code
+      FROM questionnaires q
+      INNER JOIN patients p ON p.id = q.patient_id
+      INNER JOIN binary_collections bc ON (
+        bc.questionnaire_id = q.id OR bc.patient_cpf_hash = p.cpf_hash
+      )
+      WHERE q.id = ANY($1::uuid[])
+        AND COALESCE(bc.deleted_pending, false) = false
+        AND (
+          bc.task_id IS NOT NULL
+          OR COALESCE(NULLIF(TRIM(bc.metadata->>'task_code'), ''), '') <> ''
+        )
+      `,
+      [ids],
+    );
+
+    const countsByQ = new Map<string, Record<string, number>>();
+    const breakdownByQ = new Map<string, Record<string, DeviceBreakdownCell>>();
+
+    const ensureCell = (
+      qid: string,
+      taskCode: string,
+    ): DeviceBreakdownCell => {
+      if (!breakdownByQ.has(qid)) breakdownByQ.set(qid, {});
+      const rec = breakdownByQ.get(qid)!;
+      if (!rec[taskCode]) {
+        rec[taskCode] = emptyBreakdownForTask(taskCode);
+      }
+      return rec[taskCode];
+    };
+
+    for (const row of fileRows) {
+      const code = resolveTaskCode(
+        row.task_id,
+        row.meta_task_code,
+        taskIdToCode,
+      );
+      if (!code) continue;
+      const qid = String(row.questionnaire_id);
+
+      if (!countsByQ.has(qid)) countsByQ.set(qid, {});
+      const counts = countsByQ.get(qid)!;
+      counts[code] = (counts[code] || 0) + 1;
+
+      if (!isDeviceBreakdownTask(code) && code !== SLEEP_TASK_CODE) continue;
+
+      const cell = ensureCell(qid, code);
+      const kind = classifyBinaryFileName(row.file_name || '', code, {
+        deviceType: row.device_type,
+        mimeType: row.file_format,
+      });
+      incrementBreakdownCell(cell, kind);
+    }
+
+    const pdfRows: {
+      questionnaire_id: string;
+      file_name: string;
+      mime_type: string | null;
+      report_type: string | null;
+    }[] = await this.pdfReportRepository.manager.query(
+      `
+      SELECT pr.questionnaire_id,
+             COALESCE(pr.file_name, '') AS file_name,
+             pr.mime_type,
+             pr.report_type
+      FROM pdf_reports pr
+      WHERE pr.questionnaire_id = ANY($1::uuid[])
+      `,
+      [ids],
+    );
+
+    const pdfFlagsByQ = new Map<string, DevicePresenceFlags>();
+
+    for (const row of pdfRows) {
+      const qid = String(row.questionnaire_id);
+      const prev = pdfFlagsByQ.get(qid) || emptyPdfPresence();
+      applyPdfReportToPresence(
+        prev,
+        row.report_type || '',
+        row.file_name || '',
+        row.mime_type,
+      );
+      pdfFlagsByQ.set(qid, prev);
+    }
+
+    for (const q of questionnaires) {
+      const qid = String(q.id);
+      const counts = countsByQ.get(qid) || {};
+      const deviceBreakdownByTask = { ...(breakdownByQ.get(qid) || {}) };
+      for (const [taskCode, cell] of Object.entries(deviceBreakdownByTask)) {
+        deviceBreakdownByTask[taskCode] = { ...cell };
+        reconcileBreakdownWithTaskTotal(
+          deviceBreakdownByTask[taskCode],
+          counts[taskCode] || 0,
+        );
+      }
+      const pdfFlags = pdfFlagsByQ.get(qid) || emptyPdfPresence();
+      applyPdfCountsToBreakdown(deviceBreakdownByTask, pdfFlags);
+      const pendingParams = {
+        createdAt: q.created_at,
+        nowMs,
+        countsByTask: counts,
+        deviceBreakdownByTask,
+        hasPolysomnographyPdf: pdfFlags.hasPolysomnographyPdf,
+        hasPolysomnographyEdf: pdfFlags.hasPolysomnographyEdf,
+        hasBaiobitPdf: pdfFlags.hasBaiobitPdf,
+        hasDelsysPdf: pdfFlags.hasDelsysPdf,
+      };
+      result.set(q.id, {
+        pending: buildPendingUploads(pendingParams),
+        missing: listMissingDeviceKinds(pendingParams),
+      });
+    }
+
+    return result;
   }
 
   /**
