@@ -4,7 +4,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Job, Queue } from 'bullmq';
 import archiver = require('archiver');
-import pLimit from 'p-limit';
+import pLimit = require('p-limit');
 import { PassThrough } from 'stream';
 import { EXPORT_ZIP_QUEUE } from '../queues/queues.module';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';

@@ -6,7 +6,7 @@ import { createReadStream } from 'fs';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import pLimit from 'p-limit';
+import pLimit = require('p-limit');
 import archiver = require('archiver');
 import {
   SamsungSyncRun,
