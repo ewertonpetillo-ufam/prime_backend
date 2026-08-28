@@ -13,6 +13,8 @@ import {
   cleanupSamsungSyncTempDir,
   formatCollectionDateForMetadata,
   getDeliveryDateFolder,
+  isPolysomnographyEdfFile,
+  isSamsungExcludedPsgLaudo,
 } from './samsung-dataset.utils';
 
 describe('samsung-dataset.utils', () => {
@@ -82,6 +84,27 @@ describe('samsung-dataset.utils', () => {
     expect(Buffer.isBuffer(buf)).toBe(true);
     expect(buf.length).toBeGreaterThan(10);
   }, 15000);
+
+  it('isPolysomnographyEdfFile detects EDF by name and mime', () => {
+    expect(isPolysomnographyEdfFile('exame.edf')).toBe(true);
+    expect(isPolysomnographyEdfFile('sono.EDF')).toBe(true);
+    expect(isPolysomnographyEdfFile('laudo.pdf', 'application/edf')).toBe(true);
+    expect(isPolysomnographyEdfFile('laudo.pdf')).toBe(false);
+    expect(isPolysomnographyEdfFile('laudo.pdf', 'application/pdf')).toBe(false);
+  });
+
+  it('isSamsungExcludedPsgLaudo skips POLYSOMNOGRAPHY PDF laudo only', () => {
+    expect(isSamsungExcludedPsgLaudo('POLYSOMNOGRAPHY', 'laudo.pdf')).toBe(true);
+    expect(
+      isSamsungExcludedPsgLaudo('POLYSOMNOGRAPHY', 'laudo.pdf', 'application/pdf'),
+    ).toBe(true);
+    expect(isSamsungExcludedPsgLaudo('POLYSOMNOGRAPHY', 'exame.edf')).toBe(false);
+    expect(
+      isSamsungExcludedPsgLaudo('POLYSOMNOGRAPHY', 'laudo.pdf', 'application/edf'),
+    ).toBe(false);
+    expect(isSamsungExcludedPsgLaudo('BIOBIT', 'laudo.pdf')).toBe(false);
+    expect(isSamsungExcludedPsgLaudo('DELSYS', 'relatorio.pdf')).toBe(false);
+  });
 
   it('createZipFileFromEntries writes zip to disk', async () => {
     const runId = 'test-run-zip-disk';

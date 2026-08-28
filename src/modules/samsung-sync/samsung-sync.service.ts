@@ -44,6 +44,7 @@ import {
   inferSamsungDevice,
   inferSamsungProtocol,
   isSamsungExcludedPublicIdentifier,
+  isSamsungExcludedPsgLaudo,
   isSamsungSmartphoneTask,
   isSpeechTask,
   samsungPdfReportDataPath,
@@ -515,6 +516,19 @@ export class SamsungSyncService implements OnModuleInit {
     return raw != null ? String(raw) : undefined;
   }
 
+  private isExcludedPsgLaudo(report: {
+    report_type?: string;
+    reportType?: string;
+    file_name?: string;
+    mime_type?: string | null;
+  }): boolean {
+    return isSamsungExcludedPsgLaudo(
+      this.normalizePdfReportType(report),
+      report.file_name || '',
+      report.mime_type,
+    );
+  }
+
   private async getPendingPdfReportsForPatient(
     patientId: string,
     patientEverSynced: boolean,
@@ -523,6 +537,7 @@ export class SamsungSyncService implements OnModuleInit {
       id: string;
       report_type?: string;
       file_name?: string;
+      mime_type?: string | null;
       file_path?: string | null;
       file_sync_pending?: boolean;
       collection_date?: string | Date | null;
@@ -535,6 +550,7 @@ export class SamsungSyncService implements OnModuleInit {
       SELECT pr.id,
              pr.report_type,
              pr.file_name,
+             pr.mime_type,
              pr.file_path,
              pr.file_sync_pending,
              q.collection_date,
@@ -546,6 +562,9 @@ export class SamsungSyncService implements OnModuleInit {
        WHERE q.patient_id = $1::uuid
          AND pr.file_path IS NOT NULL
          AND ($2::boolean = FALSE OR pr.file_sync_pending = TRUE)
+         AND NOT pdf_report_is_samsung_psg_laudo_excluded(
+           pr.report_type, pr.file_name, pr.mime_type
+         )
        ORDER BY q.created_at ASC
       `,
       [patientId, patientEverSynced],
@@ -645,6 +664,9 @@ export class SamsungSyncService implements OnModuleInit {
         FROM pdf_reports pr
         JOIN questionnaires q ON q.id = pr.questionnaire_id
         WHERE pr.file_sync_pending = TRUE
+          AND NOT pdf_report_is_samsung_psg_laudo_excluded(
+            pr.report_type, pr.file_name, pr.mime_type
+          )
         GROUP BY q.patient_id
       )
       SELECT
@@ -783,6 +805,9 @@ export class SamsungSyncService implements OnModuleInit {
               JOIN questionnaires q2 ON q2.id = pr2.questionnaire_id
              WHERE q2.patient_id = p.id
                AND pr2.file_sync_pending = TRUE
+               AND NOT pdf_report_is_samsung_psg_laudo_excluded(
+                 pr2.report_type, pr2.file_name, pr2.mime_type
+               )
           )
         )
         AND ($1::int IS NULL OR COALESCE(NULLIF(regexp_replace(p.public_identifier, '\\D', '', 'g'), ''), '0')::int >= $1::int)
@@ -1104,6 +1129,7 @@ export class SamsungSyncService implements OnModuleInit {
 
       /** Evita contar 2× o mesmo skip de fala (export do questionário + loop patient.files). */
       const speechSkipCountedIds = new Set<string>();
+      const psgLaudoSkipCountedIds = new Set<string>();
 
       const minioConnectivity = await this.validateMinioConnectivityQuick(8000);
       if (!minioConnectivity.ok && minioConnectivity.warning) {
@@ -1204,6 +1230,34 @@ export class SamsungSyncService implements OnModuleInit {
                 patientEverSynced &&
                 report.file_sync_pending !== true
               ) {
+                continue;
+              }
+              if (this.isExcludedPsgLaudo(report)) {
+                const rid = report?.id ? String(report.id) : '';
+                if (rid) {
+                  if (!psgLaudoSkipCountedIds.has(rid)) {
+                    psgLaudoSkipCountedIds.add(rid);
+                    summary.skippedFiles += 1;
+                  }
+                } else {
+                  summary.skippedFiles += 1;
+                }
+                await this.appendRunItem({
+                  runId: run.id,
+                  patientId: patient.id,
+                  action: SamsungSyncItemAction.SKIP,
+                  repo: this.repoZip,
+                  path: buildSamsungDataFileZipPath(
+                    deliveryDate,
+                    subjectId,
+                    this.toStageFolder('Sleep'),
+                    'PSG',
+                    report?.file_name || 'laudo.pdf',
+                  ),
+                  uploaded: false,
+                  message:
+                    'Laudo PDF de polissonografia excluído da entrega BART (dados pessoais)',
+                });
                 continue;
               }
               const { protocol, device } = this.samsungPdfReportDataPath(
@@ -1393,6 +1447,34 @@ export class SamsungSyncService implements OnModuleInit {
             );
             for (const report of dbPdfReports) {
               this.ensureRunNotCancelled(run.id);
+              if (this.isExcludedPsgLaudo(report)) {
+                const rid = report?.id ? String(report.id) : '';
+                if (rid) {
+                  if (!psgLaudoSkipCountedIds.has(rid)) {
+                    psgLaudoSkipCountedIds.add(rid);
+                    summary.skippedFiles += 1;
+                  }
+                } else {
+                  summary.skippedFiles += 1;
+                }
+                await this.appendRunItem({
+                  runId: run.id,
+                  patientId: patient.id,
+                  action: SamsungSyncItemAction.SKIP,
+                  repo: this.repoZip,
+                  path: buildSamsungDataFileZipPath(
+                    deliveryDate,
+                    subjectId,
+                    this.toStageFolder('Sleep'),
+                    'PSG',
+                    report?.file_name || 'laudo.pdf',
+                  ),
+                  uploaded: false,
+                  message:
+                    'Laudo PDF de polissonografia excluído da entrega BART (dados pessoais)',
+                });
+                continue;
+              }
               const generationDate = formatCollectionDateForMetadata({
                 collection_date: report.collection_date,
                 created_at: report.questionnaire_created_at,
@@ -1816,6 +1898,9 @@ export class SamsungSyncService implements OnModuleInit {
         FROM questionnaires q
        WHERE q.id = pr.questionnaire_id
          AND q.patient_id = ANY($1::uuid[])
+         AND NOT pdf_report_is_samsung_psg_laudo_excluded(
+           pr.report_type, pr.file_name, pr.mime_type
+         )
       RETURNING pr.id
       `,
       [patientIds],
