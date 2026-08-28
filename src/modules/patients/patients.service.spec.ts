@@ -157,26 +157,30 @@ describe('PatientsService', () => {
       phone_primary: '11999999999',
     };
 
-    it('deve criar paciente com public_identifier gerado no banco', async () => {
+    it('deve criar paciente sem pré-gerar identificador (trigger no INSERT)', async () => {
       const hashedCpf = CryptoUtil.hashCpf(createPatientDto.cpf);
       const savedPatient = {
         id: 'patient-id',
         ...createPatientDto,
         cpf_hash: hashedCpf,
-        public_identifier: 'P0001',
+        public_identifier: 'P001',
       };
 
       mockRepository.findOne.mockResolvedValue(null);
-      mockRepository.query.mockResolvedValue([{ identifier: 'P0001' }]);
-      mockRepository.create.mockReturnValue(savedPatient);
+      mockRepository.create.mockReturnValue({
+        ...savedPatient,
+        public_identifier: undefined,
+      });
       mockRepository.save.mockResolvedValue(savedPatient);
 
       const result = await service.createWithPublicIdentifier(createPatientDto);
 
-      expect(result.public_identifier).toBe('P0001');
-      expect(mockRepository.query).toHaveBeenCalledWith(
-        'SELECT generate_patient_identifier() AS identifier',
+      expect(result.public_identifier).toBe('P001');
+      expect(mockRepository.query).not.toHaveBeenCalled();
+      expect(mockRepository.create).toHaveBeenCalledWith(
+        expect.not.objectContaining({ public_identifier: expect.anything() }),
       );
+      expect(mockRepository.save).toHaveBeenCalled();
     });
 
     it('deve lançar ConflictException para CPF duplicado', async () => {
