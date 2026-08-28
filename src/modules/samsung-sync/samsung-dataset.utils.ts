@@ -460,6 +460,30 @@ export const samsungPdfReportDataPath = (reportType: string | undefined) => {
   }
 };
 
+/** POLYSOMNOGRAPHY conta como EDF se o nome/mime indicar .edf. */
+export const isPolysomnographyEdfFile = (
+  fileName: string,
+  mimeType?: string | null,
+): boolean => {
+  const name = (fileName || '').trim();
+  if (/\.edf(\.|$)/i.test(name) || /(^|[^a-z])edf([^a-z]|$)/i.test(name)) {
+    return true;
+  }
+  const mime = (mimeType || '').toLowerCase();
+  return mime.includes('edf');
+};
+
+/** Laudo PDF de polissonografia: não entra no BART (dados pessoais). EDF segue. */
+export const isSamsungExcludedPsgLaudo = (
+  reportType: string | undefined,
+  fileName: string,
+  mimeType?: string | null,
+): boolean => {
+  const type = (reportType || '').trim().toUpperCase();
+  if (type !== 'POLYSOMNOGRAPHY') return false;
+  return !isPolysomnographyEdfFile(fileName, mimeType);
+};
+
 export const sanitizeExternalDocBaseName = (rawName: string, cpfHash: string): string => {
   const base = (rawName || 'documento').split(/[/\\]/).pop() || 'documento';
   const extMatch = base.match(/(\.[^.]+)$/i);

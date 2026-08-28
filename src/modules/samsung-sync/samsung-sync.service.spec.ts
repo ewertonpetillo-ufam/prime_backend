@@ -79,6 +79,8 @@ describe('SamsungSyncService.resetSyncPending', () => {
     await service.resetSyncPending({});
     const updatePatientsSql = String(query.mock.calls[1][0]);
     expect(updatePatientsSql).toContain('synced_at = NULL');
+    const updatePdfsSql = String(query.mock.calls[3][0]);
+    expect(updatePdfsSql).toContain('pdf_report_is_samsung_psg_laudo_excluded');
   });
 });
 
@@ -129,6 +131,7 @@ describe('SamsungSyncService.getPendingPatients', () => {
     const sql = String(query.mock.calls[0][0]);
     expect(sql).not.toMatch(/csv_data/i);
     expect(sql).not.toMatch(/encode\s*\(/i);
+    expect(sql).toContain('pdf_report_is_samsung_psg_laudo_excluded');
     expect(rows).toHaveLength(1);
     expect(rows[0].files).toHaveLength(1);
     expect(rows[0].files[0]).not.toHaveProperty('csv_data');
