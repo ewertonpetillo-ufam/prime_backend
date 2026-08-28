@@ -36,7 +36,7 @@ export class PatientsService {
       throw new ConflictException('Patient with this CPF already registered');
     }
 
-    // public_identifier é atribuído apenas em createWithPublicIdentifier (ex.: save Step 1)
+    // public_identifier: trigger BEFORE INSERT (generate_patient_identifier) se NULL
     const { cpf, ...patientData } = createPatientDto;
     const patient = this.patientsRepository.create({
       ...patientData,
@@ -48,7 +48,8 @@ export class PatientsService {
   }
 
   /**
-   * Cria paciente e gera public_identifier (sequência no banco). Usar no fluxo do questionário — Step 1.
+   * Cria paciente no fluxo do questionário (Step 1).
+   * public_identifier fica nulo; o trigger BEFORE INSERT atribui na mesma transação do INSERT.
    */
   async createWithPublicIdentifier(
     createPatientDto: CreatePatientDto,
@@ -67,17 +68,11 @@ export class PatientsService {
       throw new ConflictException('Patient with this CPF already registered');
     }
 
-    const result = await this.patientsRepository.query(
-      'SELECT generate_patient_identifier() AS identifier',
-    );
-    const public_identifier = result[0]?.identifier as string;
-
     const { cpf, ...patientData } = createPatientDto;
     const patient = this.patientsRepository.create({
       ...patientData,
       cpf_hash,
       cpf,
-      public_identifier,
     });
 
     return this.patientsRepository.save(patient);
