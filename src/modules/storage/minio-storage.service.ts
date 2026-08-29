@@ -12,6 +12,8 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import * as http from 'node:http';
 import * as https from 'node:https';
+import { createWriteStream } from 'fs';
+import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 
 /** HTTP(S) com timeouts relaxados e keep-alive — reduz ECONNRESET em túnel SSH / rede lenta. */
@@ -212,6 +214,12 @@ export class MinioStorageService {
       }),
     );
     return out.Body as Readable;
+  }
+
+  /** Grava o objeto direto em disco — evita Buffer.concat de PDFs/EDFs grandes na heap. */
+  async getObjectToFile(key: string, destPath: string): Promise<void> {
+    const stream = await this.getObjectStream(key);
+    await pipeline(stream, createWriteStream(destPath));
   }
 
   /**

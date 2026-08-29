@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { createReadStream } from 'fs';
-import { unlink } from 'fs/promises';
+import { stat, unlink } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import pLimit = require('p-limit');
@@ -16,6 +16,7 @@ import {
   SamsungSyncItemAction,
   SamsungSyncRunItem,
 } from '../../entities/samsung-sync-run-item.entity';
+import { withPgRetry } from '../../common/database/pg-transient';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';
 import { MinioStorageService } from '../storage/minio-storage.service';
 import { ArtifactoryService } from './artifactory.service';
@@ -35,6 +36,8 @@ import {
   cleanupSamsungSyncTempDir,
   createZipFileFromEntries,
   ensureSamsungSyncTempDir,
+  getDeliveryZipFilePath,
+  isDeliveryZipReady,
   deviceGroupKey,
   openDeliveryZipWriter,
   extractTaskCodeFromFilename,
@@ -191,21 +194,47 @@ export class SamsungSyncService implements OnModuleInit {
   }
 
   private async recoverStaleRuns(): Promise<void> {
-    // executeRun vive só na memória do processo — qualquer RUNNING após restart é órfão.
     const running = await this.syncRunRepository.find({
       where: { status: SamsungSyncRunStatus.RUNNING },
     });
     for (const run of running) {
+      this.cancelledRunIds.delete(run.id);
+      this.runAbortControllers.delete(run.id);
+      const zipReady = await isDeliveryZipReady(run.id);
+      if (this.canResumeZipUpload(run, zipReady)) {
+        this.logger.warn(
+          `Run ${run.id}: ZIP de entrega ainda no disco — retomando PUT para o BART após reinício`,
+        );
+        setTimeout(() => {
+          void this.resumeZipUpload(run).catch((error) => {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Run ${run.id}: falha ao retomar upload do ZIP: ${message}`);
+          });
+        }, 0);
+        continue;
+      }
       await this.syncRunRepository.update(run.id, {
         status: SamsungSyncRunStatus.FAILED,
         finished_at: new Date(),
         error_message: 'Interrompido por reinício do servidor',
       });
       await cleanupSamsungSyncTempDir(run.id);
-      this.cancelledRunIds.delete(run.id);
-      this.runAbortControllers.delete(run.id);
       this.logger.warn(`Run órfão ${run.id} marcado como failed após reinício`);
     }
+  }
+
+  private canResumeZipUpload(run: SamsungSyncRun, zipReady: boolean): boolean {
+    const summary = (run.summary || {}) as Record<string, unknown>;
+    const step = Number(summary.currentStepIndex ?? 0);
+    return (
+      zipReady &&
+      step >= 6 &&
+      typeof summary.zipPath === 'string' &&
+      typeof summary.zipName === 'string' &&
+      typeof summary.deliveryDate === 'string' &&
+      Array.isArray(summary.metadataRows) &&
+      Array.isArray(summary.patientsReadyForConfirm)
+    );
   }
 
   async findActiveRunningRun(): Promise<SamsungSyncRun | null> {
@@ -435,6 +464,31 @@ export class SamsungSyncService implements OnModuleInit {
     }
   }
 
+  private logMem(context: string, zipBytes?: number) {
+    const mem = process.memoryUsage();
+    const zipPart =
+      zipBytes != null ? ` zip=${(zipBytes / 1048576).toFixed(1)}MB` : '';
+    this.logger.log(
+      `${context}${zipPart} heap=${(mem.heapUsed / 1048576).toFixed(0)}MB rss=${(mem.rss / 1048576).toFixed(0)}MB`,
+    );
+  }
+
+  private async downloadMinioToTempFile(
+    tempDir: string,
+    objectKey: string,
+  ): Promise<string | null> {
+    const destPath = join(tempDir, `minio-${randomUUID()}`);
+    try {
+      await this.minioService.getObjectToFile(objectKey, destPath);
+      return destPath;
+    } catch (error) {
+      await unlink(destPath).catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`MinIO ${objectKey}: ${message}`);
+      return null;
+    }
+  }
+
   private async flushDeviceGroupsToArchive(
     runId: string,
     tempDir: string,
@@ -480,6 +534,11 @@ export class SamsungSyncService implements OnModuleInit {
         });
       } finally {
         await unlink(subZipTempPath).catch(() => undefined);
+        await Promise.all(
+          entries.map((entry) =>
+            entry.filePath ? unlink(entry.filePath).catch(() => undefined) : Promise.resolve(),
+          ),
+        );
       }
       deviceGroups.delete(groupKey);
     }
@@ -1001,6 +1060,9 @@ export class SamsungSyncService implements OnModuleInit {
       currentStepIndex: number;
       stepLabels: readonly string[];
       lastHeartbeatAt: string;
+      deliveryDate?: string;
+      metadataRows?: DeliveryMetadataRow[];
+      patientsReadyForConfirm?: string[];
     } = {
       totalPatients: 0,
       syncedPatients: 0,
@@ -1155,9 +1217,13 @@ export class SamsungSyncService implements OnModuleInit {
           const subjectExportItems = exportedBySubject.get(subjectId) || [];
           const patientDeviceGroups = new Map<string, ZipEntryInput[]>();
 
-          const addToDeviceGroup = (key: string, fileName: string, buffer: Buffer) => {
+          const addToDeviceGroup = (
+            key: string,
+            fileName: string,
+            payload: Pick<ZipEntryInput, 'buffer' | 'filePath'>,
+          ) => {
             const list = patientDeviceGroups.get(key) || [];
-            list.push({ name: fileName, buffer });
+            list.push({ name: fileName, ...payload });
             patientDeviceGroups.set(key, list);
           };
 
@@ -1282,17 +1348,12 @@ export class SamsungSyncService implements OnModuleInit {
                 `${stageFolder}/${deviceFolderName}`,
               );
               const pdfPath = report?.file_path as string | undefined;
-              const pdfBuffer = pdfPath
+              const pdfFilePath = pdfPath
                 ? await minioDownloadLimit(() =>
-                    this.minioService.getObjectBuffer(pdfPath).catch((err: Error) => {
-                      this.logger.warn(
-                        `[Run ${run.id}] PDF ${String(pdfPath)} MinIO: ${err.message}`,
-                      );
-                      return null;
-                    }),
+                    this.downloadMinioToTempFile(syncTempDir, pdfPath),
                   )
                 : null;
-              if (!pdfBuffer) {
+              if (!pdfFilePath) {
                 patientHasCriticalError = true;
                 summary.errorFiles += 1;
                 const minioHint = !minioConnectivity.ok
@@ -1315,17 +1376,10 @@ export class SamsungSyncService implements OnModuleInit {
                 });
                 continue;
               }
-              const zipPath = buildSamsungDataFileZipPath(
-                deliveryDate,
-                subjectId,
-                stageFolder,
-                deviceFolderName,
-                uniqueFileName,
-              );
               addToDeviceGroup(
                 deviceGroupKey(subjectId, stageFolder, deviceFolderName),
                 uniqueFileName,
-                pdfBuffer,
+                { filePath: pdfFilePath },
               );
               if (report?.id) {
                 let set = pdfReportIdsByPatient.get(patient.id);
@@ -1433,7 +1487,7 @@ export class SamsungSyncService implements OnModuleInit {
               addToDeviceGroup(
                 deviceGroupKey(subjectId, stageFolder, deviceFolderName),
                 finalName,
-                payload,
+                { buffer: payload },
               );
               includedCollectionIds.add(collection.id);
             }
@@ -1498,17 +1552,12 @@ export class SamsungSyncService implements OnModuleInit {
                 `${stageFolder}/${deviceFolderName}`,
               );
               const dbPdfPath = report?.file_path as string | undefined;
-              const pdfBuffer = dbPdfPath
+              const pdfFilePath = dbPdfPath
                 ? await minioDownloadLimit(() =>
-                    this.minioService.getObjectBuffer(dbPdfPath).catch((err: Error) => {
-                      this.logger.warn(
-                        `[Run ${run.id}] PDF ${String(dbPdfPath)} não encontrado no MinIO: ${err.message}`,
-                      );
-                      return null;
-                    }),
+                    this.downloadMinioToTempFile(syncTempDir, dbPdfPath),
                   )
                 : null;
-              if (!pdfBuffer) {
+              if (!pdfFilePath) {
                 patientHasCriticalError = true;
                 summary.errorFiles += 1;
                 const minioHint = !minioConnectivity.ok
@@ -1534,7 +1583,7 @@ export class SamsungSyncService implements OnModuleInit {
               addToDeviceGroup(
                 deviceGroupKey(subjectId, stageFolder, deviceFolderName),
                 uniqueFileName,
-                pdfBuffer,
+                { filePath: pdfFilePath },
               );
               let set = pdfReportIdsByPatient.get(patient.id);
               if (!set) {
@@ -1611,7 +1660,7 @@ export class SamsungSyncService implements OnModuleInit {
                 addToDeviceGroup(
                   deviceGroupKey(subjectId, stageFolder, deviceFolderName),
                   fileName,
-                  payload,
+                  { buffer: payload },
                 );
                 includedCollectionIds.add(file.id);
               }
@@ -1634,6 +1683,7 @@ export class SamsungSyncService implements OnModuleInit {
             summary.syncedPatients += 1;
             patientsReadyForConfirm.push(patient.id);
           }
+          this.logMem(`Run ${run.id}: ${subjectId} processado`);
           await this.updateRunProgress(run.id, summary);
         } catch (error) {
           summary.erroredPatients += 1;
@@ -1656,43 +1706,21 @@ export class SamsungSyncService implements OnModuleInit {
       this.ensureRunNotCancelled(run.id);
       await archive.finalize();
       await archiveFinished;
+      summary.deliveryDate = deliveryDate;
+      summary.metadataRows = metadataRows;
+      summary.patientsReadyForConfirm = patientsReadyForConfirm;
       await setCurrentStep(6);
       this.ensureRunNotCancelled(run.id);
-      const zipSha256 = await this.artifactoryService.uploadFileFromPath(
-        this.repoZip,
-        zipArtifactPath,
+      await this.uploadZipAndMetadata(
+        run,
+        summary,
         zipFilePath,
-        'application/zip',
-        60 * 60 * 1000,
+        zipArtifactPath,
+        zipName,
+        metadataRows,
+        deliveryDate,
         runAbort.signal,
       );
-      await this.appendRunItem({
-        runId: run.id,
-        action: SamsungSyncItemAction.UPLOAD,
-        repo: this.repoZip,
-        path: zipArtifactPath,
-        sha256: zipSha256,
-        uploaded: true,
-        message: `ZIP de entrega ${zipName} enviado com sucesso`,
-      });
-
-      const metadataCsvPath = buildMetadataCsvArtifactPath(this.basePath, deliveryDate);
-      const metadataCsvBuffer = Buffer.from(buildDeliveryMetadataCsv(metadataRows), 'utf-8');
-      const metadataCsvSha256 = await this.artifactoryService.uploadFile(
-        this.repoZip,
-        metadataCsvPath,
-        metadataCsvBuffer,
-        'text/csv',
-      );
-      await this.appendRunItem({
-        runId: run.id,
-        action: SamsungSyncItemAction.METADATA,
-        repo: this.repoZip,
-        path: metadataCsvPath,
-        sha256: metadataCsvSha256,
-        uploaded: true,
-        message: `CSV de metadata da entrega ${deliveryDate} enviado`,
-      });
 
       await setCurrentStep(7);
       this.ensureRunNotCancelled(run.id);
@@ -1752,6 +1780,132 @@ export class SamsungSyncService implements OnModuleInit {
     }
   }
 
+  private async uploadZipAndMetadata(
+    run: SamsungSyncRun,
+    summary: { zipName: string | null; zipPath: string | null },
+    zipFilePath: string,
+    zipArtifactPath: string,
+    zipName: string,
+    metadataRows: DeliveryMetadataRow[],
+    deliveryDate: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const zipStat = await stat(zipFilePath);
+    this.logMem(`Run ${run.id}: enviando ZIP ${zipName} para o BART`, zipStat.size);
+    const zipSha256 = await this.artifactoryService.uploadFileFromPath(
+      this.repoZip,
+      zipArtifactPath,
+      zipFilePath,
+      'application/zip',
+      60 * 60 * 1000,
+      signal,
+    );
+    await this.appendRunItem({
+      runId: run.id,
+      action: SamsungSyncItemAction.UPLOAD,
+      repo: this.repoZip,
+      path: zipArtifactPath,
+      sha256: zipSha256,
+      uploaded: true,
+      message: `ZIP de entrega ${zipName} enviado com sucesso`,
+    });
+
+    const metadataCsvPath = buildMetadataCsvArtifactPath(this.basePath, deliveryDate);
+    const metadataCsvBuffer = Buffer.from(buildDeliveryMetadataCsv(metadataRows), 'utf-8');
+    const metadataCsvSha256 = await this.artifactoryService.uploadFile(
+      this.repoZip,
+      metadataCsvPath,
+      metadataCsvBuffer,
+      'text/csv',
+    );
+    await this.appendRunItem({
+      runId: run.id,
+      action: SamsungSyncItemAction.METADATA,
+      repo: this.repoZip,
+      path: metadataCsvPath,
+      sha256: metadataCsvSha256,
+      uploaded: true,
+      message: `CSV de metadata da entrega ${deliveryDate} enviado`,
+    });
+    this.logMem(`Run ${run.id}: ZIP e metadata enviados`);
+  }
+
+  private async resumeZipUpload(run: SamsungSyncRun): Promise<void> {
+    const summary = {
+      ...((run.summary || {}) as Record<string, unknown>),
+    } as {
+      zipName: string;
+      zipPath: string;
+      deliveryDate: string;
+      metadataRows: DeliveryMetadataRow[];
+      patientsReadyForConfirm: string[];
+      totalPatients?: number;
+      syncedPatients?: number;
+      erroredPatients?: number;
+      uploadedFiles?: number;
+      skippedFiles?: number;
+      deletedFiles?: number;
+      errorFiles?: number;
+      currentStep?: string;
+      currentStepIndex?: number;
+    };
+    const runAbort = new AbortController();
+    this.runAbortControllers.set(run.id, runAbort);
+    const zipFilePath = getDeliveryZipFilePath(run.id);
+    try {
+      this.ensureRunNotCancelled(run.id);
+      await this.uploadZipAndMetadata(
+        run,
+        summary,
+        zipFilePath,
+        summary.zipPath,
+        summary.zipName,
+        summary.metadataRows,
+        summary.deliveryDate,
+        runAbort.signal,
+      );
+      const patientsReadyForConfirm = summary.patientsReadyForConfirm || [];
+      if (patientsReadyForConfirm.length > 0) {
+        await this.confirmRunDelivery(patientsReadyForConfirm);
+      }
+      const runStatus =
+        (summary.erroredPatients || 0) > 0 && patientsReadyForConfirm.length === 0
+          ? SamsungSyncRunStatus.FAILED
+          : SamsungSyncRunStatus.SUCCESS;
+      await this.syncRunRepository.update(run.id, {
+        status: runStatus,
+        finished_at: new Date(),
+        total_patients: summary.totalPatients ?? 0,
+        synced_patients: patientsReadyForConfirm.length,
+        errored_patients: summary.erroredPatients ?? 0,
+        uploaded_files: summary.uploadedFiles ?? 0,
+        skipped_files: summary.skippedFiles ?? 0,
+        deleted_files: summary.deletedFiles ?? 0,
+        error_files: summary.errorFiles ?? 0,
+        summary: {
+          ...summary,
+          currentStepIndex: 8,
+          currentStep: 'Sincronização concluída',
+        },
+      });
+      this.logger.log(`Run ${run.id}: upload retomado após reinício (${runStatus})`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro desconhecido';
+      const cancelled =
+        this.cancelledRunIds.has(run.id) || /cancelad/i.test(message);
+      await this.syncRunRepository.update(run.id, {
+        status: SamsungSyncRunStatus.FAILED,
+        finished_at: new Date(),
+        error_message: cancelled ? 'Cancelado pelo usuário' : message,
+      });
+      throw error;
+    } finally {
+      this.cancelledRunIds.delete(run.id);
+      this.runAbortControllers.delete(run.id);
+      await cleanupSamsungSyncTempDir(run.id);
+    }
+  }
+
   /** Após entrega bem-sucedida no BART: marca pacientes e limpa pendências no banco. */
   private async confirmRunDelivery(patientIds: string[]) {
     if (patientIds.length === 0) return;
@@ -1760,7 +1914,15 @@ export class SamsungSyncService implements OnModuleInit {
     const batchSize = 5;
     for (let i = 0; i < patientIds.length; i += batchSize) {
       const batch = patientIds.slice(i, i + batchSize);
-      await this.confirmRunDeliveryBatch(batch);
+      await withPgRetry(() => this.confirmRunDeliveryBatch(batch), {
+        onRetry: (error, attempt, delayMs) => {
+          this.logger.warn(
+            `confirmRunDelivery: PostgreSQL transiente (lote ${i / batchSize + 1}, tentativa ${attempt}), nova em ${delayMs}ms: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        },
+      });
     }
   }
 

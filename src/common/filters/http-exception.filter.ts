@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { isTransientPgError } from '../database/pg-transient';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -35,10 +36,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
     } else if (exception instanceof Error) {
       message = exception.message;
 
-      // Handle PostgreSQL/TypeORM errors
-      if ('code' in exception) {
-        status = this.mapDatabaseError(exception as any);
-        message = this.getDatabaseErrorMessage(exception as any);
+      if (isTransientPgError(exception)) {
+        status = HttpStatus.SERVICE_UNAVAILABLE;
+        message =
+          'Banco de dados temporariamente indisponível. Tente novamente em instantes.';
+      } else {
+        const pgCode = this.getPgCode(exception);
+        if (pgCode) {
+          status = this.mapDatabaseError({ code: pgCode });
+          message = this.getDatabaseErrorMessage({
+            code: pgCode,
+            message: exception.message,
+          });
+        }
       }
     }
 
@@ -63,6 +73,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     response.status(status).json(errorResponse);
+  }
+
+  private getPgCode(error: unknown): string | undefined {
+    if (!error || typeof error !== 'object') return undefined;
+    const record = error as Record<string, unknown>;
+    if (typeof record.code === 'string') return record.code;
+    const driver = record.driverError as Record<string, unknown> | undefined;
+    if (typeof driver?.code === 'string') return driver.code;
+    const original = record.original as Record<string, unknown> | undefined;
+    if (typeof original?.code === 'string') return original.code;
+    return undefined;
   }
 
   private mapDatabaseError(error: any): HttpStatus {

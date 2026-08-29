@@ -1,6 +1,6 @@
 import archiver = require('archiver');
-import { createWriteStream } from 'fs';
-import { mkdir, rm } from 'fs/promises';
+import { createReadStream, createWriteStream } from 'fs';
+import { mkdir, rm, stat } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -174,7 +174,7 @@ export const buildDeliveryMetadataCsv = (rows: DeliveryMetadataRow[]): string =>
   return `${lines.join('\n')}\n`;
 };
 
-export type ZipEntryInput = { name: string; buffer: Buffer };
+export type ZipEntryInput = { name: string; buffer?: Buffer; filePath?: string };
 
 export const createZipBufferFromEntries = async (
   entries: ZipEntryInput[],
@@ -187,14 +187,35 @@ export const createZipBufferFromEntries = async (
     arc.on('error', reject);
   });
   for (const entry of entries) {
-    arc.append(entry.buffer, { name: entry.name });
+    if (entry.filePath) {
+      arc.append(createReadStream(entry.filePath), { name: entry.name });
+    } else if (entry.buffer) {
+      arc.append(entry.buffer, { name: entry.name });
+    }
   }
   await arc.finalize();
   return result;
 };
 
+export const getSamsungSyncTempRoot = (): string => {
+  const configured = process.env.SAMSUNG_SYNC_TEMP_DIR?.trim();
+  return configured || join(tmpdir(), 'prime-samsung-sync');
+};
+
 export const getSamsungSyncTempDir = (runId: string): string =>
-  join(tmpdir(), 'prime-samsung-sync', runId);
+  join(getSamsungSyncTempRoot(), runId);
+
+export const getDeliveryZipFilePath = (runId: string): string =>
+  join(getSamsungSyncTempDir(runId), `${runId}.zip`);
+
+export const isDeliveryZipReady = async (runId: string): Promise<boolean> => {
+  try {
+    const fileStat = await stat(getDeliveryZipFilePath(runId));
+    return fileStat.isFile() && fileStat.size > 0;
+  } catch {
+    return false;
+  }
+};
 
 export const ensureSamsungSyncTempDir = async (runId: string): Promise<string> => {
   const dir = getSamsungSyncTempDir(runId);
@@ -221,7 +242,11 @@ export const createZipFileFromEntries = async (
   });
   arc.pipe(output);
   for (const entry of entries) {
-    arc.append(entry.buffer, { name: entry.name });
+    if (entry.filePath) {
+      arc.append(createReadStream(entry.filePath), { name: entry.name });
+    } else if (entry.buffer) {
+      arc.append(entry.buffer, { name: entry.name });
+    }
   }
   await arc.finalize();
   await finished;
@@ -235,7 +260,7 @@ export const openDeliveryZipWriter = (
   finished: Promise<void>;
   filePath: string;
 } => {
-  const filePath = join(getSamsungSyncTempDir(runId), `${runId}.zip`);
+  const filePath = getDeliveryZipFilePath(runId);
   const arc = archiver('zip', { zlib: { level: 1 } });
   const output = createWriteStream(filePath);
   const finished = new Promise<void>((resolve, reject) => {

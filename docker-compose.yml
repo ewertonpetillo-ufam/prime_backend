@@ -24,6 +24,11 @@ services:
       # deve falar com o serviço pelo nome na rede "frontend" (ex.: http://minio:9000).
       # Se MINIO_ENDPOINT já existir no .env, esse valor NÃO sobrescreve (interpolação usa o .env).
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-http://minio:9000}
+      # ZIP de entrega fora do overlay /tmp — sobrevive a restart e reduz page cache no cgroup
+      - SAMSUNG_SYNC_TEMP_DIR=/var/prime-samsung-sync
+
+    volumes:
+      - samsung-sync-tmp:/var/prime-samsung-sync
 
     # Porta exposta apenas no host (acesso via VPN)
     ports:
@@ -90,7 +95,10 @@ services:
       resources:
         limits:
           cpus: '2'
-          memory: 6G
+          memory: 10G
         reservations:
           cpus: '0.5'
           memory: 512M
+
+volumes:
+  samsung-sync-tmp:
