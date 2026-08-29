@@ -3,10 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomUUID } from 'crypto';
 import { createReadStream, createWriteStream } from 'fs';
 import { stat, unlink } from 'fs/promises';
+import * as http from 'http';
+import * as https from 'https';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { pipeline } from 'stream/promises';
 import type { Readable } from 'stream';
+import { URL } from 'url';
 
 type RemoteFileInfo = { sha256?: string | null };
 type ArtifactListItem = {
@@ -128,37 +131,16 @@ export class ArtifactoryService {
     return createHash('sha256').update(buffer).digest('hex');
   }
 
-  private async computeFileHashes(filePath: string): Promise<{
-    sha256: string;
-    sha1: string;
-    md5: string;
-  }> {
-    const sha256 = createHash('sha256');
-    const sha1 = createHash('sha1');
-    const md5 = createHash('md5');
-    const updateAll = (chunk: Buffer) => {
-      sha256.update(chunk);
-      sha1.update(chunk);
-      md5.update(chunk);
-    };
-
-    await new Promise<void>((resolve, reject) => {
-      const stream = createReadStream(filePath);
-      stream.on('data', updateAll);
-      stream.on('error', reject);
-      stream.on('end', () => resolve());
-    });
-
-    return {
-      sha256: sha256.digest('hex'),
-      sha1: sha1.digest('hex'),
-      md5: md5.digest('hex'),
-    };
+  private logUploadMemory(context: string, zipBytes: number) {
+    const mem = process.memoryUsage();
+    this.logger.log(
+      `${context} zip=${(zipBytes / 1048576).toFixed(1)}MB heap=${(mem.heapUsed / 1048576).toFixed(0)}MB rss=${(mem.rss / 1048576).toFixed(0)}MB`,
+    );
   }
 
   /**
-   * Upload de arquivo grande via stream (duas passadas: hash + PUT).
-   * Evita carregar o ZIP inteiro em memória.
+   * PUT nativo (http/https), uma passada: hasheia enquanto envia.
+   * Não usa fetch/undici — o body streaming do fetch bufferiza ZIPs grandes e estoura o cgroup.
    */
   async uploadFileFromPath(
     repo: string,
@@ -177,46 +159,141 @@ export class ArtifactoryService {
       throw new Error(`Arquivo inválido para upload: ${filePath}`);
     }
 
-    const { sha256, sha1, md5 } = await this.computeFileHashes(filePath);
-    if (signal?.aborted) {
-      throw new Error('Upload cancelado pelo usuário');
+    this.logUploadMemory(`PUT ${repo}/${artifactPath}`, fileStat.size);
+
+    const retries = 2;
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (signal?.aborted) {
+        throw new Error('Upload cancelado pelo usuário');
+      }
+      try {
+        const sha256 = await this.putFileStreamOnce(
+          repo,
+          artifactPath,
+          filePath,
+          fileStat.size,
+          mimeType,
+          timeoutMs,
+          signal,
+        );
+        this.logger.log(`Upload concluído (stream): ${repo}/${artifactPath}`);
+        return sha256;
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (signal?.aborted || /cancelad/i.test(message)) {
+          throw new Error('Upload cancelado pelo usuário');
+        }
+        const clientError = /HTTP 4\d\d/.test(message);
+        if (clientError || attempt >= retries) {
+          break;
+        }
+        this.logger.warn(
+          `PUT ${repo}/${artifactPath} falhou (${message}); reabrindo arquivo, tentativa ${attempt + 2}/${retries + 1}`,
+        );
+      }
     }
-    const readStream = createReadStream(filePath);
-    signal?.addEventListener(
-      'abort',
-      () => {
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`Falha no upload ${repo}/${artifactPath}`);
+  }
+
+  private putFileStreamOnce(
+    repo: string,
+    artifactPath: string,
+    filePath: string,
+    fileSize: number,
+    mimeType: string,
+    timeoutMs: number,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    const target = new URL(this.buildArtifactUrl(repo, artifactPath));
+    const lib = target.protocol === 'https:' ? https : http;
+    const sha256 = createHash('sha256');
+
+    return new Promise<string>((resolve, reject) => {
+      const readStream = createReadStream(filePath, { highWaterMark: 256 * 1024 });
+      let settled = false;
+      const fail = (error: Error) => {
+        if (settled) return;
+        settled = true;
         readStream.destroy();
-      },
-      { once: true },
-    );
-    const body = readStream as unknown as ReadableStream<Uint8Array>;
+        reject(error);
+      };
+      const succeed = (value: string) => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
 
-    const response = await this.requestWithRetry(
-      this.buildArtifactUrl(repo, artifactPath),
-      {
-        method: 'PUT',
-        headers: {
-          ...this.authHeaders,
-          'Content-Type': mimeType,
-          'Content-Length': String(fileStat.size),
-          'X-Checksum-Deploy': 'false',
-          'X-Checksum-Sha256': sha256,
-          'X-Checksum-Sha1': sha1,
-          'X-Checksum-Md5': md5,
+      const req = lib.request(
+        {
+          protocol: target.protocol,
+          hostname: target.hostname,
+          port: target.port || (target.protocol === 'https:' ? 443 : 80),
+          path: `${target.pathname}${target.search}`,
+          method: 'PUT',
+          headers: {
+            ...this.authHeaders,
+            'Content-Type': mimeType,
+            'Content-Length': String(fileSize),
+          },
         },
-        body,
-        // @ts-expect-error Node fetch duplex for streaming request bodies
-        duplex: 'half',
-      },
-      { timeoutMs, retries: 2, signal },
-    );
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('error', (error) => fail(error));
+          res.on('end', () => {
+            const status = res.statusCode || 0;
+            const body = Buffer.concat(chunks).toString('utf8');
+            if (status < 200 || status >= 300) {
+              fail(new Error(`Falha no upload ${repo}/${artifactPath}: HTTP ${status}`));
+              return;
+            }
+            const localSha = sha256.digest('hex');
+            try {
+              const parsed = JSON.parse(body) as { checksums?: { sha256?: string } };
+              const remoteSha = parsed.checksums?.sha256;
+              if (remoteSha && remoteSha !== localSha) {
+                fail(
+                  new Error(
+                    `Checksum Artifactory diverge do SHA256 local em ${repo}/${artifactPath}`,
+                  ),
+                );
+                return;
+              }
+            } catch {
+              // Resposta sem JSON: usamos o SHA256 local.
+            }
+            succeed(localSha);
+          });
+        },
+      );
 
-    if (!response.ok) {
-      throw new Error(`Falha no upload ${repo}/${artifactPath}: HTTP ${response.status}`);
-    }
+      req.setTimeout(timeoutMs, () => {
+        req.destroy();
+        fail(new Error('Timeout no upload para o Artifactory'));
+      });
+      req.on('error', (error) => fail(error instanceof Error ? error : new Error(String(error))));
 
-    this.logger.log(`Upload concluído (stream): ${repo}/${artifactPath}`);
-    return sha256;
+      const onAbort = () => {
+        req.destroy();
+        fail(new Error('Upload cancelado pelo usuário'));
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      req.on('close', () => signal?.removeEventListener('abort', onAbort));
+
+      readStream.on('data', (chunk: Buffer | string) => {
+        sha256.update(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      });
+      readStream.on('error', (error) => {
+        req.destroy();
+        fail(error);
+      });
+      readStream.pipe(req);
+    });
   }
 
   /** Upload a partir de Readable — grava em temp e reutiliza uploadFileFromPath. */

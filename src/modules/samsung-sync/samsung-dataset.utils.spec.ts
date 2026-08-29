@@ -116,4 +116,33 @@ describe('samsung-dataset.utils', () => {
     expect(st.size).toBeGreaterThan(10);
     await cleanupSamsungSyncTempDir(runId);
   }, 15000);
+
+  it('createZipFileFromEntries streams filePath entries without requiring buffer', async () => {
+    const { writeFile } = await import('fs/promises');
+    const runId = 'test-run-zip-filepath';
+    const dir = await ensureSamsungSyncTempDir(runId);
+    const src = `${dir}/src.txt`;
+    await writeFile(src, 'from-disk');
+    const dest = `${dir}/sub.zip`;
+    await createZipFileFromEntries([{ name: 'src.txt', filePath: src }], dest);
+    const { stat } = await import('fs/promises');
+    const st = await stat(dest);
+    expect(st.size).toBeGreaterThan(10);
+    await cleanupSamsungSyncTempDir(runId);
+  }, 15000);
+
+  it('getSamsungSyncTempDir honors SAMSUNG_SYNC_TEMP_DIR', async () => {
+    const { getSamsungSyncTempDir, getDeliveryZipFilePath } = await import(
+      './samsung-dataset.utils'
+    );
+    const previous = process.env.SAMSUNG_SYNC_TEMP_DIR;
+    process.env.SAMSUNG_SYNC_TEMP_DIR = '/var/prime-samsung-sync';
+    expect(getSamsungSyncTempDir('abc')).toBe('/var/prime-samsung-sync/abc');
+    expect(getDeliveryZipFilePath('abc')).toBe('/var/prime-samsung-sync/abc/abc.zip');
+    if (previous === undefined) {
+      delete process.env.SAMSUNG_SYNC_TEMP_DIR;
+    } else {
+      process.env.SAMSUNG_SYNC_TEMP_DIR = previous;
+    }
+  });
 });

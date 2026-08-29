@@ -13,11 +13,29 @@ jest.mock('@nestjs/common', () => {
   };
 });
 
+jest.mock('../../common/database/pg-transient', () => {
+  const actual = jest.requireActual('../../common/database/pg-transient');
+  return {
+    ...actual,
+    withPgRetry: (
+      operation: () => Promise<unknown>,
+      options?: { retries?: number; onRetry?: (...args: unknown[]) => void },
+    ) =>
+      actual.withPgRetry(operation, {
+        ...options,
+        retries: options?.retries ?? 3,
+        baseDelayMs: 1,
+        maxDelayMs: 1,
+      }),
+  };
+});
+
 jest.mock('./samsung-dataset.utils', () => {
   const actual = jest.requireActual('./samsung-dataset.utils');
   return {
     ...actual,
     cleanupSamsungSyncTempDir: jest.fn().mockResolvedValue(undefined),
+    isDeliveryZipReady: jest.fn().mockResolvedValue(false),
   };
 });
 
@@ -25,7 +43,9 @@ import { SamsungSyncService } from './samsung-sync.service';
 import { SamsungSyncRunStatus } from '../../entities/samsung-sync-run.entity';
 import { getDatabaseConfig } from '../../config/database.config';
 import { ConfigService } from '@nestjs/config';
-import { cleanupSamsungSyncTempDir } from './samsung-dataset.utils';
+import { cleanupSamsungSyncTempDir, isDeliveryZipReady } from './samsung-dataset.utils';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 describe('SamsungSyncService.resetSyncPending', () => {
   const createService = (queryImpl: jest.Mock) => {
@@ -139,6 +159,16 @@ describe('SamsungSyncService.getPendingPatients', () => {
 });
 
 describe('SamsungSyncService.recoverStaleRuns', () => {
+  const mockedIsDeliveryZipReady = isDeliveryZipReady as jest.MockedFunction<
+    typeof isDeliveryZipReady
+  >;
+
+  beforeEach(() => {
+    mockedIsDeliveryZipReady.mockReset();
+    mockedIsDeliveryZipReady.mockResolvedValue(false);
+    (cleanupSamsungSyncTempDir as jest.Mock).mockClear();
+  });
+
   it('marks every RUNNING run as failed on restart', async () => {
     const find = jest.fn().mockResolvedValue([
       { id: 'run-recent', started_at: new Date(), summary: { lastHeartbeatAt: new Date().toISOString() } },
@@ -177,10 +207,80 @@ describe('SamsungSyncService.recoverStaleRuns', () => {
     expect(service.cancelledRunIds.has('run-recent')).toBe(false);
     expect(service.runAbortControllers.has('run-recent')).toBe(false);
   });
+
+  it('retakes BART PUT when the delivery ZIP is still on disk at step 6', async () => {
+    mockedIsDeliveryZipReady.mockResolvedValue(true);
+    const find = jest.fn().mockResolvedValue([
+      {
+        id: 'run-zip-ready',
+        started_at: new Date(),
+        summary: {
+          currentStepIndex: 6,
+          currentStep: 'Enviando ZIP para o BART',
+          zipPath: 'test_api/Data/20260828.zip',
+          zipName: '20260828.zip',
+          deliveryDate: '20260828',
+          metadataRows: [],
+          patientsReadyForConfirm: ['patient-1'],
+        },
+      },
+    ]);
+    const update = jest.fn().mockResolvedValue(undefined);
+    const resumeZipUpload = jest.fn().mockResolvedValue(undefined);
+    const service = Object.create(SamsungSyncService.prototype) as any;
+    Object.assign(service, {
+      syncRunRepository: { find, update },
+      cancelledRunIds: new Set(),
+      runAbortControllers: new Map(),
+      logger: { warn: jest.fn(), error: jest.fn(), log: jest.fn() },
+      resumeZipUpload,
+    });
+
+    jest.useFakeTimers();
+    await service.recoverStaleRuns();
+    jest.runAllTimers();
+    jest.useRealTimers();
+
+    expect(update).not.toHaveBeenCalled();
+    expect(cleanupSamsungSyncTempDir).not.toHaveBeenCalled();
+    expect(resumeZipUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'run-zip-ready' }),
+    );
+  });
+});
+
+describe('SamsungSyncService.confirmRunDelivery', () => {
+  it('retries transient Postgres errors then confirms the batch', async () => {
+    const query = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'))
+      .mockResolvedValue(undefined);
+    const innerQuery = jest.fn().mockResolvedValue(undefined);
+    const transaction = jest.fn(async (cb: (m: { query: jest.Mock }) => Promise<void>) => {
+      await cb({ query: innerQuery });
+    });
+    const service = Object.create(SamsungSyncService.prototype) as any;
+    Object.assign(service, {
+      db: { query, transaction },
+      logger: { warn: jest.fn(), error: jest.fn(), log: jest.fn() },
+    });
+
+    await service.confirmRunDelivery(['patient-1']);
+
+    expect(service.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('confirmRunDelivery: PostgreSQL transiente'),
+    );
+    expect(query.mock.calls.length).toBeGreaterThanOrEqual(4);
+    const sqls = query.mock.calls.map((call: unknown[]) => String(call[0]));
+    expect(sqls.some((sql: string) => sql.includes('UPDATE patients'))).toBe(true);
+    expect(sqls.some((sql: string) => sql.includes('UPDATE binary_collections'))).toBe(true);
+    expect(sqls.some((sql: string) => sql.includes('UPDATE pdf_reports'))).toBe(true);
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('getDatabaseConfig pool hardening', () => {
-  it('configures idleTimeoutMillis without global statement_timeout', () => {
+  it('configures keepAlive and idleTimeoutMillis without global statement_timeout', () => {
     const configService = {
       get: (key: string) => {
         const map: Record<string, string | number> = {
@@ -201,8 +301,26 @@ describe('getDatabaseConfig pool hardening', () => {
         max: 20,
         connectionTimeoutMillis: 30_000,
         idleTimeoutMillis: 30_000,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10_000,
       }),
     );
     expect((config.extra as { options?: string } | undefined)?.options).toBeUndefined();
+  });
+});
+
+describe('binary_collections audit migration', () => {
+  it('omits csv_data from audit JSON instead of row_to_json(NEW/OLD)', () => {
+    const sql = readFileSync(
+      join(
+        __dirname,
+        '../../../db/migrations/20260830_binary_collections_audit_omit_csv_data.sql',
+      ),
+      'utf8',
+    );
+    expect(sql).toContain('rec.csv_data := NULL');
+    expect(sql).toContain("to_jsonb(rec) - 'csv_data'");
+    expect(sql).toContain('audit_binary_collections_trigger');
+    expect(sql).not.toMatch(/row_to_json\(\s*(NEW|OLD)\s*\)/);
   });
 });
