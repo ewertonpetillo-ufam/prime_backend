@@ -97,6 +97,7 @@ describe('FreelivingService.createEvent', () => {
       service.createEvent({
         patient_cpf: '123',
         action_code: 'collection_started',
+        task_code: 'FL01',
       }),
     ).rejects.toThrow(BadRequestException);
   });
@@ -107,6 +108,7 @@ describe('FreelivingService.createEvent', () => {
       service.createEvent({
         patient_cpf: '52998224725',
         action_code: 'unknown_action',
+        task_code: 'FL01',
       }),
     ).rejects.toThrow(BadRequestException);
   });
@@ -124,6 +126,7 @@ describe('FreelivingService.createEvent', () => {
       service.createEvent({
         patient_cpf: '52998224725',
         action_code: 'collection_started',
+        task_code: 'FL01',
       }),
     ).rejects.toThrow(NotFoundException);
   });
@@ -138,6 +141,7 @@ describe('FreelivingService.createEvent', () => {
     eventsRepo.findOne.mockResolvedValue({
       id: 'evt-1',
       action_code: 'collection_started',
+      task_code: 'FL01',
       occurred_at: new Date('2026-09-01T12:00:00.000Z'),
       received_at: new Date('2026-09-01T12:00:01.000Z'),
       collection_date: '2026-09-01',
@@ -153,6 +157,7 @@ describe('FreelivingService.createEvent', () => {
     const result = await service.createEvent({
       patient_cpf: '52998224725',
       action_code: 'collection_started',
+      task_code: 'FL01',
       client_event_id: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
     });
 
@@ -177,6 +182,7 @@ describe('FreelivingService.createEvent', () => {
     const saved = {
       id: 'evt-2',
       action_code: 'collection_finished',
+      task_code: 'FL02',
       occurred_at: new Date('2026-09-01T15:00:00.000Z'),
       received_at: new Date('2026-09-01T15:00:02.000Z'),
       collection_date: '2026-09-01',
@@ -193,12 +199,98 @@ describe('FreelivingService.createEvent', () => {
     const result = await service.createEvent({
       patient_cpf: '52998224725',
       action_code: 'collection_finished',
+      task_code: 'FL02',
       app_version: '1.0.0',
       device_type: 'smartphone',
     });
 
     expect(result.created).toBe(true);
     expect(result.event.actionCode).toBe('collection_finished');
+    expect(eventsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ task_code: 'FL02' }),
+    );
     expect(eventsRepo.save).toHaveBeenCalled();
+  });
+
+  it('grava evento sem task_code (ação geral, sem tarefa ativa)', async () => {
+    const actionType = {
+      code: 'collection_started',
+      label_pt: 'Iniciou coleta',
+      active: true,
+    };
+    actionTypesRepo.findOne.mockResolvedValue(actionType);
+    eventsRepo.findOne.mockResolvedValue(null);
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-1',
+      cpf_hash: 'hash',
+    });
+    const saved = {
+      id: 'evt-3',
+      action_code: 'collection_started',
+      task_code: null,
+      occurred_at: new Date('2026-09-01T16:00:00.000Z'),
+      received_at: new Date('2026-09-01T16:00:01.000Z'),
+      collection_date: '2026-09-01',
+      device_type: null,
+      device_model: null,
+      os_version: null,
+      app_version: null,
+      metadata: {},
+      source: 'collection_app',
+    };
+    eventsRepo.create.mockReturnValue(saved);
+    eventsRepo.save.mockResolvedValue(saved);
+
+    const result = await service.createEvent({
+      patient_cpf: '52998224725',
+      action_code: 'collection_started',
+    });
+
+    expect(result.created).toBe(true);
+    expect(eventsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ task_code: null }),
+    );
+    expect(result.event.taskCode).toBeNull();
+  });
+
+  it('aceita task_code livre, sem exigir tarefa ativa', async () => {
+    const actionType = {
+      code: 'collection_started',
+      label_pt: 'Iniciou coleta',
+      active: true,
+    };
+    actionTypesRepo.findOne.mockResolvedValue(actionType);
+    eventsRepo.findOne.mockResolvedValue(null);
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-1',
+      cpf_hash: 'hash',
+    });
+    const saved = {
+      id: 'evt-4',
+      action_code: 'collection_started',
+      task_code: 'DAILY_DIARY',
+      occurred_at: new Date('2026-09-01T17:00:00.000Z'),
+      received_at: new Date('2026-09-01T17:00:01.000Z'),
+      collection_date: '2026-09-01',
+      device_type: null,
+      device_model: null,
+      os_version: null,
+      app_version: null,
+      metadata: {},
+      source: 'collection_app',
+    };
+    eventsRepo.create.mockReturnValue(saved);
+    eventsRepo.save.mockResolvedValue(saved);
+
+    const result = await service.createEvent({
+      patient_cpf: '52998224725',
+      action_code: 'collection_started',
+      task_code: 'daily_diary',
+    });
+
+    expect(result.created).toBe(true);
+    expect(eventsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ task_code: 'DAILY_DIARY' }),
+    );
   });
 });

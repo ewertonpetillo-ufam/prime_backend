@@ -56,6 +56,16 @@ export class FreelivingOverviewRowDto {
   @ApiProperty()
   eventCount: number;
 
+  @ApiProperty({
+    enum: ['sem_acao', 'iniciou', 'finalizou', 'iniciou_e_finalizou'],
+  })
+  fl01DayStatus: FreelivingDayStatus;
+
+  @ApiProperty({
+    enum: ['sem_acao', 'iniciou', 'finalizou', 'iniciou_e_finalizou'],
+  })
+  fl02DayStatus: FreelivingDayStatus;
+
   @ApiProperty()
   fl01FileCount: number;
 
@@ -109,6 +119,13 @@ export class FreelivingEventDto {
 
   @ApiProperty()
   actionLabel: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Contexto opcional da ação (FL01, FL02 ou outro código). Nulo quando a ação não está ligada a uma tarefa.',
+  })
+  taskCode: string | null;
 
   @ApiProperty()
   occurredAt: string;

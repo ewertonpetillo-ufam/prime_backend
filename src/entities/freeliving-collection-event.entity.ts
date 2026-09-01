@@ -23,6 +23,9 @@ export class FreelivingCollectionEvent {
   @Column({ type: 'varchar', length: 64 })
   action_code: string;
 
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  task_code: string | null;
+
   @Column({ type: 'timestamptz' })
   occurred_at: Date;
 

@@ -36,6 +36,11 @@ export class AdminFreelivingController {
     description: 'Filtra pacientes que tenham esta ação no período',
   })
   @ApiQuery({
+    name: 'taskCode',
+    required: false,
+    description: 'Filtra por task_code quando a ação estiver ligada a uma atividade (ex.: FL01)',
+  })
+  @ApiQuery({
     name: 'dayStatus',
     required: false,
     enum: ['sem_acao', 'iniciou', 'finalizou', 'iniciou_e_finalizou'],
@@ -53,6 +58,7 @@ export class AdminFreelivingController {
     @Query('dateTo') dateTo?: string,
     @Query('patient') patient?: string,
     @Query('actionCode') actionCode?: string,
+    @Query('taskCode') taskCode?: string,
     @Query('dayStatus') dayStatus?: string,
     @Query('hasFl01') hasFl01?: string,
     @Query('hasFl02') hasFl02?: string,
@@ -64,6 +70,7 @@ export class AdminFreelivingController {
       dateTo,
       patient,
       actionCode,
+      taskCode,
       dayStatus,
       hasFl01,
       hasFl02,

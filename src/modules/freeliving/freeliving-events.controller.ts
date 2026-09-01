@@ -27,7 +27,9 @@ export class FreelivingEventsController {
   @ApiOperation({
     summary: 'Registra ação do app de coleta FreeLiving',
     description:
-      'Auditoria append-only. Ações iniciais: collection_started (Iniciou coleta) e collection_finished (Finalizou coleta). ' +
+      'Auditoria append-only. Novas ações entram no catálogo freeliving_action_types. ' +
+      'task_code é opcional: use FL01/FL02 (ou outro código) só quando a ação estiver ligada a uma atividade; ' +
+      'omitir para eventos gerais do app. ' +
       'Se client_event_id já existir, devolve o evento original com HTTP 409.',
   })
   @ApiCreatedResponse({ description: 'Evento registrado' })

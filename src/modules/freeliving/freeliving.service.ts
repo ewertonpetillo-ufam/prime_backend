@@ -45,6 +45,7 @@ export type FreelivingOverviewQuery = {
   dateTo?: string;
   patient?: string;
   actionCode?: string;
+  taskCode?: string;
   dayStatus?: string;
   hasFl01?: string;
   hasFl02?: string;
@@ -55,6 +56,7 @@ type EventAggRow = {
   id: string;
   patient_id: string;
   action_code: string;
+  task_code: string | null;
   occurred_at: Date;
   received_at: Date;
   collection_date: string | Date;
@@ -126,6 +128,8 @@ export class FreelivingService {
       );
     }
 
+    const taskCode = this.resolveEventTaskCode(dto.task_code);
+
     if (dto.client_event_id) {
       const existing = await this.eventsRepository.findOne({
         where: { client_event_id: dto.client_event_id },
@@ -155,6 +159,7 @@ export class FreelivingService {
       patient_id: patient.id,
       patient_cpf_hash: cpfHash,
       action_code: actionType.code,
+      task_code: taskCode,
       occurred_at: occurredAt,
       received_at: new Date(),
       collection_date: collectionDate,
@@ -198,6 +203,7 @@ export class FreelivingService {
     const dayStatus = this.parseDayStatus(query.dayStatus);
     const patientTerm = (query.patient || '').trim();
     const actionCode = (query.actionCode || '').trim();
+    const taskCodeFilter = normalizeTaskCode(query.taskCode);
 
     const [actionTypes, eventRows, fileRows] = await Promise.all([
       this.listActionTypes(),
@@ -294,6 +300,15 @@ export class FreelivingService {
       keys = keys.filter((key) => matchingPatients.has(key.split('|')[0]));
     }
 
+    if (taskCodeFilter) {
+      const matchingPatients = new Set(
+        eventRows
+          .filter((row) => normalizeTaskCode(row.task_code) === taskCodeFilter)
+          .map((row) => row.patient_id),
+      );
+      keys = keys.filter((key) => matchingPatients.has(key.split('|')[0]));
+    }
+
     const rows: FreelivingOverviewRowDto[] = [];
     for (const key of keys) {
       const [patientId, collectionDate] = key.split('|');
@@ -311,6 +326,12 @@ export class FreelivingService {
       );
       const finished = events.filter(
         (e) => e.action_code === ACTION_COLLECTION_FINISHED,
+      );
+      const fl01Events = events.filter(
+        (e) => normalizeTaskCode(e.task_code) === 'FL01',
+      );
+      const fl02Events = events.filter(
+        (e) => normalizeTaskCode(e.task_code) === 'FL02',
       );
       const fl01 = files.filter((f) => normalizeTaskCode(f.task_code) === 'FL01');
       const fl02 = files.filter((f) => normalizeTaskCode(f.task_code) === 'FL02');
@@ -342,6 +363,14 @@ export class FreelivingService {
           finished.map((e) => toIsoDateTime(e.occurred_at)),
         ),
         eventCount: events.length,
+        fl01DayStatus: deriveDayStatus(
+          fl01Events.some((e) => e.action_code === ACTION_COLLECTION_STARTED),
+          fl01Events.some((e) => e.action_code === ACTION_COLLECTION_FINISHED),
+        ),
+        fl02DayStatus: deriveDayStatus(
+          fl02Events.some((e) => e.action_code === ACTION_COLLECTION_STARTED),
+          fl02Events.some((e) => e.action_code === ACTION_COLLECTION_FINISHED),
+        ),
         fl01FileCount: fl01.length,
         fl01LastUploadedAt: this.maxIso(
           fl01.map((f) => toIsoDateTime(f.uploaded_at)),
@@ -520,6 +549,7 @@ export class FreelivingService {
         'e.id AS id',
         'e.patient_id AS patient_id',
         'e.action_code AS action_code',
+        'e.task_code AS task_code',
         'e.occurred_at AS occurred_at',
         'e.received_at AS received_at',
         'e.collection_date AS collection_date',
@@ -627,6 +657,11 @@ export class FreelivingService {
     return FREE_LIVING_PROTOCOL_TASK_CODES.map((c) => c.toUpperCase());
   }
 
+  private resolveEventTaskCode(raw: string | undefined): string | null {
+    const taskCode = normalizeTaskCode(raw);
+    return taskCode || null;
+  }
+
   private enumerateDates(from: string, to: string): string[] {
     const dates: string[] = [];
     const cursor = new Date(`${from}T00:00:00Z`);
@@ -658,6 +693,7 @@ export class FreelivingService {
       id: event.id,
       actionCode: event.action_code,
       actionLabel: actionType.label_pt,
+      taskCode: event.task_code ? normalizeTaskCode(event.task_code) : null,
       occurredAt: toIsoDateTime(event.occurred_at) || new Date().toISOString(),
       receivedAt: toIsoDateTime(event.received_at) || new Date().toISOString(),
       collectionDate: toIsoDate(event.collection_date),

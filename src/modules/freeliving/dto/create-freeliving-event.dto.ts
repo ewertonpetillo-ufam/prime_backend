@@ -29,6 +29,16 @@ export class CreateFreelivingEventDto {
   action_code: string;
 
   @ApiPropertyOptional({
+    description:
+      'Contexto opcional da ação (ex.: FL01, FL02). Omitir quando a ação não estiver ligada a uma tarefa ativa.',
+    example: 'FL01',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  task_code?: string;
+
+  @ApiPropertyOptional({
     description: 'Instante da ação no dispositivo (ISO-8601). Default: agora no servidor.',
     example: '2026-09-01T18:30:00.000Z',
   })
