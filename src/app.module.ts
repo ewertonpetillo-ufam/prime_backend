@@ -21,6 +21,7 @@ import { ExportZipModule } from './modules/export-zip/export-zip.module';
 import { ExportPrimeModule } from './modules/export-prime/export-prime.module';
 import { BartSyncModule } from './modules/bart-sync/bart-sync.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { FreelivingModule } from './modules/freeliving/freeliving.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
@@ -57,6 +58,7 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
     ExportPrimeModule,
     BartSyncModule,
     ReportsModule,
+    FreelivingModule,
   ],
   controllers: [AppController],
   providers: [
