@@ -20,8 +20,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install wget for healthcheck
-RUN apk add --no-cache wget
+# Install wget for healthcheck; su-exec to drop root after chown do volume
+RUN apk add --no-cache wget su-exec
 
 # Copy package files
 COPY package*.json ./
@@ -47,8 +47,8 @@ RUN addgroup -g 1001 -S nodejs && \
 # Change ownership
 RUN chown -R nestjs:nodejs /app
 
-# Switch to non-root user
-USER nestjs
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Expose port
 EXPOSE 4000
@@ -57,5 +57,6 @@ EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:4000/api/v1 || exit 1
 
-# Start the application
+# Sobe como root só para ajustar o volume; o entrypoint passa a nestjs
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "dist/main.js"]

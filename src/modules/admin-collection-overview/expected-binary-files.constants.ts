@@ -40,13 +40,13 @@ export function sumExpectedForTaskCodes(taskCodes: string[]): number {
 
 /**
  * Estágios de protocolo PRIME (alinhamento operacional ao painel de coleta).
- * In-clinic: todas as TAs ativas exceto sono (TA13) e exceto estágio «livre» ainda não mapeado.
- * Sleep: TA13. «Free-living» / fora do consultório: reservado — preencher códigos quando existir meta e nomenclatura.
+ * In-clinic: todas as TAs ativas exceto sono (TA13) e FreeLiving (FL01/FL02).
+ * Sleep: TA13. Free-living: FL01 e FL02 (meta de ficheiros ainda não definida).
  */
 export type CollectionProtocolStage = 'in_clinic' | 'sleep' | 'free_living';
 
-/** TAs do protocolo fora do consultório (antigo free-living). Lista vazia até implementação e nomenclatura definitivas. */
-export const FREE_LIVING_PROTOCOL_TASK_CODES: string[] = [];
+/** Tarefas do protocolo fora do consultório (FreeLiving). Meta de ficheiros: 0 até o protocolo fechar. */
+export const FREE_LIVING_PROTOCOL_TASK_CODES: string[] = ['FL01', 'FL02'];
 
 export function collectionProtocolStageForTaskCode(
   taskCode: string,

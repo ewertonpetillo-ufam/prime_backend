@@ -28,7 +28,7 @@
    ```
    Com `allkeys-lru`, jobs longos podem ser evictados durante sync de horas.
 
-4. **Espaço do ZIP de entrega:** o pipeline grava em `SAMSUNG_SYNC_TEMP_DIR` (produção: `/var/prime-samsung-sync/{runId}/`, volume Docker `samsung-sync-tmp`). Não usar overlay `/tmp`. Monitorar disco; cleanup automático ao finalizar, falhar, ou após retomar o PUT.
+4. **Espaço do ZIP de entrega:** o pipeline grava em `SAMSUNG_SYNC_TEMP_DIR` (produção: `/var/prime-samsung-sync/{runId}/`, volume Docker `samsung-sync-tmp`). Volume nomeado nasce como `root`; o entrypoint faz `chown nestjs` na subida. Cleanup automático ao finalizar.
 
 ## ZIP no BART e confirm crashou (não cancelar)
 
