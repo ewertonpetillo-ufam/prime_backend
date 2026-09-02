@@ -5,9 +5,15 @@ import { ConfigService } from '@nestjs/config';
 import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { FreelivingActionType } from '../../entities/freeliving-action-type.entity';
 import { FreelivingCollectionEvent } from '../../entities/freeliving-collection-event.entity';
+import { FreelivingDiary } from '../../entities/freeliving-diary.entity';
 import { Patient } from '../../entities/patient.entity';
 import { CryptoUtil } from '../../utils/crypto.util';
 import { FreelivingService } from './freeliving.service';
+import { emptyDiaryPayload } from './freeliving-diary.utils';
+import {
+  SYMPTOM_HOURS,
+  SYMPTOM_KEYS,
+} from './freeliving-diary.types';
 import {
   deriveDayStatus,
   formatDateInTimeZone,
@@ -63,6 +69,24 @@ describe('FreelivingService.createEvent', () => {
   const binaryRepo = {
     createQueryBuilder: jest.fn(),
   };
+  const diariesRepo = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const dataSource = {
+    transaction: jest.fn(async (cb: (manager: unknown) => unknown) =>
+      cb({
+        getRepository: (entity: unknown) => {
+          if (entity === FreelivingDiary) return diariesRepo;
+          if (entity === FreelivingCollectionEvent) return eventsRepo;
+          if (entity === FreelivingActionType) return actionTypesRepo;
+          return {};
+        },
+      }),
+    ),
+  };
 
   beforeEach(async () => {
     CryptoUtil.setConfigService({
@@ -85,6 +109,11 @@ describe('FreelivingService.createEvent', () => {
           provide: getRepositoryToken(BinaryCollection),
           useValue: binaryRepo,
         },
+        {
+          provide: getRepositoryToken(FreelivingDiary),
+          useValue: diariesRepo,
+        },
+        { provide: 'DataSource', useValue: dataSource },
       ],
     }).compile();
 
@@ -292,5 +321,253 @@ describe('FreelivingService.createEvent', () => {
     expect(eventsRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ task_code: 'DAILY_DIARY' }),
     );
+  });
+});
+
+function completeDiaryPayload() {
+  const payload = emptyDiaryPayload();
+  payload.medication.doses = [
+    {
+      time: '08:00',
+      m1: true,
+      m2: false,
+      m3: false,
+      m4: false,
+      m5: false,
+      notes: null,
+    },
+  ];
+  payload.activities.morning_hygiene.time = '07:00';
+  payload.activities.meal_1.time = '08:00';
+  payload.activities.short_walk.time = '10:00';
+  payload.activities.arms_extended_1.time = '11:00';
+  payload.activities.arms_extended_2.time = '16:00';
+  for (const key of SYMPTOM_KEYS) {
+    for (const hour of SYMPTOM_HOURS) {
+      payload.symptoms[key][hour] = 0;
+    }
+  }
+  payload.devices.watch_usage = 'all_day';
+  payload.devices.phone_nearby = 'yes';
+  payload.devices.device_problem = false;
+  payload.devices.charged_end_of_day = true;
+  payload.devices.sleep_with_smartwatch = true;
+  return payload;
+}
+
+describe('FreelivingService.upsertDiary', () => {
+  let service: FreelivingService;
+
+  const eventsRepo = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+  const actionTypesRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+  };
+  const patientsRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const binaryRepo = {
+    createQueryBuilder: jest.fn(),
+  };
+  const diariesRepo = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const dataSource = {
+    transaction: jest.fn(async (cb: (manager: unknown) => unknown) =>
+      cb({
+        getRepository: (entity: unknown) => {
+          if (entity === FreelivingDiary) return diariesRepo;
+          if (entity === FreelivingCollectionEvent) return eventsRepo;
+          if (entity === FreelivingActionType) return actionTypesRepo;
+          return {};
+        },
+      }),
+    ),
+  };
+
+  beforeEach(async () => {
+    CryptoUtil.setConfigService({
+      get: jest.fn().mockReturnValue('test-hmac-secret'),
+    } as unknown as ConfigService);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FreelivingService,
+        {
+          provide: getRepositoryToken(FreelivingCollectionEvent),
+          useValue: eventsRepo,
+        },
+        {
+          provide: getRepositoryToken(FreelivingActionType),
+          useValue: actionTypesRepo,
+        },
+        { provide: getRepositoryToken(Patient), useValue: patientsRepo },
+        {
+          provide: getRepositoryToken(BinaryCollection),
+          useValue: binaryRepo,
+        },
+        {
+          provide: getRepositoryToken(FreelivingDiary),
+          useValue: diariesRepo,
+        },
+        { provide: 'DataSource', useValue: dataSource },
+      ],
+    }).compile();
+
+    service = module.get(FreelivingService);
+    jest.clearAllMocks();
+    dataSource.transaction.mockImplementation(
+      async (cb: (manager: unknown) => unknown) =>
+        cb({
+          getRepository: (entity: unknown) => {
+            if (entity === FreelivingDiary) return diariesRepo;
+            if (entity === FreelivingCollectionEvent) return eventsRepo;
+            if (entity === FreelivingActionType) return actionTypesRepo;
+            return {};
+          },
+        }),
+    );
+  });
+
+  it('rejeita CPF inválido', async () => {
+    await expect(
+      service.upsertDiary({
+        patient_cpf: '123',
+        protocol_day: 1,
+        payload: {},
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('primeira gravação registra diary_started e fica rascunho', async () => {
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-1',
+      cpf_hash: 'hash',
+    });
+    diariesRepo.findOne.mockResolvedValue(null);
+    const created = {
+      id: 'diary-1',
+      protocol_day: 1,
+      status: 'rascunho',
+      payload: emptyDiaryPayload(),
+      gaps: [{ path: 'medication.doses', label_pt: 'dose' }],
+      save_count: 1,
+      first_saved_at: new Date(),
+      last_saved_at: new Date(),
+      diary_date: '2026-09-02',
+    };
+    diariesRepo.create.mockReturnValue(created);
+    diariesRepo.save.mockResolvedValue(created);
+    actionTypesRepo.findOne.mockResolvedValue({
+      code: 'diary_started',
+      label_pt: 'Iniciou diário',
+      active: true,
+    });
+    eventsRepo.findOne.mockResolvedValue(null);
+    eventsRepo.create.mockImplementation((row) => row);
+    eventsRepo.save.mockResolvedValue({});
+
+    const result = await service.upsertDiary({
+      patient_cpf: '52998224725',
+      protocol_day: 1,
+      diary_date: '2026-09-02',
+      payload: { medication: { doses: [] } },
+    });
+
+    expect(result.status).toBe('rascunho');
+    expect(result.saveCount).toBe(1);
+    expect(eventsRepo.save).toHaveBeenCalledTimes(1);
+    expect(eventsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action_code: 'diary_started' }),
+    );
+  });
+
+  it('save intermediário não gera novo event', async () => {
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-1',
+      cpf_hash: 'hash',
+    });
+    const existing = {
+      id: 'diary-1',
+      protocol_day: 1,
+      status: 'rascunho',
+      payload: emptyDiaryPayload(),
+      gaps: [],
+      save_count: 1,
+      first_saved_at: new Date(),
+      last_saved_at: new Date(),
+      diary_date: '2026-09-02',
+    };
+    diariesRepo.findOne.mockResolvedValue(existing);
+    diariesRepo.save.mockImplementation(async (row) => row);
+
+    const result = await service.upsertDiary({
+      patient_cpf: '52998224725',
+      protocol_day: 1,
+      diary_date: '2026-09-02',
+      payload: { medication: { doses: [] } },
+    });
+
+    expect(result.saveCount).toBe(2);
+    expect(eventsRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('transição para completo registra diary_submitted uma vez', async () => {
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-1',
+      cpf_hash: 'hash',
+    });
+    const existing = {
+      id: 'diary-1',
+      protocol_day: 1,
+      status: 'rascunho',
+      payload: emptyDiaryPayload(),
+      gaps: [{ path: 'x', label_pt: 'x' }],
+      save_count: 2,
+      first_saved_at: new Date(),
+      last_saved_at: new Date(),
+      diary_date: '2026-09-02',
+    };
+    diariesRepo.findOne.mockResolvedValue(existing);
+    diariesRepo.save.mockImplementation(async (row) => row);
+    actionTypesRepo.findOne.mockResolvedValue({
+      code: 'diary_submitted',
+      label_pt: 'Enviou diário',
+      active: true,
+    });
+    eventsRepo.findOne.mockResolvedValue(null);
+    eventsRepo.create.mockImplementation((row) => row);
+    eventsRepo.save.mockResolvedValue({});
+
+    const result = await service.upsertDiary({
+      patient_cpf: '52998224725',
+      protocol_day: 1,
+      diary_date: '2026-09-02',
+      payload: completeDiaryPayload(),
+    });
+
+    expect(result.status).toBe('completo');
+    expect(eventsRepo.save).toHaveBeenCalledTimes(1);
+    expect(eventsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ action_code: 'diary_submitted' }),
+    );
+
+    eventsRepo.findOne.mockResolvedValue({ id: 'already' });
+    await service.upsertDiary({
+      patient_cpf: '52998224725',
+      protocol_day: 1,
+      diary_date: '2026-09-02',
+      payload: completeDiaryPayload(),
+    });
+    expect(eventsRepo.save).toHaveBeenCalledTimes(1);
   });
 });
