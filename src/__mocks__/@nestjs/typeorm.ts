@@ -19,6 +19,10 @@ export function InjectRepository(entity: Function) {
   return Inject(token);
 }
 
+export function InjectDataSource(_name?: string) {
+  return Inject('DataSource');
+}
+
 export const TypeOrmModule = {
   forRoot: jest.fn(),
   forRootAsync: jest.fn(),

@@ -2,8 +2,10 @@ export const SAO_PAULO_TZ = 'America/Sao_Paulo';
 
 export const ACTION_COLLECTION_STARTED = 'collection_started';
 export const ACTION_COLLECTION_FINISHED = 'collection_finished';
+export const ACTION_DIARY_STARTED = 'diary_started';
+export const ACTION_DIARY_SUBMITTED = 'diary_submitted';
 
-export const EXCLUDED_FREELIVING_PUBLIC_IDS = ['P000', 'P00'] as const;
+export const EXCLUDED_FREELIVING_PUBLIC_IDS = ['P00'] as const;
 
 export type FreelivingDayStatus =
   | 'sem_acao'

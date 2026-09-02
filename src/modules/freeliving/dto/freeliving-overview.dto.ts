@@ -1,4 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  DiaryOverviewStatus,
+  FreelivingDiaryGap,
+  FreelivingDiaryPayload,
+  FreelivingDiaryStatus,
+} from '../freeliving-diary.types';
 import { FreelivingDayStatus } from '../freeliving.utils';
 
 export class FreelivingActionTypeDto {
@@ -24,6 +30,12 @@ export class FreelivingOverviewKpisDto {
 
   @ApiProperty()
   arquivosFl02: number;
+
+  @ApiProperty()
+  diariosEmPreenchimento: number;
+
+  @ApiProperty()
+  diariosCompletos: number;
 
   @ApiPropertyOptional({ nullable: true })
   ultimoEventoRecebidoAt: string | null;
@@ -83,6 +95,26 @@ export class FreelivingOverviewRowDto {
 
   @ApiPropertyOptional({ nullable: true })
   lastEventReceivedAt: string | null;
+
+  @ApiProperty({
+    enum: ['sem_registro', 'em_preenchimento', 'completo'],
+  })
+  diaryStatus: DiaryOverviewStatus;
+
+  @ApiPropertyOptional({ nullable: true })
+  diaryProtocolDay: number | null;
+
+  @ApiProperty()
+  diarySaveCount: number;
+
+  @ApiProperty()
+  diaryGapCount: number;
+
+  @ApiProperty()
+  diaryFilledSectionCount: number;
+
+  @ApiPropertyOptional({ nullable: true })
+  diaryLastSavedAt: string | null;
 }
 
 export class FreelivingOverviewMetaDto {
@@ -172,6 +204,44 @@ export class FreelivingFileDto {
   uploadedAt: string;
 }
 
+export class FreelivingDiaryDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  diaryDate: string;
+
+  @ApiProperty()
+  protocolDay: number;
+
+  @ApiProperty({ enum: ['rascunho', 'completo'] })
+  status: FreelivingDiaryStatus;
+
+  @ApiProperty()
+  payload: FreelivingDiaryPayload;
+
+  @ApiProperty({ type: [Object] })
+  gaps: FreelivingDiaryGap[];
+
+  @ApiProperty()
+  gapCount: number;
+
+  @ApiProperty()
+  filledSectionCount: number;
+
+  @ApiProperty()
+  sectionCount: number;
+
+  @ApiProperty()
+  saveCount: number;
+
+  @ApiProperty()
+  firstSavedAt: string;
+
+  @ApiProperty()
+  lastSavedAt: string;
+}
+
 export class FreelivingPatientDetailResponseDto {
   @ApiProperty()
   patientId: string;
@@ -190,4 +260,7 @@ export class FreelivingPatientDetailResponseDto {
 
   @ApiProperty({ type: [FreelivingFileDto] })
   files: FreelivingFileDto[];
+
+  @ApiPropertyOptional({ type: () => FreelivingDiaryDto, nullable: true })
+  diary: FreelivingDiaryDto | null;
 }

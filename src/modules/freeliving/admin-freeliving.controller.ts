@@ -52,6 +52,11 @@ export class AdminFreelivingController {
     required: false,
     description: 'Default true. Se false e date de um único dia, inclui pacientes sem atividade.',
   })
+  @ApiQuery({
+    name: 'diaryStatus',
+    required: false,
+    enum: ['sem_registro', 'em_preenchimento', 'completo'],
+  })
   getOverview(
     @Query('date') date?: string,
     @Query('dateFrom') dateFrom?: string,
@@ -63,6 +68,7 @@ export class AdminFreelivingController {
     @Query('hasFl01') hasFl01?: string,
     @Query('hasFl02') hasFl02?: string,
     @Query('onlyWithActivity') onlyWithActivity?: string,
+    @Query('diaryStatus') diaryStatus?: string,
   ) {
     return this.freelivingService.getOverview({
       date,
@@ -75,6 +81,7 @@ export class AdminFreelivingController {
       hasFl01,
       hasFl02,
       onlyWithActivity,
+      diaryStatus,
     });
   }
 
