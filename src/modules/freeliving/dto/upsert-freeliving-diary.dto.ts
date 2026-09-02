@@ -86,8 +86,48 @@ export class UpsertFreelivingDiaryDto {
 
   @ApiProperty({
     description:
-      'Snapshot das 4 seções do diário. Seções omitidas preservam o valor já salvo.',
+      'Snapshot das 4 seções do diário. Seções omitidas preservam o valor já salvo. Chaves em inglês.',
     type: Object,
+    example: {
+      medication: {
+        labels: { m1: 'Levodopa', m2: null, m3: null, m4: null, m5: null },
+        doses: [
+          {
+            time: '08:00',
+            m1: true,
+            m2: false,
+            m3: false,
+            m4: false,
+            m5: false,
+            notes: null,
+          },
+        ],
+      },
+      activities: {
+        morning_hygiene: { time: '07:00', notes: null },
+        meal_1: { time: '08:00', notes: null },
+        short_walk: { time: '10:00', notes: null },
+        arms_extended_1: { time: '11:00', notes: null },
+        arms_extended_2: { time: '16:00', notes: null },
+      },
+      symptoms: {
+        tremor: { '06': 0, '07': 1 },
+        slowness: { '06': 0 },
+        dyskinesia: { '06': 0 },
+        walking: { '06': 0 },
+        freezing: { '06': 0 },
+      },
+      devices: {
+        watch_usage: 'all_day',
+        phone_nearby: 'yes',
+        watch_removed: { from: null, to: null, reason: null },
+        device_problem: false,
+        device_problem_detail: null,
+        charged_end_of_day: true,
+        sleep_with_smartwatch: true,
+        day_notes: null,
+      },
+    },
   })
   @IsObject()
   payload: Record<string, unknown>;

@@ -14,32 +14,32 @@ import {
 
 function completePayload() {
   const payload = emptyDiaryPayload();
-  payload.medicacao.doses = [
+  payload.medication.doses = [
     {
-      horario: '08:00',
+      time: '08:00',
       m1: true,
       m2: false,
       m3: false,
       m4: false,
       m5: false,
-      obs: null,
+      notes: null,
     },
   ];
-  payload.atividades.higiene_manha.horario = '07:00';
-  payload.atividades.refeicao_1.horario = '08:00';
-  payload.atividades.caminhada_curta.horario = '10:00';
-  payload.atividades.bracos_estendidos_1.horario = '11:00';
-  payload.atividades.bracos_estendidos_2.horario = '16:00';
+  payload.activities.morning_hygiene.time = '07:00';
+  payload.activities.meal_1.time = '08:00';
+  payload.activities.short_walk.time = '10:00';
+  payload.activities.arms_extended_1.time = '11:00';
+  payload.activities.arms_extended_2.time = '16:00';
   for (const key of SYMPTOM_KEYS) {
     for (const hour of SYMPTOM_HOURS) {
-      payload.sintomas[key][hour] = 0;
+      payload.symptoms[key][hour] = 0;
     }
   }
-  payload.dispositivos.usou_relogio = 'todo_periodo';
-  payload.dispositivos.celular_proximo = 'sim';
-  payload.dispositivos.problema_dispositivo = false;
-  payload.dispositivos.carregou_fim_dia = true;
-  payload.dispositivos.smartwatch_para_dormir = true;
+  payload.devices.watch_usage = 'all_day';
+  payload.devices.phone_nearby = 'yes';
+  payload.devices.device_problem = false;
+  payload.devices.charged_end_of_day = true;
+  payload.devices.sleep_with_smartwatch = true;
   return payload;
 }
 
@@ -60,16 +60,16 @@ describe('freeliving-diary.utils', () => {
 
   it('0 em sintoma conta como preenchido; null é falta', () => {
     const payload = completePayload();
-    payload.sintomas.tremor['14'] = null;
+    payload.symptoms.tremor['14'] = null;
     const gaps = computeDiaryGaps(payload);
-    expect(gaps.some((g) => g.path === 'sintomas.tremor.14')).toBe(true);
+    expect(gaps.some((g) => g.path === 'symptoms.tremor.14')).toBe(true);
   });
 
-  it('relogio retirou exige intervalo', () => {
+  it('watch_usage removed exige intervalo', () => {
     const payload = completePayload();
-    payload.dispositivos.usou_relogio = 'retirou';
+    payload.devices.watch_usage = 'removed';
     const gaps = computeDiaryGaps(payload);
-    expect(gaps.some((g) => g.path === 'dispositivos.relogio_retirou.de')).toBe(
+    expect(gaps.some((g) => g.path === 'devices.watch_removed.from')).toBe(
       true,
     );
   });
@@ -78,11 +78,11 @@ describe('freeliving-diary.utils', () => {
     const previous = completePayload();
     const merged = normalizeDiaryPayload(
       {
-        medicacao: {
-          rotulos: { m1: 'Levodopa', m2: null, m3: null, m4: null, m5: null },
+        medication: {
+          labels: { m1: 'Levodopa', m2: null, m3: null, m4: null, m5: null },
           doses: [
             {
-              horario: '09:15',
+              time: '09:15',
               m1: true,
               m2: false,
               m3: false,
@@ -94,20 +94,20 @@ describe('freeliving-diary.utils', () => {
       },
       previous,
     );
-    expect(merged.medicacao.rotulos.m1).toBe('Levodopa');
-    expect(merged.atividades.higiene_manha.horario).toBe('07:00');
-    expect(merged.sintomas.tremor['06']).toBe(0);
+    expect(merged.medication.labels.m1).toBe('Levodopa');
+    expect(merged.activities.morning_hygiene.time).toBe('07:00');
+    expect(merged.symptoms.tremor['06']).toBe(0);
   });
 
   it('rejeita horário e intensidade inválidos', () => {
     expect(() =>
       normalizeDiaryPayload({
-        atividades: { higiene_manha: { horario: '25:00' } },
+        activities: { morning_hygiene: { time: '25:00' } },
       }),
     ).toThrow(/Horário inválido/);
     expect(() =>
       normalizeDiaryPayload({
-        sintomas: { tremor: { '06': 4 } },
+        symptoms: { tremor: { '06': 4 } },
       }),
     ).toThrow(/Intensidade/);
   });

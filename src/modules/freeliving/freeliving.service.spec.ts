@@ -326,32 +326,32 @@ describe('FreelivingService.createEvent', () => {
 
 function completeDiaryPayload() {
   const payload = emptyDiaryPayload();
-  payload.medicacao.doses = [
+  payload.medication.doses = [
     {
-      horario: '08:00',
+      time: '08:00',
       m1: true,
       m2: false,
       m3: false,
       m4: false,
       m5: false,
-      obs: null,
+      notes: null,
     },
   ];
-  payload.atividades.higiene_manha.horario = '07:00';
-  payload.atividades.refeicao_1.horario = '08:00';
-  payload.atividades.caminhada_curta.horario = '10:00';
-  payload.atividades.bracos_estendidos_1.horario = '11:00';
-  payload.atividades.bracos_estendidos_2.horario = '16:00';
+  payload.activities.morning_hygiene.time = '07:00';
+  payload.activities.meal_1.time = '08:00';
+  payload.activities.short_walk.time = '10:00';
+  payload.activities.arms_extended_1.time = '11:00';
+  payload.activities.arms_extended_2.time = '16:00';
   for (const key of SYMPTOM_KEYS) {
     for (const hour of SYMPTOM_HOURS) {
-      payload.sintomas[key][hour] = 0;
+      payload.symptoms[key][hour] = 0;
     }
   }
-  payload.dispositivos.usou_relogio = 'todo_periodo';
-  payload.dispositivos.celular_proximo = 'sim';
-  payload.dispositivos.problema_dispositivo = false;
-  payload.dispositivos.carregou_fim_dia = true;
-  payload.dispositivos.smartwatch_para_dormir = true;
+  payload.devices.watch_usage = 'all_day';
+  payload.devices.phone_nearby = 'yes';
+  payload.devices.device_problem = false;
+  payload.devices.charged_end_of_day = true;
+  payload.devices.sleep_with_smartwatch = true;
   return payload;
 }
 
@@ -459,7 +459,7 @@ describe('FreelivingService.upsertDiary', () => {
       protocol_day: 1,
       status: 'rascunho',
       payload: emptyDiaryPayload(),
-      gaps: [{ path: 'medicacao.doses', label_pt: 'dose' }],
+      gaps: [{ path: 'medication.doses', label_pt: 'dose' }],
       save_count: 1,
       first_saved_at: new Date(),
       last_saved_at: new Date(),
@@ -480,7 +480,7 @@ describe('FreelivingService.upsertDiary', () => {
       patient_cpf: '52998224725',
       protocol_day: 1,
       diary_date: '2026-09-02',
-      payload: { medicacao: { doses: [] } },
+      payload: { medication: { doses: [] } },
     });
 
     expect(result.status).toBe('rascunho');
@@ -514,7 +514,7 @@ describe('FreelivingService.upsertDiary', () => {
       patient_cpf: '52998224725',
       protocol_day: 1,
       diary_date: '2026-09-02',
-      payload: { medicacao: { doses: [] } },
+      payload: { medication: { doses: [] } },
     });
 
     expect(result.saveCount).toBe(2);

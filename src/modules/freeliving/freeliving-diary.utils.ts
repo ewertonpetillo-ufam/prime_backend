@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import {
   ACTIVITY_LABELS,
   DIARY_SECTION_COUNT,
+  DIARY_SECTIONS,
   FreelivingDiaryGap,
   FreelivingDiaryPayload,
   FreelivingDiaryStatus,
@@ -38,11 +39,11 @@ export function normalizeTime(value: unknown): string | null {
 }
 
 export function emptyTimedActivity(): TimedActivity {
-  return { horario: null, obs: null };
+  return { time: null, notes: null };
 }
 
 export function emptyIntervalActivity(): IntervalActivity {
-  return { de: null, ate: null, obs: null };
+  return { from: null, to: null, notes: null };
 }
 
 export function emptySymptomHours(): SymptomHourMap {
@@ -54,41 +55,41 @@ export function emptySymptomHours(): SymptomHourMap {
 
 export function emptyDiaryPayload(): FreelivingDiaryPayload {
   return {
-    medicacao: {
-      rotulos: { m1: null, m2: null, m3: null, m4: null, m5: null },
+    medication: {
+      labels: { m1: null, m2: null, m3: null, m4: null, m5: null },
       doses: [],
     },
-    atividades: {
-      higiene_manha: emptyTimedActivity(),
-      refeicao_1: emptyTimedActivity(),
-      refeicao_2: emptyTimedActivity(),
-      refeicao_3: emptyTimedActivity(),
-      caminhada_curta: emptyTimedActivity(),
-      caminhada_espontanea: emptyTimedActivity(),
-      bracos_estendidos_1: emptyTimedActivity(),
-      bracos_estendidos_2: emptyTimedActivity(),
-      outra_atividade: emptyTimedActivity(),
-      repouso_1: emptyIntervalActivity(),
-      repouso_2: emptyIntervalActivity(),
-      repouso_3: emptyIntervalActivity(),
-      cochilo: emptyIntervalActivity(),
+    activities: {
+      morning_hygiene: emptyTimedActivity(),
+      meal_1: emptyTimedActivity(),
+      meal_2: emptyTimedActivity(),
+      meal_3: emptyTimedActivity(),
+      short_walk: emptyTimedActivity(),
+      spontaneous_walk: emptyTimedActivity(),
+      arms_extended_1: emptyTimedActivity(),
+      arms_extended_2: emptyTimedActivity(),
+      other_activity: emptyTimedActivity(),
+      rest_1: emptyIntervalActivity(),
+      rest_2: emptyIntervalActivity(),
+      rest_3: emptyIntervalActivity(),
+      nap: emptyIntervalActivity(),
     },
-    sintomas: {
+    symptoms: {
       tremor: emptySymptomHours(),
-      lentidao: emptySymptomHours(),
-      discinesia: emptySymptomHours(),
-      caminhar: emptySymptomHours(),
-      congelamento: emptySymptomHours(),
+      slowness: emptySymptomHours(),
+      dyskinesia: emptySymptomHours(),
+      walking: emptySymptomHours(),
+      freezing: emptySymptomHours(),
     },
-    dispositivos: {
-      usou_relogio: null,
-      celular_proximo: null,
-      relogio_retirou: { de: null, ate: null, motivo: null },
-      problema_dispositivo: null,
-      problema_qual: null,
-      carregou_fim_dia: null,
-      smartwatch_para_dormir: null,
-      observacoes_dia: null,
+    devices: {
+      watch_usage: null,
+      phone_nearby: null,
+      watch_removed: { from: null, to: null, reason: null },
+      device_problem: null,
+      device_problem_detail: null,
+      charged_end_of_day: null,
+      sleep_with_smartwatch: null,
+      day_notes: null,
     },
   };
 }
@@ -117,36 +118,36 @@ function normalizeBoolean(value: unknown): boolean | null {
 function normalizeTimedActivity(raw: unknown): TimedActivity {
   const row = asRecord(raw);
   return {
-    horario: normalizeTime(row.horario),
-    obs: normalizeNullableString(row.obs),
+    time: normalizeTime(row.time),
+    notes: normalizeNullableString(row.notes),
   };
 }
 
 function normalizeIntervalActivity(raw: unknown): IntervalActivity {
   const row = asRecord(raw);
   return {
-    de: normalizeTime(row.de),
-    ate: normalizeTime(row.ate),
-    obs: normalizeNullableString(row.obs),
+    from: normalizeTime(row.from),
+    to: normalizeTime(row.to),
+    notes: normalizeNullableString(row.notes),
   };
 }
 
 function normalizeDose(raw: unknown): MedicationDose {
   const row = asRecord(raw);
   return {
-    horario: normalizeTime(row.horario),
+    time: normalizeTime(row.time),
     m1: Boolean(row.m1),
     m2: Boolean(row.m2),
     m3: Boolean(row.m3),
     m4: Boolean(row.m4),
     m5: Boolean(row.m5),
-    obs: normalizeNullableString(row.obs),
+    notes: normalizeNullableString(row.notes),
   };
 }
 
 function isValidDose(dose: MedicationDose): boolean {
   return Boolean(
-    dose.horario && (dose.m1 || dose.m2 || dose.m3 || dose.m4 || dose.m5),
+    dose.time && (dose.m1 || dose.m2 || dose.m3 || dose.m4 || dose.m5),
   );
 }
 
@@ -165,10 +166,10 @@ function mergeShallowBySection(
 ): unknown {
   const src = asRecord(incoming);
   return {
-    medicacao: src.medicacao ?? base.medicacao,
-    atividades: src.atividades ?? base.atividades,
-    sintomas: src.sintomas ?? base.sintomas,
-    dispositivos: src.dispositivos ?? base.dispositivos,
+    medication: src.medication ?? base.medication,
+    activities: src.activities ?? base.activities,
+    symptoms: src.symptoms ?? base.symptoms,
+    devices: src.devices ?? base.devices,
   };
 }
 
@@ -178,83 +179,84 @@ export function normalizeDiaryPayload(
 ): FreelivingDiaryPayload {
   const base = previous ? structuredClone(previous) : emptyDiaryPayload();
   const merged = asRecord(mergeShallowBySection(base, incoming));
-  const medicacaoIn = asRecord(merged.medicacao);
-  const rotulosIn = asRecord(medicacaoIn.rotulos);
-  const dosesRaw = Array.isArray(medicacaoIn.doses) ? medicacaoIn.doses : [];
+  const medicationIn = asRecord(merged.medication);
+  const labelsIn = asRecord(medicationIn.labels);
+  const dosesRaw = Array.isArray(medicationIn.doses) ? medicationIn.doses : [];
   if (dosesRaw.length > 6) {
     throw new Error('São permitidas no máximo 6 doses');
   }
 
-  const atividadesIn = asRecord(merged.atividades);
-  const sintomasIn = asRecord(merged.sintomas);
-  const dispositivosIn = asRecord(merged.dispositivos);
-  const retiradaIn = asRecord(dispositivosIn.relogio_retirou);
+  const activitiesIn = asRecord(merged.activities);
+  const symptomsIn = asRecord(merged.symptoms);
+  const devicesIn = asRecord(merged.devices);
+  const watchRemovedIn = asRecord(devicesIn.watch_removed);
 
-  const watchUsage = dispositivosIn.usou_relogio ?? null;
+  const watchUsage = devicesIn.watch_usage ?? null;
   if (
     watchUsage != null &&
     !WATCH_USAGE_VALUES.includes(watchUsage as (typeof WATCH_USAGE_VALUES)[number])
   ) {
-    throw new Error(`usou_relogio inválido: ${watchUsage}`);
+    throw new Error(`watch_usage inválido: ${watchUsage}`);
   }
 
-  const phoneNearby = dispositivosIn.celular_proximo ?? null;
+  const phoneNearby = devicesIn.phone_nearby ?? null;
   if (
     phoneNearby != null &&
     !PHONE_NEARBY_VALUES.includes(phoneNearby as (typeof PHONE_NEARBY_VALUES)[number])
   ) {
-    throw new Error(`celular_proximo inválido: ${phoneNearby}`);
+    throw new Error(`phone_nearby inválido: ${phoneNearby}`);
   }
 
-  const atividades = { ...emptyDiaryPayload().atividades };
+  const activities = { ...emptyDiaryPayload().activities };
   for (const key of REQUIRED_TIMED_ACTIVITIES) {
-    atividades[key] = normalizeTimedActivity(atividadesIn[key]);
+    activities[key] = normalizeTimedActivity(activitiesIn[key]);
   }
   for (const key of OPTIONAL_TIMED_ACTIVITIES) {
-    atividades[key] = normalizeTimedActivity(atividadesIn[key]);
+    activities[key] = normalizeTimedActivity(activitiesIn[key]);
   }
   for (const key of OPTIONAL_INTERVAL_ACTIVITIES) {
-    atividades[key] = normalizeIntervalActivity(atividadesIn[key]);
+    activities[key] = normalizeIntervalActivity(activitiesIn[key]);
   }
 
-  const sintomas = emptyDiaryPayload().sintomas;
+  const symptoms = emptyDiaryPayload().symptoms;
   for (const key of SYMPTOM_KEYS) {
-    const hourMap = asRecord(sintomasIn[key]);
+    const hourMap = asRecord(symptomsIn[key]);
     for (const hour of SYMPTOM_HOURS) {
-      sintomas[key][hour] = normalizeSymptomScore(hourMap[hour]);
+      symptoms[key][hour] = normalizeSymptomScore(hourMap[hour]);
     }
   }
 
   return {
-    medicacao: {
-      rotulos: {
-        m1: normalizeNullableString(rotulosIn.m1),
-        m2: normalizeNullableString(rotulosIn.m2),
-        m3: normalizeNullableString(rotulosIn.m3),
-        m4: normalizeNullableString(rotulosIn.m4),
-        m5: normalizeNullableString(rotulosIn.m5),
+    medication: {
+      labels: {
+        m1: normalizeNullableString(labelsIn.m1),
+        m2: normalizeNullableString(labelsIn.m2),
+        m3: normalizeNullableString(labelsIn.m3),
+        m4: normalizeNullableString(labelsIn.m4),
+        m5: normalizeNullableString(labelsIn.m5),
       },
       doses: dosesRaw.map(normalizeDose),
     },
-    atividades,
-    sintomas,
-    dispositivos: {
-      usou_relogio: (watchUsage as FreelivingDiaryPayload['dispositivos']['usou_relogio']) ?? null,
-      celular_proximo:
-        (phoneNearby as FreelivingDiaryPayload['dispositivos']['celular_proximo']) ??
+    activities,
+    symptoms,
+    devices: {
+      watch_usage:
+        (watchUsage as FreelivingDiaryPayload['devices']['watch_usage']) ?? null,
+      phone_nearby:
+        (phoneNearby as FreelivingDiaryPayload['devices']['phone_nearby']) ??
         null,
-      relogio_retirou: {
-        de: normalizeTime(retiradaIn.de),
-        ate: normalizeTime(retiradaIn.ate),
-        motivo: normalizeNullableString(retiradaIn.motivo),
+      watch_removed: {
+        from: normalizeTime(watchRemovedIn.from),
+        to: normalizeTime(watchRemovedIn.to),
+        reason: normalizeNullableString(watchRemovedIn.reason),
       },
-      problema_dispositivo: normalizeBoolean(dispositivosIn.problema_dispositivo),
-      problema_qual: normalizeNullableString(dispositivosIn.problema_qual),
-      carregou_fim_dia: normalizeBoolean(dispositivosIn.carregou_fim_dia),
-      smartwatch_para_dormir: normalizeBoolean(
-        dispositivosIn.smartwatch_para_dormir,
+      device_problem: normalizeBoolean(devicesIn.device_problem),
+      device_problem_detail: normalizeNullableString(
+        devicesIn.device_problem_detail,
       ),
-      observacoes_dia: normalizeNullableString(dispositivosIn.observacoes_dia),
+      charged_end_of_day: normalizeBoolean(devicesIn.charged_end_of_day),
+      sleep_with_smartwatch: normalizeBoolean(devicesIn.sleep_with_smartwatch),
+      day_notes: normalizeNullableString(devicesIn.day_notes),
     },
   };
 }
@@ -264,17 +266,17 @@ export function computeDiaryGaps(
 ): FreelivingDiaryGap[] {
   const gaps: FreelivingDiaryGap[] = [];
 
-  if (!payload.medicacao.doses.some(isValidDose)) {
+  if (!payload.medication.doses.some(isValidDose)) {
     gaps.push({
-      path: 'medicacao.doses',
+      path: 'medication.doses',
       label_pt: 'Pelo menos uma dose de medicação (horário + medicamento)',
     });
   }
 
   for (const key of REQUIRED_TIMED_ACTIVITIES) {
-    if (!isFilledTime(payload.atividades[key].horario)) {
+    if (!isFilledTime(payload.activities[key].time)) {
       gaps.push({
-        path: `atividades.${key}.horario`,
+        path: `activities.${key}.time`,
         label_pt: ACTIVITY_LABELS[key],
       });
     }
@@ -282,63 +284,63 @@ export function computeDiaryGaps(
 
   for (const symptom of SYMPTOM_KEYS) {
     for (const hour of SYMPTOM_HOURS) {
-      if (payload.sintomas[symptom][hour] == null) {
+      if (payload.symptoms[symptom][hour] == null) {
         gaps.push({
-          path: `sintomas.${symptom}.${hour}`,
+          path: `symptoms.${symptom}.${hour}`,
           label_pt: `${SYMPTOM_LABELS[symptom]} às ${hour}h`,
         });
       }
     }
   }
 
-  const devices = payload.dispositivos;
-  if (devices.usou_relogio == null) {
+  const devices = payload.devices;
+  if (devices.watch_usage == null) {
     gaps.push({
-      path: 'dispositivos.usou_relogio',
+      path: 'devices.watch_usage',
       label_pt: 'Usou o relógio hoje?',
     });
   }
-  if (devices.celular_proximo == null) {
+  if (devices.phone_nearby == null) {
     gaps.push({
-      path: 'dispositivos.celular_proximo',
+      path: 'devices.phone_nearby',
       label_pt: 'Celular ligado/próximo?',
     });
   }
-  if (devices.problema_dispositivo == null) {
+  if (devices.device_problem == null) {
     gaps.push({
-      path: 'dispositivos.problema_dispositivo',
+      path: 'devices.device_problem',
       label_pt: 'Problema com relógio/celular?',
     });
   }
-  if (devices.carregou_fim_dia == null) {
+  if (devices.charged_end_of_day == null) {
     gaps.push({
-      path: 'dispositivos.carregou_fim_dia',
+      path: 'devices.charged_end_of_day',
       label_pt: 'Colocou celular e relógio para carregar no fim do dia?',
     });
   }
-  if (devices.smartwatch_para_dormir == null) {
+  if (devices.sleep_with_smartwatch == null) {
     gaps.push({
-      path: 'dispositivos.smartwatch_para_dormir',
+      path: 'devices.sleep_with_smartwatch',
       label_pt: 'Colocou o smartwatch para dormir?',
     });
   }
-  if (devices.usou_relogio === 'retirou') {
-    if (!isFilledTime(devices.relogio_retirou.de)) {
+  if (devices.watch_usage === 'removed') {
+    if (!isFilledTime(devices.watch_removed.from)) {
       gaps.push({
-        path: 'dispositivos.relogio_retirou.de',
+        path: 'devices.watch_removed.from',
         label_pt: 'Início do período sem relógio',
       });
     }
-    if (!isFilledTime(devices.relogio_retirou.ate)) {
+    if (!isFilledTime(devices.watch_removed.to)) {
       gaps.push({
-        path: 'dispositivos.relogio_retirou.ate',
+        path: 'devices.watch_removed.to',
         label_pt: 'Fim do período sem relógio',
       });
     }
   }
-  if (devices.problema_dispositivo === true && !devices.problema_qual) {
+  if (devices.device_problem === true && !devices.device_problem_detail) {
     gaps.push({
-      path: 'dispositivos.problema_qual',
+      path: 'devices.device_problem_detail',
       label_pt: 'Qual o problema com relógio/celular?',
     });
   }
@@ -354,8 +356,7 @@ export function diaryStatusFromGaps(
 
 export function filledSectionCount(gaps: FreelivingDiaryGap[]): number {
   const missing = new Set(gaps.map((gap) => gap.path.split('.')[0]));
-  const sections = ['medicacao', 'atividades', 'sintomas', 'dispositivos'];
-  return sections.filter((section) => !missing.has(section)).length;
+  return DIARY_SECTIONS.filter((section) => !missing.has(section)).length;
 }
 
 export function diarySectionSummary(gaps: FreelivingDiaryGap[]): {
@@ -369,11 +370,11 @@ export function diarySectionSummary(gaps: FreelivingDiaryGap[]): {
 }
 
 export function isIntervalFilled(value: IntervalActivity): boolean {
-  return isFilledTime(value.de) || isFilledTime(value.ate) || Boolean(value.obs);
+  return isFilledTime(value.from) || isFilledTime(value.to) || Boolean(value.notes);
 }
 
 export function isTimedFilled(value: TimedActivity): boolean {
-  return isFilledTime(value.horario) || Boolean(value.obs);
+  return isFilledTime(value.time) || Boolean(value.notes);
 }
 
 export function uuidV5FromName(name: string): string {
