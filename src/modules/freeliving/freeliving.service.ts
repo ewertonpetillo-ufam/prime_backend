@@ -46,6 +46,7 @@ import {
   FREELIVING_DAY_STATUSES,
   deriveDayStatus,
   formatDateInTimeZone,
+  isExcludedFreelivingPublicId,
   isIsoDateOnly,
   isUniqueViolation,
   parseOptionalBoolean,
@@ -423,6 +424,7 @@ export class FreelivingService {
       label: string | null,
       name: string,
     ) => {
+      if (isExcludedFreelivingPublicId(label)) return;
       if (!patientsById.has(patientId)) {
         patientsById.set(patientId, {
           patientId,
@@ -452,6 +454,7 @@ export class FreelivingService {
           select: ['id', 'public_identifier', 'full_name'],
         });
         for (const p of patients) {
+          if (isExcludedFreelivingPublicId(p.public_identifier)) continue;
           patientsById.set(p.id, {
             patientId: p.id,
             patientLabel: p.public_identifier || '—',
@@ -712,6 +715,9 @@ export class FreelivingService {
     if (!patient) {
       throw new NotFoundException('Paciente não encontrado');
     }
+    if (isExcludedFreelivingPublicId(patient.public_identifier)) {
+      throw new NotFoundException('Paciente não encontrado');
+    }
 
     const actionTypes = await this.listActionTypes();
     const labelByCode = new Map(actionTypes.map((t) => [t.code, t.label_pt]));
@@ -792,9 +798,10 @@ export class FreelivingService {
       .createQueryBuilder('p')
       .select(['p.id', 'p.public_identifier', 'p.full_name'])
       .where('p.active = true')
-      .andWhere('p.public_identifier NOT IN (:...excluded)', {
-        excluded: [...EXCLUDED_FREELIVING_PUBLIC_IDS],
-      });
+      .andWhere(
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excluded))',
+        { excluded: [...EXCLUDED_FREELIVING_PUBLIC_IDS] },
+      );
     this.applyPatientSearch(qb, patientTerm, 'p');
     return qb.getMany();
   }
@@ -823,7 +830,7 @@ export class FreelivingService {
         dateTo,
       })
       .andWhere(
-        '(p.public_identifier IS NULL OR p.public_identifier NOT IN (:...excluded))',
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excluded))',
         { excluded: [...EXCLUDED_FREELIVING_PUBLIC_IDS] },
       );
     this.applyPatientSearch(qb, patientTerm, 'p');
@@ -861,7 +868,7 @@ export class FreelivingService {
         { dateFrom, dateTo },
       )
       .andWhere(
-        '(p.public_identifier IS NULL OR p.public_identifier NOT IN (:...excluded))',
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excluded))',
         { excluded: [...EXCLUDED_FREELIVING_PUBLIC_IDS] },
       );
     this.applyPatientSearch(qb, patientTerm, 'p');
@@ -889,7 +896,7 @@ export class FreelivingService {
       ])
       .where('d.diary_date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo })
       .andWhere(
-        '(p.public_identifier IS NULL OR p.public_identifier NOT IN (:...excluded))',
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excluded))',
         { excluded: [...EXCLUDED_FREELIVING_PUBLIC_IDS] },
       );
     this.applyPatientSearch(qb, patientTerm, 'p');

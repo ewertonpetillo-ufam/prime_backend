@@ -73,6 +73,10 @@ export class Questionnaire {
   @Column({ type: 'boolean', default: false })
   sleep_test_recommended: boolean;
 
+  /** Recomendação de teste Free Living marcada na avaliação neurológica (Step 4) */
+  @Column({ type: 'boolean', default: false })
+  free_living_test_recommended: boolean;
+
   @Column({ type: 'timestamp', nullable: true })
   current_session_started_at: Date | null;
 

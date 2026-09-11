@@ -59,7 +59,6 @@ import { PdfReportsService } from '../pdf-reports/pdf-reports.service';
 import {
   DeviceBreakdownCell,
   DevicePresenceFlags,
-  SLEEP_TASK_CODE,
   applyPdfCountsToBreakdown,
   applyPdfReportToPresence,
   buildPendingUploads,
@@ -67,7 +66,7 @@ import {
   emptyBreakdownForTask,
   emptyPdfPresence,
   incrementBreakdownCell,
-  isDeviceBreakdownTask,
+  hasNestedBreakdown,
   listMissingDeviceKinds,
   reconcileBreakdownWithTaskTotal,
   resolveTaskCode,
@@ -1919,6 +1918,32 @@ export class QuestionnairesService {
   }
 
   /**
+   * Atualiza indicação de teste Free Living (Step 4 neurológico).
+   */
+  async patchFreeLivingTestRecommended(
+    questionnaireId: string,
+    freeLivingTestRecommended: boolean,
+  ) {
+    const questionnaire = await this.questionnairesRepository.findOne({
+      where: { id: questionnaireId },
+    });
+
+    if (!questionnaire) {
+      throw new NotFoundException(
+        `Questionnaire with ID ${questionnaireId} not found`,
+      );
+    }
+
+    questionnaire.free_living_test_recommended = freeLivingTestRecommended === true;
+    const saved = await this.questionnairesRepository.save(questionnaire);
+
+    return {
+      questionnaireId: saved.id,
+      freeLivingTestRecommended: saved.free_living_test_recommended === true,
+    };
+  }
+
+  /**
    * Save FOGQ scores
    */
   async saveFogqScores(dto: SaveFogqDto, evaluatorId: string) {
@@ -2233,7 +2258,7 @@ export class QuestionnairesService {
       const counts = countsByQ.get(qid)!;
       counts[code] = (counts[code] || 0) + 1;
 
-      if (!isDeviceBreakdownTask(code) && code !== SLEEP_TASK_CODE) continue;
+      if (!hasNestedBreakdown(code)) continue;
 
       const cell = ensureCell(qid, code);
       const kind = classifyBinaryFileName(row.file_name || '', code, {
@@ -2552,6 +2577,7 @@ export class QuestionnairesService {
           : '',
       isHealthyControl: questionnaire.is_healthy_control === true,
       sleepTestRecommended: questionnaire.sleep_test_recommended === true,
+      freeLivingTestRecommended: questionnaire.free_living_test_recommended === true,
     };
 
     // Dados antropométricos

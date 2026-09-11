@@ -53,6 +53,34 @@ describe('device-upload-status.utils', () => {
         }),
       ).toBe('edf');
     });
+
+    it('classifica áudio e csv de features nas TAs de fala', () => {
+      expect(classifyBinaryFileName('P001_TA10_papapa.wav', 'TA10')).toBe(
+        'audio',
+      );
+      expect(classifyBinaryFileName('features_TA11.csv', 'TA11')).toBe('csv');
+      expect(classifyBinaryFileName('', 'TA12')).toBe('audio');
+    });
+
+    it('reconhece CSV estagiado TA13 no padrão PXXX_TA13_XXXX.csv', () => {
+      expect(classifyBinaryFileName('P013_TA13_20260911.csv', 'TA13')).toBe(
+        'staged',
+      );
+      expect(classifyBinaryFileName('P001_TA13_night1.csv', 'TA13')).toBe(
+        'staged',
+      );
+      expect(
+        classifyBinaryFileName('pasta/P0001_TA13_exame.csv', 'TA13'),
+      ).toBe('staged');
+      expect(
+        classifyBinaryFileName(
+          '20260911-S013-Stage2-SW-NA-SDK_PPG-TA13-Rep1.csv',
+          'TA13',
+        ),
+      ).toBe('csv');
+      expect(classifyBinaryFileName('sono.edf', 'TA13')).toBe('edf');
+      expect(classifyBinaryFileName('sono.wav', 'TA13')).toBe('csv');
+    });
   });
 
   describe('applyPdfReportToPresence', () => {
@@ -197,6 +225,13 @@ describe('device-upload-status.utils', () => {
       reconcileBreakdownWithTaskTotal(cell, 12);
       expect(cell.csv).toBe(11);
       expect(cell.baiobit).toBe(1);
+    });
+
+    it('joga o restante das TAs de fala para Áudio', () => {
+      const cell = { csv: 1, audio: 0 };
+      reconcileBreakdownWithTaskTotal(cell, 4);
+      expect(cell.audio).toBe(3);
+      expect(cell.csv).toBe(1);
     });
 
     it('soma PDFs nas subcolunas e no total', () => {

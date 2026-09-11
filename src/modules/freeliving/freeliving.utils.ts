@@ -5,7 +5,16 @@ export const ACTION_COLLECTION_FINISHED = 'collection_finished';
 export const ACTION_DIARY_STARTED = 'diary_started';
 export const ACTION_DIARY_SUBMITTED = 'diary_submitted';
 
-export const EXCLUDED_FREELIVING_PUBLIC_IDS = ['P00'] as const;
+export const EXCLUDED_FREELIVING_PUBLIC_IDS = ['P00', 'P000'] as const;
+
+export function isExcludedFreelivingPublicId(
+  publicIdentifier?: string | null,
+): boolean {
+  const normalized = (publicIdentifier || '').trim().toUpperCase();
+  return (EXCLUDED_FREELIVING_PUBLIC_IDS as readonly string[]).includes(
+    normalized,
+  );
+}
 
 export type FreelivingDayStatus =
   | 'sem_acao'
