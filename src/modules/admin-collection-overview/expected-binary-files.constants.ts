@@ -64,3 +64,19 @@ export function taskCodesInProtocolStage(
     (c) => collectionProtocolStageForTaskCode(c) === stage,
   );
 }
+
+/** TAs primeiro (ordem numérica), depois Free Living (FL01, FL02). */
+export function sortCollectionTaskCodes(codes: string[]): string[] {
+  const prefixRank = (code: string): number => {
+    const upper = (code || '').trim().toUpperCase();
+    if (upper.startsWith('FL')) return 1;
+    return 0;
+  };
+  return [...codes].sort((a, b) => {
+    const pr = prefixRank(a) - prefixRank(b);
+    if (pr !== 0) return pr;
+    const na = parseInt(a.replace(/\D/g, ''), 10) || 0;
+    const nb = parseInt(b.replace(/\D/g, ''), 10) || 0;
+    return na - nb;
+  });
+}

@@ -32,6 +32,7 @@ import { SavePhysioDto } from './dto/save-physio.dto';
 import { SaveSleepPatientDescriptionDto } from './dto/save-sleep-patient-description.dto';
 import { SaveSpeechPatientDescriptionDto } from './dto/save-speech-patient-description.dto';
 import { PatchSleepTestRecommendedDto } from './dto/patch-sleep-test-recommended.dto';
+import { PatchFreeLivingTestRecommendedDto } from './dto/patch-free-living-test-recommended.dto';
 import { CurrentUser } from '../../common/decorators/user.decorator';
 
 @ApiTags('Questionnaires')
@@ -407,6 +408,31 @@ export class QuestionnairesController {
     return this.questionnairesService.patchSleepTestRecommended(
       questionnaireId,
       dto.sleepTestRecommended,
+    );
+  }
+
+  @Patch(':id/free-living-test-recommended')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Atualizar indicação de teste Free Living',
+    description:
+      'Marca ou desmarca o paciente como recomendado para o teste de Free Living na avaliação neurológica.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Indicação atualizada com sucesso',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Questionário não encontrado',
+  })
+  async patchFreeLivingTestRecommended(
+    @Param('id') questionnaireId: string,
+    @Body() dto: PatchFreeLivingTestRecommendedDto,
+  ) {
+    return this.questionnairesService.patchFreeLivingTestRecommended(
+      questionnaireId,
+      dto.freeLivingTestRecommended,
     );
   }
 

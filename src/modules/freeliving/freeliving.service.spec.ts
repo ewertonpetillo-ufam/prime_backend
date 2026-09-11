@@ -17,6 +17,7 @@ import {
 import {
   deriveDayStatus,
   formatDateInTimeZone,
+  isExcludedFreelivingPublicId,
   isIsoDateOnly,
   parseOptionalBoolean,
   todayInSaoPaulo,
@@ -46,6 +47,14 @@ describe('freeliving.utils', () => {
     expect(parseOptionalBoolean('false')).toBe(false);
     expect(parseOptionalBoolean('nao')).toBe(false);
     expect(parseOptionalBoolean(undefined)).toBeUndefined();
+  });
+
+  it('exclui P00 e P000 independentemente de caixa e espaços', () => {
+    expect(isExcludedFreelivingPublicId('P00')).toBe(true);
+    expect(isExcludedFreelivingPublicId('P000')).toBe(true);
+    expect(isExcludedFreelivingPublicId(' p00 ')).toBe(true);
+    expect(isExcludedFreelivingPublicId('p000')).toBe(true);
+    expect(isExcludedFreelivingPublicId('P001')).toBe(false);
   });
 });
 
@@ -320,6 +329,17 @@ describe('FreelivingService.createEvent', () => {
     expect(result.created).toBe(true);
     expect(eventsRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ task_code: 'DAILY_DIARY' }),
+    );
+  });
+
+  it('recusa detalhe do paciente de teste P00/P000', async () => {
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-test',
+      public_identifier: 'P000',
+      full_name: 'Paciente Teste',
+    });
+    await expect(service.getPatientDetail('patient-test')).rejects.toThrow(
+      NotFoundException,
     );
   });
 });

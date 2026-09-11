@@ -3,11 +3,18 @@ export const DEVICE_BREAKDOWN_TASK_CODES = ['TA5', 'TA14', 'TA15', 'TA16'] as co
 
 export const SLEEP_TASK_CODE = 'TA13';
 
+export const SPEECH_TASK_CODES = ['TA10', 'TA11', 'TA12'] as const;
+
+/** CSV estagiado de sono: PXXX_TA13_XXXX.csv (ex.: P013_TA13_20260911.csv). */
+export const STAGED_SLEEP_CSV_FILENAME_RE = /^P\d+_TA13_.+\.csv$/i;
+
 export type DeviceBreakdownCell = {
   csv: number;
   baiobit?: number;
   delsys?: number;
   edf?: number;
+  audio?: number;
+  staged?: number;
 };
 
 export type PendingUploadKind = 'Baiobit' | 'Delsys' | 'Polissonografo';
@@ -18,7 +25,14 @@ export type PendingUploadDto = {
   risk: 3 | 5 | 7;
 };
 
-export type ClassifiedFileKind = 'baiobit' | 'delsys' | 'edf' | 'csv' | 'other';
+export type ClassifiedFileKind =
+  | 'baiobit'
+  | 'delsys'
+  | 'edf'
+  | 'csv'
+  | 'audio'
+  | 'staged'
+  | 'other';
 
 export type DevicePresenceFlags = {
   hasBaiobitPdf: boolean;
@@ -40,6 +54,23 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function isDeviceBreakdownTask(taskCode: string): boolean {
   return (DEVICE_BREAKDOWN_TASK_CODES as readonly string[]).includes(taskCode);
+}
+
+export function isSpeechBreakdownTask(taskCode: string): boolean {
+  return (SPEECH_TASK_CODES as readonly string[]).includes(taskCode);
+}
+
+export function hasNestedBreakdown(taskCode: string): boolean {
+  return (
+    isDeviceBreakdownTask(taskCode) ||
+    taskCode === SLEEP_TASK_CODE ||
+    isSpeechBreakdownTask(taskCode)
+  );
+}
+
+export function isStagedSleepCsvFileName(fileName: string): boolean {
+  const base = ((fileName || '').trim().split(/[/\\]/).pop() || '').trim();
+  return STAGED_SLEEP_CSV_FILENAME_RE.test(base);
 }
 
 export function emptyPdfPresence(): DevicePresenceFlags {
@@ -78,7 +109,7 @@ export function pdfFilesTotal(flags: DevicePresenceFlags): number {
   return flags.baiobitPdfCount + flags.delsysPdfCount + flags.psgPdfCount;
 }
 
-/** Arquivos já existentes entram sempre numa subcoluna visível (Csv por omissão). */
+/** Arquivos já existentes entram sempre numa subcoluna visível (Csv/Áudio por omissão). */
 export function reconcileBreakdownWithTaskTotal(
   cell: DeviceBreakdownCell,
   taskTotal: number,
@@ -87,9 +118,13 @@ export function reconcileBreakdownWithTaskTotal(
     (cell.csv || 0) +
     (cell.baiobit || 0) +
     (cell.delsys || 0) +
-    (cell.edf || 0);
+    (cell.edf || 0) +
+    (cell.audio || 0) +
+    (cell.staged || 0);
   if (taskTotal > classified) {
-    cell.csv += taskTotal - classified;
+    const leftover = taskTotal - classified;
+    if (cell.audio != null) cell.audio += leftover;
+    else cell.csv += leftover;
   }
 }
 
@@ -142,7 +177,12 @@ export function classifyBinaryFileName(
   const countsInCsvFallback =
     isDeviceBreakdownTask(taskCode) || taskCode === SLEEP_TASK_CODE;
 
+  if (taskCode === SLEEP_TASK_CODE && isStagedSleepCsvFileName(name)) {
+    return 'staged';
+  }
+
   if (!haystack && !mime) {
+    if (isSpeechBreakdownTask(taskCode)) return 'audio';
     return countsInCsvFallback ? 'csv' : 'other';
   }
 
@@ -155,16 +195,20 @@ export function classifyBinaryFileName(
     return 'edf';
   }
   if (/\.csv(\.|$)/i.test(name) || /csv/i.test(mime)) return 'csv';
+  if (isSpeechBreakdownTask(taskCode)) return 'audio';
   if (countsInCsvFallback) return 'csv';
   return 'other';
 }
 
 export function emptyBreakdownForTask(taskCode: string): DeviceBreakdownCell {
   if (taskCode === SLEEP_TASK_CODE) {
-    return { csv: 0, edf: 0 };
+    return { csv: 0, edf: 0, staged: 0 };
   }
   if (isDeviceBreakdownTask(taskCode)) {
     return { csv: 0, baiobit: 0, delsys: 0 };
+  }
+  if (isSpeechBreakdownTask(taskCode)) {
+    return { csv: 0, audio: 0 };
   }
   return { csv: 0 };
 }
@@ -176,6 +220,8 @@ export function incrementBreakdownCell(
   if (kind === 'baiobit' && cell.baiobit != null) cell.baiobit += 1;
   else if (kind === 'delsys' && cell.delsys != null) cell.delsys += 1;
   else if (kind === 'edf' && cell.edf != null) cell.edf += 1;
+  else if (kind === 'audio' && cell.audio != null) cell.audio += 1;
+  else if (kind === 'staged' && cell.staged != null) cell.staged += 1;
   else if (kind === 'csv') cell.csv += 1;
 }
 

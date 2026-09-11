@@ -11,6 +11,7 @@ import {
   EXPECTED_BINARY_FILES_TOTAL,
   CollectionProtocolStage,
   expectedFilesForTaskCode,
+  sortCollectionTaskCodes,
   sumExpectedForTaskCodes,
   taskCodesInProtocolStage,
 } from './expected-binary-files.constants';
@@ -19,7 +20,6 @@ import {
   DevicePresenceFlags,
   PendingUploadDto,
   PendingUploadKind,
-  SLEEP_TASK_CODE,
   applyPdfCountsToBreakdown,
   applyPdfReportToPresence,
   buildPendingUploads,
@@ -27,7 +27,7 @@ import {
   emptyBreakdownForTask,
   emptyPdfPresence,
   incrementBreakdownCell,
-  isDeviceBreakdownTask,
+  hasNestedBreakdown,
   listMissingDeviceKinds,
   pdfFilesTotal,
   reconcileBreakdownWithTaskTotal,
@@ -161,11 +161,7 @@ export class AdminCollectionOverviewService {
   }
 
   private sortTaskCodes(codes: string[]): string[] {
-    return [...codes].sort((a, b) => {
-      const na = parseInt(a.replace(/\D/g, ''), 10) || 0;
-      const nb = parseInt(b.replace(/\D/g, ''), 10) || 0;
-      return na - nb;
-    });
+    return sortCollectionTaskCodes(codes);
   }
 
   async getTaskColumns(): Promise<TaskColumnDto[]> {
@@ -372,7 +368,7 @@ export class AdminCollectionOverviewService {
         taskIdToCode,
       );
       if (!code) continue;
-      if (!isDeviceBreakdownTask(code) && code !== SLEEP_TASK_CODE) continue;
+      if (!hasNestedBreakdown(code)) continue;
 
       const qid = String(row.questionnaire_id);
       const cell = ensureCell(qid, code);
@@ -1058,7 +1054,7 @@ export class AdminCollectionOverviewService {
       for (const code of Object.keys(counts)) {
         if (
           !deviceBreakdownByTask[code] &&
-          (isDeviceBreakdownTask(code) || code === SLEEP_TASK_CODE)
+          hasNestedBreakdown(code)
         ) {
           deviceBreakdownByTask[code] = emptyBreakdownForTask(code);
         }
