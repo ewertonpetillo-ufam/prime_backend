@@ -27,8 +27,8 @@ const LOGO_MEDIA_PATH = `word/media/${LOGO_FILE_NAME}`;
 const TWIPS_TO_EMU = 635;
 const LOGO_PX_WIDTH = 558;
 const LOGO_PX_HEIGHT = 227;
-/** ~2,5 cm de altura no cabeçalho, proporcional à arte 558×227. */
-const LOGO_HEIGHT_TWIPS = 1400;
+/** ~1,4 cm de altura no cabeçalho, para o dia inteiro caber em uma folha A4. */
+const LOGO_HEIGHT_TWIPS = 800;
 const LOGO_WIDTH_TWIPS = Math.round(
   (LOGO_HEIGHT_TWIPS * LOGO_PX_WIDTH) / LOGO_PX_HEIGHT,
 );
@@ -57,9 +57,9 @@ const MEDICATION_PLACEHOLDERS = [
 ] as const;
 
 const A4_LANDSCAPE_PGSZ = `<w:pgSz w:w="${A4_LANDSCAPE_WIDTH_TWIPS}" w:h="${A4_LANDSCAPE_HEIGHT_TWIPS}" w:orient="landscape"/>`;
-/** ~1 cm nas laterais para o conteúdo não sair da folha. */
+/** Laterais ~1 cm; topo/base mais curtos para a seção 4 não ir para a página seguinte. */
 const A4_LANDSCAPE_PGMAR =
-  '<w:pgMar w:top="454" w:right="567" w:bottom="454" w:left="567" w:header="284" w:footer="284" w:gutter="0"/>';
+  '<w:pgMar w:top="240" w:right="567" w:bottom="80" w:left="567" w:header="0" w:footer="0" w:gutter="0"/>';
 
 export function formatDiaryIssuedDatePt(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -198,6 +198,26 @@ function fitOfficialLayoutToA4(xml: string): string {
     next = next.split(`w:w="${width}"`).join(`w:w="${scaled}"`);
   }
   return next;
+}
+
+/** Compacta o ritmo vertical para um dia = uma página A4 paisagem. */
+function compactDiaryVerticalRhythm(xml: string): string {
+  let next = xml.replace(/w:line="240"/g, 'w:line="200"');
+  next = next.replace(/<w:trHeight w:val="331"\/>/g, '<w:trHeight w:val="250"/>');
+  next = next.replace(/<w:trHeight w:val="288"\/>/g, '<w:trHeight w:val="220"/>');
+  return next;
+}
+
+function keepSection4WithTable(xml: string): string {
+  const marker = xml.indexOf('xml:space="preserve">4. </w:t>');
+  if (marker < 0) return xml;
+  const pStart = lastParagraphStart(xml, marker);
+  if (pStart < 0) return xml;
+  const pPrClose = xml.indexOf('</w:pPr>', pStart);
+  if (pPrClose < 0 || pPrClose > marker) return xml;
+  const head = xml.slice(pStart, pPrClose);
+  if (head.includes('keepNext')) return xml;
+  return `${xml.slice(0, pPrClose)}<w:keepNext/>${xml.slice(pPrClose)}`;
 }
 
 function occupyLogoReservedSpace(xml: string): string {
@@ -375,6 +395,8 @@ export function prepareDiaryTemplateXml(xml: string): string {
   next = fillOfficialIdentityBlanks(next);
   next = fillOfficialMedicationCells(next);
   next = applySection2FontSize(next);
+  next = compactDiaryVerticalRhythm(next);
+  next = keepSection4WithTable(next);
 
   next = insertPlaceholderOnce(
     next,

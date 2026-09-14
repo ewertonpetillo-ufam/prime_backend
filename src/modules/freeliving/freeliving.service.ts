@@ -45,6 +45,7 @@ import {
   toMedicationLabels,
 } from './freeliving-clinical-medications';
 import { buildFreelivingDiaryDocument } from './freeliving-diary-document';
+import { buildFreeLivingDiaryQuestionnaireCsv } from './freeliving-diary-export-csv';
 import {
   DiaryOverviewStatus,
   DIARY_OVERVIEW_STATUSES,
@@ -549,6 +550,30 @@ export class FreelivingService {
         this.resolveDiarySource(diary, events),
         patient,
       ),
+    );
+  }
+
+  async buildDiaryQuestionnaireCsvForPatient(
+    patientId: string | undefined | null,
+    publicIdentifier?: string | null,
+  ): Promise<string> {
+    if (!patientId) {
+      return buildFreeLivingDiaryQuestionnaireCsv([]);
+    }
+    const diaries = await this.diariesRepository.find({
+      where: { patient_id: patientId },
+      order: { protocol_day: 'ASC', diary_date: 'ASC' },
+    });
+    return buildFreeLivingDiaryQuestionnaireCsv(
+      diaries.map((diary) => ({
+        publicIdentifier: publicIdentifier ?? null,
+        diaryDate: toIsoDate(diary.diary_date),
+        protocolDay: diary.protocol_day,
+        status: diary.status,
+        saveCount: diary.save_count,
+        lastSavedAt: diary.last_saved_at,
+        payload: diary.payload,
+      })),
     );
   }
 

@@ -205,6 +205,8 @@ describe('freeliving-diary-document', () => {
     expect(xml).not.toContain('w:w="-3501"');
     expect(xml).toContain('w:right="567"');
     expect(xml).toContain('w:left="567"');
+    expect(xml).toContain('w:bottom="80"');
+    expect(xml).toContain('<w:keepNext/>');
     expect(xml).not.toContain('w:type="fixed"');
     const section2Start = xml.lastIndexOf(
       '<w:p',

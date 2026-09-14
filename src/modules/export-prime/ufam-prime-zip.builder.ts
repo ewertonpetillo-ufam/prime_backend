@@ -8,8 +8,12 @@ import {
   isSelectivePrimeExport,
   buildUfamPatientFolderName,
   getUniqueFilenameUfam,
+  resolveUfamBinaryTaskCode,
+  ufamBinaryZipFolder,
   ufamPrimePdfReportZipPath,
 } from './ufam-prime-dataset.utils';
+import { FREE_LIVING_DIARY_CSV_NAME } from '../freeliving/freeliving-diary-export-csv';
+import { FreelivingService } from '../freeliving/freeliving.service';
 
 /** Acima disso, MinIO → ZIP via stream (evita buffer de centenas de MiB na RAM). */
 const STREAM_PDF_THRESHOLD_BYTES = 10 * 1024 * 1024;
@@ -54,6 +58,7 @@ export async function appendUfamBulkPatientToArchive(
     onPdfError?: (reportId: string, message: string) => void;
     onBinaryError?: (collectionId: string, message: string) => void;
     selective?: UfamBulkSelectiveOptions;
+    freelivingService?: FreelivingService;
   },
 ): Promise<string> {
   const questionnaire = item?.questionnaire;
@@ -71,6 +76,9 @@ export async function appendUfamBulkPatientToArchive(
     : true;
   const includeSleepCsv = selectiveMode
     ? selective.includeSleepQuestionnaires === true
+    : true;
+  const includeFreeLivingCsv = selectiveMode
+    ? selective.includeFreeLivingQuestionnaires === true
     : true;
 
   const csvFiles = item?.csvFiles ?? {};
@@ -91,6 +99,16 @@ export async function appendUfamBulkPatientToArchive(
   if (includeSleepCsv) {
     archive.append(csvFiles.sleepAssessment ?? '', {
       name: `${folderName}/04_Sleep_Assessment.csv`,
+    });
+  }
+  if (includeFreeLivingCsv && deps.freelivingService) {
+    const patientId = patient?.id ?? questionnaire?.patient_id ?? questionnaire?.patientId;
+    const csv = await deps.freelivingService.buildDiaryQuestionnaireCsvForPatient(
+      patientId,
+      publicIdentifier,
+    );
+    archive.append(csv, {
+      name: `${folderName}/${FREE_LIVING_DIARY_CSV_NAME}`,
     });
   }
 
@@ -145,7 +163,7 @@ export async function appendUfamBulkPatientToArchive(
     const collection = binaryCollections[index];
     if (!collection?.id) continue;
 
-    const taskCode = normalizeTaskCode(collection.active_task?.task_code);
+    const taskCode = resolveUfamBinaryTaskCode(collection);
     if (allowedTaskCodes) {
       if (!taskCode || !allowedTaskCodes.has(taskCode)) {
         continue;
@@ -154,8 +172,9 @@ export async function appendUfamBulkPatientToArchive(
 
     try {
       const { buffer, filename } = await deps.binaryCollectionsService.downloadCsv(collection.id);
+      const destFolder = ufamBinaryZipFolder(taskCode);
       archive.append(buffer, {
-        name: `${folderName}/Active_Tasks/${filename}`,
+        name: `${folderName}/${destFolder}/${filename}`,
       });
     } catch (err) {
       deps.onBinaryError?.(

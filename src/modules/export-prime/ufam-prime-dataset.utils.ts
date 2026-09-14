@@ -10,25 +10,32 @@ import { samsungPdfReportDataPath } from '../samsung-sync/samsung-dataset.utils'
  *     ├── 03_Speech_Therapy_Assessment.csv
  *     ├── 04_Sleep_Assessment.csv
  *     ├── 05_Physiotherapy_Assessment.csv
+ *     ├── 06_Free_Living_Diary.csv
  *     ├── Clinic|Sleep/{Baiobit|EMG|PSG|Ring}/relatorio.pdf
- *     └── Active_Tasks/{arquivos de coleta}
+ *     ├── Active_Tasks/{arquivos de coleta}
+ *     └── FreeLiving/{FL01|FL02}/{arquivos}
  */
 
 export type ExportPrimePdfType = 'BIOBIT' | 'DELSYS' | 'POLYSOMNOGRAPHY';
 
+export const FREE_LIVING_EXPORT_TASK_CODES = ['FL01', 'FL02'] as const;
+
 export interface ExportPrimeSelectiveFilters {
   includeClinicalQuestionnaires?: boolean;
   includeSleepQuestionnaires?: boolean;
+  includeFreeLivingQuestionnaires?: boolean;
   taskCodes?: string[];
   pdfTypes?: ExportPrimePdfType[];
   /**
    * Quando true (Baixar todos):
    * - Sono: só pacientes com TA13
-   * - Clínico: só pacientes com alguma TA clínica (≠ TA13)
+   * - Clínico: só pacientes com alguma TA clínica (≠ TA13, ≠ FL)
+   * - Free Living: só pacientes com FL01/FL02 ou diário
    */
   onlyPatientsWithTaskData?: boolean;
   requireSleepTa13?: boolean;
   requireAnyClinicalTask?: boolean;
+  requireFreeLiving?: boolean;
 }
 
 /** True quando o request pede export filtrado (não o ZIP completo legado). */
@@ -38,6 +45,7 @@ export function isSelectivePrimeExport(
   return (
     filters.includeClinicalQuestionnaires !== undefined ||
     filters.includeSleepQuestionnaires !== undefined ||
+    filters.includeFreeLivingQuestionnaires !== undefined ||
     filters.taskCodes !== undefined ||
     filters.pdfTypes !== undefined
   );
@@ -50,16 +58,45 @@ export function resolvePrimeZipName(filters: ExportPrimeSelectiveFilters): strin
 
   const hasClinic =
     filters.includeClinicalQuestionnaires === true ||
-    (filters.taskCodes?.some((c) => c.toUpperCase() !== 'TA13') ?? false) ||
+    (filters.taskCodes?.some((c) => {
+      const code = c.toUpperCase();
+      return code !== 'TA13' && code !== 'FL01' && code !== 'FL02';
+    }) ?? false) ||
     (filters.pdfTypes?.some((t) => t === 'BIOBIT' || t === 'DELSYS') ?? false);
   const hasSleep =
     filters.includeSleepQuestionnaires === true ||
     (filters.taskCodes?.some((c) => c.toUpperCase() === 'TA13') ?? false) ||
     (filters.pdfTypes?.includes('POLYSOMNOGRAPHY') ?? false);
+  const hasFreeLiving =
+    filters.includeFreeLivingQuestionnaires === true ||
+    (filters.taskCodes?.some((c) =>
+      FREE_LIVING_EXPORT_TASK_CODES.includes(c.toUpperCase() as 'FL01' | 'FL02'),
+    ) ?? false);
 
-  if (hasClinic && !hasSleep) return 'Dados_Clinicos.zip';
-  if (hasSleep && !hasClinic) return 'Dados_Sono.zip';
+  const kinds = [hasClinic, hasSleep, hasFreeLiving].filter(Boolean).length;
+  if (kinds === 1 && hasClinic) return 'Dados_Clinicos.zip';
+  if (kinds === 1 && hasSleep) return 'Dados_Sono.zip';
+  if (kinds === 1 && hasFreeLiving) return 'Dados_FreeLiving.zip';
   return 'Dados_Selecionados.zip';
+}
+
+export function resolveUfamBinaryTaskCode(collection: {
+  active_task?: { task_code?: string | null };
+  metadata?: { task_code?: string | null } | null;
+}): string {
+  const fromTask = collection.active_task?.task_code;
+  const fromMeta = collection.metadata?.task_code;
+  return String(fromTask || fromMeta || '')
+    .trim()
+    .toUpperCase();
+}
+
+export function ufamBinaryZipFolder(taskCode: string): string {
+  const code = (taskCode || '').trim().toUpperCase();
+  if (code === 'FL01' || code === 'FL02') {
+    return `FreeLiving/${code}`;
+  }
+  return 'Active_Tasks';
 }
 
 /** PDFs no ZIP UFAM/PRIME: Clinic|Sleep/{device}/... */
