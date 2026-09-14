@@ -1,4 +1,18 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Put,
+  Query,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -7,6 +21,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AdminRoleGuard } from '../../common/guards/admin-role.guard';
+import { isUUID } from 'class-validator';
+import { AdminUpsertFreelivingDiaryDto } from './dto/admin-upsert-freeliving-diary.dto';
 import { FreelivingService } from './freeliving.service';
 
 @ApiTags('Admin - FreeLiving')
@@ -82,6 +98,105 @@ export class AdminFreelivingController {
       hasFl02,
       onlyWithActivity,
       diaryStatus,
+    });
+  }
+
+  @Get('patients/search')
+  @ApiOperation({
+    summary: 'Busca pacientes para o diário Free Living',
+    description: 'Nome, CPF (dígitos) ou identificador público. Inclui medicamentos clínicos.',
+  })
+  @ApiQuery({ name: 'term', required: false })
+  searchPatients(@Query('term') term?: string) {
+    return this.freelivingService.searchPatientsForDiary(term);
+  }
+
+  @Get('diaries')
+  @ApiOperation({
+    summary: 'Lista diários Free Living',
+    description:
+      'Sem patientId: todos os diários paginados. Com patientId: diários daquele paciente.',
+  })
+  @ApiQuery({ name: 'patientId', required: false })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'pageSize', required: false })
+  @ApiQuery({ name: 'term', required: false })
+  @ApiQuery({ name: 'source', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  async listDiaries(
+    @Query('patientId') patientId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('term') term?: string,
+    @Query('source') source?: string,
+    @Query('status') status?: string,
+  ) {
+    const parsedPage = Number.parseInt(page || '1', 10);
+    const parsedSize = Number.parseInt(pageSize || '20', 10);
+    const trimmed = patientId?.trim();
+    const sourceFilter =
+      source === 'app' || source === 'admin' ? source : undefined;
+    const statusFilter = status?.trim().toLowerCase();
+    if (!trimmed) {
+      return this.freelivingService.listRecentDiaries({
+        page: parsedPage,
+        pageSize: parsedSize,
+        term,
+        source: sourceFilter,
+        status: statusFilter,
+      });
+    }
+    if (!isUUID(trimmed)) {
+      throw new BadRequestException('patientId inválido');
+    }
+    const items = await this.freelivingService.listDiariesByPatient(trimmed);
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: items.length || parsedSize,
+    };
+  }
+
+  @Put('diaries')
+  @ApiOperation({
+    summary: 'Cria ou atualiza o diário Free Living pelo painel admin',
+  })
+  upsertDiary(@Body() dto: AdminUpsertFreelivingDiaryDto) {
+    return this.freelivingService.upsertDiaryByPatientId(dto);
+  }
+
+  @Get('diaries/:id')
+  @ApiOperation({ summary: 'Obtém um diário pelo id' })
+  @ApiParam({ name: 'id', description: 'UUID do diário' })
+  getDiary(@Param('id', ParseUUIDPipe) id: string) {
+    return this.freelivingService.getDiaryById(id);
+  }
+
+  @Delete('diaries/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Exclui um diário cadastrado' })
+  @ApiParam({ name: 'id', description: 'UUID do diário' })
+  deleteDiary(@Param('id', ParseUUIDPipe) id: string) {
+    return this.freelivingService.deleteDiary(id);
+  }
+
+  @Get('patients/:patientId/diary-document')
+  @ApiOperation({
+    summary: 'Gera o formulário do diário em 7 vias (DOCX)',
+    description:
+      'Layout do modelo oficial, com identificação e medicamentos do questionário clínico.',
+  })
+  @ApiParam({ name: 'patientId', description: 'UUID do paciente' })
+  async downloadDiaryDocument(
+    @Param('patientId', ParseUUIDPipe) patientId: string,
+  ) {
+    const { buffer, fileName } =
+      await this.freelivingService.buildDiaryDocumentForPatient(patientId);
+    const asciiName = fileName.replace(/[^\x20-\x7E]/g, '_');
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      disposition: `attachment; filename="${asciiName}"`,
     });
   }
 

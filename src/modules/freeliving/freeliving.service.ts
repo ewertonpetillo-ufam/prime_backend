@@ -4,16 +4,32 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { BinaryCollection } from '../../entities/binary-collection.entity';
 import { FreelivingActionType } from '../../entities/freeliving-action-type.entity';
 import { FreelivingCollectionEvent } from '../../entities/freeliving-collection-event.entity';
 import { FreelivingDiary } from '../../entities/freeliving-diary.entity';
+import { MedicationReference } from '../../entities/medication-reference.entity';
 import { Patient } from '../../entities/patient.entity';
+import { PatientMedication } from '../../entities/patient-medication.entity';
+import { Questionnaire } from '../../entities/questionnaire.entity';
 import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
 import { CryptoUtil } from '../../utils/crypto.util';
 import { FREE_LIVING_PROTOCOL_TASK_CODES } from '../admin-collection-overview/expected-binary-files.constants';
 import { CreateFreelivingEventDto } from './dto/create-freeliving-event.dto';
+import {
+  FreelivingDiaryEditorDto,
+  FreelivingDiaryListItemDto,
+  FreelivingDiaryListResponseDto,
+  FreelivingDiaryPatientSearchDto,
+} from './dto/admin-freeliving-diary.dto';
+import { AdminUpsertFreelivingDiaryDto } from './dto/admin-upsert-freeliving-diary.dto';
 import {
   FreelivingDiaryDto,
   FreelivingEventDto,
@@ -24,9 +40,16 @@ import {
 } from './dto/freeliving-overview.dto';
 import { UpsertFreelivingDiaryDto } from './dto/upsert-freeliving-diary.dto';
 import {
+  ClinicalMedicationSlot,
+  mapMedicationRows,
+  toMedicationLabels,
+} from './freeliving-clinical-medications';
+import { buildFreelivingDiaryDocument } from './freeliving-diary-document';
+import {
   DiaryOverviewStatus,
   DIARY_OVERVIEW_STATUSES,
   FreelivingDiaryGap,
+  FreelivingDiaryStatus,
 } from './freeliving-diary.types';
 import {
   computeDiaryGaps,
@@ -70,6 +93,19 @@ export type FreelivingOverviewQuery = {
   hasFl02?: string;
   onlyWithActivity?: string;
   diaryStatus?: string;
+};
+
+type SaveDiaryParams = {
+  protocol_day: number;
+  diary_date?: string;
+  occurred_at?: string;
+  client_diary_id?: string;
+  device_type?: string;
+  device_model?: string;
+  os_version?: string;
+  app_version?: string;
+  payload: Record<string, unknown>;
+  source?: string;
 };
 
 type EventAggRow = {
@@ -126,6 +162,16 @@ function toIsoDateTime(value: Date | string | null | undefined): string | null {
   return date.toISOString();
 }
 
+function parseDiaryFilterDate(term: string): string | null {
+  const trimmed = term.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const br = trimmed.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  if (!br) return null;
+  const day = br[1].padStart(2, '0');
+  const month = br[2].padStart(2, '0');
+  return `${br[3]}-${month}-${day}`;
+}
+
 function normalizeTaskCode(value: string | null | undefined): string {
   return (value || '').trim().toUpperCase();
 }
@@ -145,6 +191,10 @@ export class FreelivingService {
     private readonly patientsRepository: Repository<Patient>,
     @InjectRepository(BinaryCollection)
     private readonly binaryCollectionsRepository: Repository<BinaryCollection>,
+    @InjectRepository(Questionnaire)
+    private readonly questionnairesRepository: Repository<Questionnaire>,
+    @InjectRepository(PatientMedication)
+    private readonly patientMedicationsRepository: Repository<PatientMedication>,
   ) {}
 
   async createEvent(
@@ -237,12 +287,6 @@ export class FreelivingService {
       throw new BadRequestException('diary_date deve ser YYYY-MM-DD');
     }
 
-    const occurredAt = dto.occurred_at ? new Date(dto.occurred_at) : new Date();
-    if (Number.isNaN(occurredAt.getTime())) {
-      throw new BadRequestException('occurred_at inválido');
-    }
-
-    const diaryDate = dto.diary_date || todayInSaoPaulo();
     const cpfHash = CryptoUtil.hashCpf(dto.patient_cpf);
     const patient = await this.patientsRepository.findOne({
       where: { cpf_hash: cpfHash },
@@ -250,6 +294,48 @@ export class FreelivingService {
     if (!patient) {
       throw new NotFoundException('Patient with this CPF not found');
     }
+
+    return this.saveDiaryForPatient(patient, {
+      protocol_day: dto.protocol_day,
+      diary_date: dto.diary_date,
+      occurred_at: dto.occurred_at,
+      client_diary_id: dto.client_diary_id,
+      device_type: dto.device_type,
+      device_model: dto.device_model,
+      os_version: dto.os_version,
+      app_version: dto.app_version,
+      payload: dto.payload,
+      source: 'collection_app',
+    });
+  }
+
+  async upsertDiaryByPatientId(
+    dto: AdminUpsertFreelivingDiaryDto,
+  ): Promise<FreelivingDiaryDto> {
+    if (!isIsoDateOnly(dto.diary_date)) {
+      throw new BadRequestException('diary_date deve ser YYYY-MM-DD');
+    }
+    const patient = await this.requireActivePatient(dto.patientId);
+    return this.saveDiaryForPatient(patient, {
+      protocol_day: dto.protocol_day,
+      diary_date: dto.diary_date,
+      payload: dto.payload,
+      device_type: 'admin_manual',
+      source: 'admin_manual',
+    });
+  }
+
+  private async saveDiaryForPatient(
+    patient: Patient,
+    dto: SaveDiaryParams,
+  ): Promise<FreelivingDiaryDto> {
+    const occurredAt = dto.occurred_at ? new Date(dto.occurred_at) : new Date();
+    if (Number.isNaN(occurredAt.getTime())) {
+      throw new BadRequestException('occurred_at inválido');
+    }
+
+    const diaryDate = dto.diary_date || todayInSaoPaulo();
+    const cpfHash = patient.cpf_hash;
 
     return this.dataSource.transaction(async (manager) => {
       const diariesRepo = manager.getRepository(FreelivingDiary);
@@ -340,6 +426,7 @@ export class FreelivingService {
         saveCount: saved.save_count,
         gapCount: gaps.length,
       };
+      const source = dto.source || 'collection_app';
 
       if (isFirstSave) {
         await this.recordDiaryMilestone(manager, {
@@ -349,6 +436,7 @@ export class FreelivingService {
           occurredAt,
           collectionDate: diaryDate,
           metadata: eventMeta,
+          source,
           ...deviceMeta,
         });
       }
@@ -360,6 +448,7 @@ export class FreelivingService {
           occurredAt,
           collectionDate: diaryDate,
           metadata: eventMeta,
+          source,
           ...deviceMeta,
         });
       }
@@ -392,6 +481,210 @@ export class FreelivingService {
       throw new NotFoundException('Diário não encontrado para esta data');
     }
     return this.toDiaryDto(diary);
+  }
+
+  async searchPatientsForDiary(
+    term?: string,
+  ): Promise<FreelivingDiaryPatientSearchDto[]> {
+    const qb = this.patientsRepository
+      .createQueryBuilder('p')
+      .select(['p.id', 'p.full_name', 'p.cpf', 'p.public_identifier'])
+      .where(
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excluded))',
+        { excluded: [...EXCLUDED_FREELIVING_PUBLIC_IDS] },
+      )
+      .orderBy('p.full_name', 'ASC')
+      .take(20);
+
+    const trimmed = (term || '').trim();
+    if (trimmed) {
+      const termDigits = trimmed.replace(/\D/g, '');
+      const termCompact = trimmed.replace(/\s/g, '');
+      const conditions = ['LOWER(p.full_name) LIKE LOWER(:term)'];
+      const params: Record<string, string> = { term: `%${trimmed}%` };
+      if (termCompact.length > 0) {
+        params.pidTerm = `%${termCompact}%`;
+        conditions.push("COALESCE(p.public_identifier, '') ILIKE :pidTerm");
+      }
+      if (termDigits.length > 0) {
+        params.cpfDigitsTerm = `%${termDigits}%`;
+        conditions.push("COALESCE(p.cpf, '') LIKE :cpfDigitsTerm");
+      }
+      qb.andWhere(`(${conditions.join(' OR ')})`, params);
+    }
+
+    const patients = await qb.getMany();
+    const results: FreelivingDiaryPatientSearchDto[] = [];
+    for (const patient of patients) {
+      const meds = await this.getClinicalMedications(patient.id);
+      results.push({
+        patientId: patient.id,
+        fullName: patient.full_name,
+        cpf: patient.cpf || '',
+        publicIdentifier: patient.public_identifier,
+        medications: meds.slots,
+        extraMedicationCount: meds.extraCount,
+      });
+    }
+    return results;
+  }
+
+  async listDiariesByPatient(
+    patientId: string,
+  ): Promise<FreelivingDiaryListItemDto[]> {
+    const patient = await this.requireActivePatient(patientId);
+    const diaries = await this.diariesRepository.find({
+      where: { patient_id: patientId },
+      order: { diary_date: 'DESC', protocol_day: 'ASC' },
+    });
+    const events = await this.eventsRepository.find({
+      where: {
+        patient_id: patientId,
+        action_code: In([ACTION_DIARY_STARTED, ACTION_DIARY_SUBMITTED]),
+      },
+    });
+    return diaries.map((diary) =>
+      this.toDiaryListItemDto(
+        diary,
+        this.resolveDiarySource(diary, events),
+        patient,
+      ),
+    );
+  }
+
+  async listRecentDiaries(query?: {
+    page?: number;
+    pageSize?: number;
+    term?: string;
+    source?: 'app' | 'admin';
+    status?: string;
+  }): Promise<FreelivingDiaryListResponseDto> {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(query?.pageSize) || 20));
+    const qb = this.diariesRepository
+      .createQueryBuilder('d')
+      .innerJoinAndSelect('d.patient', 'p')
+      .where(
+        '(p.public_identifier IS NULL OR UPPER(TRIM(p.public_identifier)) NOT IN (:...excluded))',
+        { excluded: [...EXCLUDED_FREELIVING_PUBLIC_IDS] },
+      )
+      .orderBy('d.last_saved_at', 'DESC')
+      .addOrderBy('d.diary_date', 'DESC');
+    this.applyDiaryListFilters(qb, query);
+
+    const total = await qb.clone().getCount();
+    const diaries = await qb
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getMany();
+
+    if (diaries.length === 0) {
+      return { items: [], total, page, pageSize };
+    }
+
+    const events = await this.eventsRepository.find({
+      where: {
+        patient_id: In(diaries.map((diary) => diary.patient_id)),
+        action_code: In([ACTION_DIARY_STARTED, ACTION_DIARY_SUBMITTED]),
+      },
+    });
+    const eventsByPatient = new Map<string, FreelivingCollectionEvent[]>();
+    for (const event of events) {
+      const list = eventsByPatient.get(event.patient_id) ?? [];
+      list.push(event);
+      eventsByPatient.set(event.patient_id, list);
+    }
+    return {
+      items: diaries.map((diary) =>
+        this.toDiaryListItemDto(
+          diary,
+          this.resolveDiarySource(
+            diary,
+            eventsByPatient.get(diary.patient_id) ?? [],
+          ),
+          diary.patient,
+        ),
+      ),
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  async getDiaryById(id: string): Promise<FreelivingDiaryEditorDto> {
+    const diary = await this.diariesRepository.findOne({ where: { id } });
+    if (!diary) {
+      throw new NotFoundException('Diário não encontrado');
+    }
+    const patient = await this.requireActivePatient(diary.patient_id);
+    return {
+      ...this.toDiaryDto(diary),
+      patientId: patient.id,
+      patientName: patient.full_name,
+      publicIdentifier: patient.public_identifier,
+    };
+  }
+
+  async deleteDiary(id: string): Promise<void> {
+    const diary = await this.diariesRepository.findOne({ where: { id } });
+    if (!diary) {
+      throw new NotFoundException('Diário não encontrado');
+    }
+    await this.requireActivePatient(diary.patient_id);
+    await this.diariesRepository.delete(diary.id);
+  }
+
+  async buildDiaryDocumentForPatient(patientId: string): Promise<{
+    buffer: Buffer;
+    fileName: string;
+  }> {
+    const patient = await this.requireActivePatient(patientId);
+    const meds = await this.getClinicalMedications(patient.id);
+    return buildFreelivingDiaryDocument({
+      patientName: patient.full_name,
+      publicIdentifier: patient.public_identifier,
+      cpf: patient.cpf,
+      medications: toMedicationLabels(meds.slots),
+    });
+  }
+
+  async getClinicalMedications(patientId: string): Promise<{
+    slots: ClinicalMedicationSlot[];
+    extraCount: number;
+  }> {
+    const questionnaire = await this.questionnairesRepository
+      .createQueryBuilder('q')
+      .select(['q.id'])
+      .where('q.patient_id = :patientId', { patientId })
+      .orderBy('q.free_living_test_recommended', 'DESC')
+      .addOrderBy('q.completed_at', 'DESC', 'NULLS LAST')
+      .addOrderBy('q.updated_at', 'DESC')
+      .limit(1)
+      .getOne();
+
+    if (!questionnaire) {
+      return { slots: [], extraCount: 0 };
+    }
+
+    const rows = await this.patientMedicationsRepository
+      .createQueryBuilder('pm')
+      .innerJoin(MedicationReference, 'mr', 'mr.id = pm.medication_id')
+      .select([
+        'pm.dose_mg AS dose_mg',
+        'pm.doses_per_day AS doses_per_day',
+        'mr.drug_name AS drug_name',
+      ])
+      .where('pm.questionnaire_id = :questionnaireId', {
+        questionnaireId: questionnaire.id,
+      })
+      .orderBy('pm.created_at', 'ASC')
+      .getRawMany<{
+        dose_mg: string | number | null;
+        doses_per_day: string | number | null;
+        drug_name: string | null;
+      }>();
+
+    return mapMedicationRows(rows);
   }
 
   async getOverview(
@@ -1014,6 +1307,117 @@ export class FreelivingService {
     };
   }
 
+  private async requireActivePatient(patientId: string): Promise<Patient> {
+    const patient = await this.patientsRepository.findOne({
+      where: { id: patientId },
+    });
+    if (!patient || isExcludedFreelivingPublicId(patient.public_identifier)) {
+      throw new NotFoundException('Paciente não encontrado');
+    }
+    return patient;
+  }
+
+  private applyDiaryListFilters(
+    qb: SelectQueryBuilder<FreelivingDiary>,
+    query?: {
+      term?: string;
+      source?: 'app' | 'admin';
+      status?: string;
+    },
+  ): void {
+    const status = (query?.status || '').trim().toLowerCase();
+    if (status === 'completo' || status === 'rascunho') {
+      qb.andWhere('d.status = :status', {
+        status: status as FreelivingDiaryStatus,
+      });
+    }
+
+    const source = query?.source;
+    if (source === 'app') {
+      qb.andWhere(
+        "(d.client_diary_id IS NOT NULL AND TRIM(d.client_diary_id) <> '')",
+      );
+    } else if (source === 'admin') {
+      qb.andWhere(
+        "(d.client_diary_id IS NULL OR TRIM(d.client_diary_id) = '')",
+      );
+    }
+
+    const trimmed = (query?.term || '').trim();
+    if (!trimmed) return;
+
+    const termDigits = trimmed.replace(/\D/g, '');
+    const termCompact = trimmed.replace(/\s/g, '');
+    const conditions = [
+      'LOWER(p.full_name) LIKE LOWER(:term)',
+      "to_char(d.diary_date, 'YYYY-MM-DD') LIKE :term",
+      "to_char(d.diary_date, 'DD/MM/YYYY') LIKE :term",
+      'CAST(d.protocol_day AS TEXT) LIKE :term',
+    ];
+    const params: Record<string, string> = { term: `%${trimmed}%` };
+
+    if (termCompact.length > 0) {
+      params.pidTerm = `%${termCompact}%`;
+      conditions.push("COALESCE(p.public_identifier, '') ILIKE :pidTerm");
+    }
+    if (termDigits.length > 0) {
+      params.cpfDigitsTerm = `%${termDigits}%`;
+      conditions.push("COALESCE(p.cpf, '') LIKE :cpfDigitsTerm");
+    }
+
+    const isoDate = parseDiaryFilterDate(trimmed);
+    if (isoDate) {
+      params.isoDate = isoDate;
+      conditions.push('CAST(d.diary_date AS TEXT) = :isoDate');
+    }
+
+    qb.andWhere(`(${conditions.join(' OR ')})`, params);
+  }
+
+  private resolveDiarySource(
+    diary: FreelivingDiary,
+    events: FreelivingCollectionEvent[],
+  ): 'app' | 'admin' {
+    let sawApp = false;
+    let sawAdmin = false;
+    for (const event of events) {
+      const metaId =
+        event.metadata && typeof event.metadata.diaryId === 'string'
+          ? event.metadata.diaryId
+          : null;
+      if (metaId !== diary.id) continue;
+      if (event.source === 'admin_manual') sawAdmin = true;
+      else sawApp = true;
+    }
+    if (sawApp) return 'app';
+    if (sawAdmin) return 'admin';
+    return diary.client_diary_id ? 'app' : 'admin';
+  }
+
+  private toDiaryListItemDto(
+    diary: FreelivingDiary,
+    source: 'app' | 'admin' = 'admin',
+    patient?: Patient,
+  ): FreelivingDiaryListItemDto {
+    const gaps = Array.isArray(diary.gaps) ? diary.gaps : [];
+    const summary = diarySectionSummary(gaps);
+    return {
+      id: diary.id,
+      diaryDate: toIsoDate(diary.diary_date),
+      protocolDay: diary.protocol_day,
+      status: diary.status,
+      gapCount: gaps.length,
+      filledSectionCount: summary.filledSectionCount,
+      sectionCount: summary.sectionCount,
+      saveCount: diary.save_count,
+      lastSavedAt: toIsoDateTime(diary.last_saved_at) || new Date().toISOString(),
+      source,
+      patientId: patient?.id ?? diary.patient_id,
+      patientName: patient?.full_name,
+      publicIdentifier: patient?.public_identifier ?? null,
+    };
+  }
+
   private async recordDiaryMilestone(
     manager: EntityManager,
     params: {
@@ -1023,6 +1427,7 @@ export class FreelivingService {
       occurredAt: Date;
       collectionDate: string;
       metadata: Record<string, unknown>;
+      source?: string;
       device_type: string | null;
       device_model: string | null;
       os_version: string | null;
@@ -1058,7 +1463,7 @@ export class FreelivingService {
       received_at: new Date(),
       collection_date: params.collectionDate,
       client_event_id: clientEventId,
-      source: 'collection_app',
+      source: params.source || 'collection_app',
       device_type: params.device_type,
       device_model: params.device_model,
       os_version: params.os_version,
