@@ -4,6 +4,7 @@ import { EXPORT_PRIME_QUEUE } from '../queues/queues.module';
 import { QuestionnairesModule } from '../questionnaires/questionnaires.module';
 import { BinaryCollectionsModule } from '../binary-collections/binary-collections.module';
 import { StorageModule } from '../storage/storage.module';
+import { FreelivingModule } from '../freeliving/freeliving.module';
 import { ExportPrimeController } from './export-prime.controller';
 import { ExportPrimeProcessor } from './export-prime.processor';
 
@@ -13,6 +14,7 @@ import { ExportPrimeProcessor } from './export-prime.processor';
     QuestionnairesModule,
     BinaryCollectionsModule,
     StorageModule,
+    FreelivingModule,
   ],
   controllers: [ExportPrimeController],
   providers: [ExportPrimeProcessor],

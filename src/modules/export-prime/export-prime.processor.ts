@@ -7,6 +7,7 @@ import { EXPORT_PRIME_QUEUE } from '../queues/queues.module';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';
 import { MinioStorageService } from '../storage/minio-storage.service';
 import { BinaryCollectionsService } from '../binary-collections/binary-collections.service';
+import { FreelivingService } from '../freeliving/freeliving.service';
 import { ExportPrimeRequestDto } from './export-prime.controller';
 import { resolvePrimeZipName } from './ufam-prime-dataset.utils';
 import { appendUfamBulkPatientToArchive } from './ufam-prime-zip.builder';
@@ -29,6 +30,7 @@ export class ExportPrimeProcessor extends WorkerHost {
     private readonly questionnairesService: QuestionnairesService,
     private readonly minioService: MinioStorageService,
     private readonly binaryCollectionsService: BinaryCollectionsService,
+    private readonly freelivingService: FreelivingService,
   ) {
     super();
   }
@@ -108,9 +110,11 @@ export class ExportPrimeProcessor extends WorkerHost {
         const folderName = await appendUfamBulkPatientToArchive(archive, item, {
           minioService: this.minioService,
           binaryCollectionsService: this.binaryCollectionsService,
+          freelivingService: this.freelivingService,
           selective: {
             includeClinicalQuestionnaires: filters.includeClinicalQuestionnaires,
             includeSleepQuestionnaires: filters.includeSleepQuestionnaires,
+            includeFreeLivingQuestionnaires: filters.includeFreeLivingQuestionnaires,
             taskCodes: filters.taskCodes,
             pdfTypes: filters.pdfTypes,
           },

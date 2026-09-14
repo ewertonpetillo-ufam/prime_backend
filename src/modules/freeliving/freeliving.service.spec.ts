@@ -7,6 +7,8 @@ import { FreelivingActionType } from '../../entities/freeliving-action-type.enti
 import { FreelivingCollectionEvent } from '../../entities/freeliving-collection-event.entity';
 import { FreelivingDiary } from '../../entities/freeliving-diary.entity';
 import { Patient } from '../../entities/patient.entity';
+import { PatientMedication } from '../../entities/patient-medication.entity';
+import { Questionnaire } from '../../entities/questionnaire.entity';
 import { CryptoUtil } from '../../utils/crypto.util';
 import { FreelivingService } from './freeliving.service';
 import { emptyDiaryPayload } from './freeliving-diary.utils';
@@ -80,8 +82,16 @@ describe('FreelivingService.createEvent', () => {
   };
   const diariesRepo = {
     findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    delete: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const questionnairesRepo = {
+    createQueryBuilder: jest.fn(),
+  };
+  const patientMedicationsRepo = {
     createQueryBuilder: jest.fn(),
   };
   const dataSource = {
@@ -121,6 +131,14 @@ describe('FreelivingService.createEvent', () => {
         {
           provide: getRepositoryToken(FreelivingDiary),
           useValue: diariesRepo,
+        },
+        {
+          provide: getRepositoryToken(Questionnaire),
+          useValue: questionnairesRepo,
+        },
+        {
+          provide: getRepositoryToken(PatientMedication),
+          useValue: patientMedicationsRepo,
         },
         { provide: 'DataSource', useValue: dataSource },
       ],
@@ -397,8 +415,16 @@ describe('FreelivingService.upsertDiary', () => {
   };
   const diariesRepo = {
     findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    delete: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const questionnairesRepo = {
+    createQueryBuilder: jest.fn(),
+  };
+  const patientMedicationsRepo = {
     createQueryBuilder: jest.fn(),
   };
   const dataSource = {
@@ -438,6 +464,14 @@ describe('FreelivingService.upsertDiary', () => {
         {
           provide: getRepositoryToken(FreelivingDiary),
           useValue: diariesRepo,
+        },
+        {
+          provide: getRepositoryToken(Questionnaire),
+          useValue: questionnairesRepo,
+        },
+        {
+          provide: getRepositoryToken(PatientMedication),
+          useValue: patientMedicationsRepo,
         },
         { provide: 'DataSource', useValue: dataSource },
       ],
@@ -591,3 +625,322 @@ describe('FreelivingService.upsertDiary', () => {
     expect(eventsRepo.save).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('FreelivingService admin diary', () => {
+  let service: FreelivingService;
+
+  const eventsRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+  const actionTypesRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+  };
+  const patientsRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const binaryRepo = {
+    createQueryBuilder: jest.fn(),
+  };
+  const diariesRepo = {
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    delete: jest.fn(),
+    createQueryBuilder: jest.fn(),
+  };
+  const questionnairesRepo = {
+    createQueryBuilder: jest.fn(),
+  };
+  const patientMedicationsRepo = {
+    createQueryBuilder: jest.fn(),
+  };
+  const dataSource = {
+    transaction: jest.fn(async (cb: (manager: unknown) => unknown) =>
+      cb({
+        getRepository: (entity: unknown) => {
+          if (entity === FreelivingDiary) return diariesRepo;
+          if (entity === FreelivingCollectionEvent) return eventsRepo;
+          if (entity === FreelivingActionType) return actionTypesRepo;
+          return {};
+        },
+      }),
+    ),
+  };
+
+  function chainQb(result: Record<string, unknown>) {
+    const qb = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      innerJoin: jest.fn().mockReturnThis(),
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      clone: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(result.getCount ?? 0),
+      getMany: jest.fn().mockResolvedValue(result.getMany ?? []),
+      getOne: jest.fn().mockResolvedValue(result.getOne ?? null),
+      getRawMany: jest.fn().mockResolvedValue(result.getRawMany ?? []),
+    };
+    return qb;
+  }
+
+  beforeEach(async () => {
+    CryptoUtil.setConfigService({
+      get: jest.fn().mockReturnValue('test-hmac-secret'),
+    } as unknown as ConfigService);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        FreelivingService,
+        {
+          provide: getRepositoryToken(FreelivingCollectionEvent),
+          useValue: eventsRepo,
+        },
+        {
+          provide: getRepositoryToken(FreelivingActionType),
+          useValue: actionTypesRepo,
+        },
+        { provide: getRepositoryToken(Patient), useValue: patientsRepo },
+        {
+          provide: getRepositoryToken(BinaryCollection),
+          useValue: binaryRepo,
+        },
+        {
+          provide: getRepositoryToken(FreelivingDiary),
+          useValue: diariesRepo,
+        },
+        {
+          provide: getRepositoryToken(Questionnaire),
+          useValue: questionnairesRepo,
+        },
+        {
+          provide: getRepositoryToken(PatientMedication),
+          useValue: patientMedicationsRepo,
+        },
+        { provide: 'DataSource', useValue: dataSource },
+      ],
+    }).compile();
+
+    service = module.get(FreelivingService);
+    jest.clearAllMocks();
+    eventsRepo.find.mockResolvedValue([]);
+    dataSource.transaction.mockImplementation(
+      async (cb: (manager: unknown) => unknown) =>
+        cb({
+          getRepository: (entity: unknown) => {
+            if (entity === FreelivingDiary) return diariesRepo;
+            if (entity === FreelivingCollectionEvent) return eventsRepo;
+            if (entity === FreelivingActionType) return actionTypesRepo;
+            return {};
+          },
+        }),
+    );
+  });
+
+  it('busca paciente e mapeia até 5 medicamentos clínicos', async () => {
+    const patientQb = chainQb({
+      getMany: [
+        {
+          id: 'patient-1',
+          full_name: 'Maria',
+          cpf: '52998224725',
+          public_identifier: 'P010',
+        },
+      ],
+    });
+    patientsRepo.createQueryBuilder.mockReturnValue(patientQb);
+    questionnairesRepo.createQueryBuilder.mockReturnValue(
+      chainQb({ getOne: { id: 'q-1' } }),
+    );
+    patientMedicationsRepo.createQueryBuilder.mockReturnValue(
+      chainQb({
+        getRawMany: [
+          { drug_name: 'Levodopa / Carbidopa', dose_mg: 100, doses_per_day: 3 },
+          { drug_name: 'Rasagilina', dose_mg: 1, doses_per_day: 1 },
+        ],
+      }),
+    );
+
+    const result = await service.searchPatientsForDiary('Maria');
+    expect(result).toHaveLength(1);
+    expect(result[0].patientId).toBe('patient-1');
+    expect(result[0].medications[0].label).toBe('Levodopa / Carbidopa 100 mg');
+    expect(result[0].extraMedicationCount).toBe(0);
+  });
+
+  it('grava diário admin por patientId', async () => {
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-1',
+      cpf_hash: 'hash',
+      full_name: 'Maria',
+      public_identifier: 'P010',
+    });
+    diariesRepo.findOne.mockResolvedValue(null);
+    const created = {
+      id: 'diary-admin',
+      protocol_day: 2,
+      status: 'rascunho',
+      payload: emptyDiaryPayload(),
+      gaps: [{ path: 'medication.doses', label_pt: 'dose' }],
+      save_count: 1,
+      first_saved_at: new Date(),
+      last_saved_at: new Date(),
+      diary_date: '2026-09-14',
+    };
+    diariesRepo.create.mockReturnValue(created);
+    diariesRepo.save.mockResolvedValue(created);
+    actionTypesRepo.findOne.mockResolvedValue({
+      code: 'diary_started',
+      label_pt: 'Iniciou diário',
+      active: true,
+    });
+    eventsRepo.findOne.mockResolvedValue(null);
+    eventsRepo.create.mockImplementation((row) => row);
+    eventsRepo.save.mockResolvedValue({});
+
+    const result = await service.upsertDiaryByPatientId({
+      patientId: 'patient-1',
+      protocol_day: 2,
+      diary_date: '2026-09-14',
+      payload: { medication: { doses: [] } },
+    });
+
+    expect(result.id).toBe('diary-admin');
+    expect(eventsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action_code: 'diary_started',
+        source: 'admin_manual',
+      }),
+    );
+  });
+
+  it('lista e exclui diário do paciente', async () => {
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-1',
+      public_identifier: 'P010',
+      full_name: 'Maria',
+      cpf_hash: 'hash',
+    });
+    diariesRepo.find.mockResolvedValue([
+      {
+        id: 'diary-1',
+        diary_date: '2026-09-14',
+        protocol_day: 1,
+        status: 'rascunho',
+        gaps: [],
+        save_count: 1,
+        last_saved_at: new Date('2026-09-14T12:00:00.000Z'),
+        client_diary_id: 'client-1',
+      },
+      {
+        id: 'diary-2',
+        diary_date: '2026-09-15',
+        protocol_day: 2,
+        status: 'completo',
+        gaps: [],
+        save_count: 2,
+        last_saved_at: new Date('2026-09-15T12:00:00.000Z'),
+        client_diary_id: null,
+      },
+    ]);
+    eventsRepo.find.mockResolvedValue([
+      {
+        metadata: { diaryId: 'diary-1' },
+        source: 'collection_app',
+      },
+      {
+        metadata: { diaryId: 'diary-2' },
+        source: 'admin_manual',
+      },
+    ]);
+    const listed = await service.listDiariesByPatient('patient-1');
+    expect(listed).toHaveLength(2);
+    expect(listed[0].protocolDay).toBe(1);
+    expect(listed[0].source).toBe('app');
+    expect(listed[1].source).toBe('admin');
+
+    diariesRepo.findOne.mockResolvedValue({
+      id: 'diary-1',
+      patient_id: 'patient-1',
+    });
+    diariesRepo.delete.mockResolvedValue({ affected: 1 });
+    await service.deleteDiary('diary-1');
+    expect(diariesRepo.delete).toHaveBeenCalledWith('diary-1');
+  });
+
+  it('lista diários recentes do app e do painel', async () => {
+    const qb = chainQb({
+      getCount: 1,
+      getMany: [
+        {
+          id: 'diary-app',
+          patient_id: 'patient-1',
+          client_diary_id: 'client-1',
+          diary_date: '2026-09-14',
+          protocol_day: 1,
+          status: 'completo',
+          gaps: [],
+          save_count: 1,
+          last_saved_at: new Date('2026-09-14T12:00:00.000Z'),
+          patient: {
+            id: 'patient-1',
+            full_name: 'Maria',
+            public_identifier: 'P010',
+          },
+        },
+      ],
+    });
+    diariesRepo.createQueryBuilder.mockReturnValue(qb);
+    eventsRepo.find.mockResolvedValue([
+      {
+        patient_id: 'patient-1',
+        metadata: { diaryId: 'diary-app' },
+        source: 'collection_app',
+      },
+    ]);
+    const listed = await service.listRecentDiaries({ page: 1, pageSize: 20 });
+    expect(listed.items).toHaveLength(1);
+    expect(listed.total).toBe(1);
+    expect(listed.page).toBe(1);
+    expect(listed.pageSize).toBe(20);
+    expect(listed.items[0].source).toBe('app');
+    expect(listed.items[0].patientName).toBe('Maria');
+    expect(listed.items[0].publicIdentifier).toBe('P010');
+
+    await service.listRecentDiaries({
+      page: 1,
+      pageSize: 20,
+      term: 'Maria',
+      source: 'app',
+      status: 'completo',
+    });
+    expect(qb.andWhere).toHaveBeenCalled();
+  });
+
+  it('recusa paciente de teste P00 na exclusão', async () => {
+    diariesRepo.findOne.mockResolvedValue({
+      id: 'diary-1',
+      patient_id: 'patient-test',
+    });
+    patientsRepo.findOne.mockResolvedValue({
+      id: 'patient-test',
+      public_identifier: 'P00',
+    });
+    await expect(service.deleteDiary('diary-1')).rejects.toThrow(
+      NotFoundException,
+    );
+    expect(diariesRepo.delete).not.toHaveBeenCalled();
+  });
+});
+

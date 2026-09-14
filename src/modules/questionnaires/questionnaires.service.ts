@@ -4333,6 +4333,7 @@ export class QuestionnairesService {
       onlyPatientsWithTaskData?: boolean;
       requireSleepTa13?: boolean;
       requireAnyClinicalTask?: boolean;
+      requireFreeLiving?: boolean;
     },
   ): void {
     qb.andWhere(
@@ -4376,16 +4377,21 @@ export class QuestionnairesService {
       });
     }
 
-    // Baixar todos: restringe a pacientes que já têm as TAs do protocolo selecionado
+    // Baixar todos: restringe a pacientes que já têm dados do protocolo selecionado
     if (filters?.onlyPatientsWithTaskData) {
       const requireSleep = filters.requireSleepTa13 === true;
       const requireClinic = filters.requireAnyClinicalTask === true;
+      const requireFreeLiving = filters.requireFreeLiving === true;
 
-      const hasTaSql = (taskPredicate: string, alias: string) => `
+      const hasBinarySql = (
+        taskPredicate: string,
+        alias: string,
+        join: 'inner' | 'left' = 'inner',
+      ) => `
         EXISTS (
           SELECT 1
           FROM binary_collections ${alias}
-          INNER JOIN active_task_definitions ${alias}_at
+          ${join === 'left' ? 'LEFT' : 'INNER'} JOIN active_task_definitions ${alias}_at
             ON ${alias}_at.id = ${alias}.task_id
           WHERE (
             ${alias}.questionnaire_id = q.id
@@ -4398,17 +4404,42 @@ export class QuestionnairesService {
         )
       `;
 
-      if (requireSleep && requireClinic) {
-        qb.andWhere(
-          `(${hasTaSql("UPPER(TRIM(bc_sleep_at.task_code)) = 'TA13'", 'bc_sleep')}
-            OR ${hasTaSql("UPPER(TRIM(bc_clinic_at.task_code)) <> 'TA13'", 'bc_clinic')})`,
+      const hasDiarySql = `
+        EXISTS (
+          SELECT 1
+          FROM freeliving_diaries fld
+          WHERE fld.patient_id = patient.id
+        )
+      `;
+
+      const clauses: string[] = [];
+      if (requireSleep) {
+        clauses.push(
+          hasBinarySql("UPPER(TRIM(bc_sleep_at.task_code)) = 'TA13'", 'bc_sleep'),
         );
-      } else if (requireSleep) {
-        qb.andWhere(hasTaSql("UPPER(TRIM(bc_sleep_at.task_code)) = 'TA13'", 'bc_sleep'));
-      } else if (requireClinic) {
-        qb.andWhere(
-          hasTaSql("UPPER(TRIM(bc_clinic_at.task_code)) <> 'TA13'", 'bc_clinic'),
+      }
+      if (requireClinic) {
+        clauses.push(
+          hasBinarySql(
+            "UPPER(TRIM(bc_clinic_at.task_code)) NOT IN ('TA13', 'FL01', 'FL02')",
+            'bc_clinic',
+          ),
         );
+      }
+      if (requireFreeLiving) {
+        clauses.push(
+          `(${hasBinarySql(
+            "UPPER(TRIM(COALESCE(bc_fl_at.task_code, bc_fl.metadata->>'task_code', ''))) IN ('FL01', 'FL02')",
+            'bc_fl',
+            'left',
+          )} OR ${hasDiarySql})`,
+        );
+      }
+
+      if (clauses.length === 1) {
+        qb.andWhere(clauses[0]);
+      } else if (clauses.length > 1) {
+        qb.andWhere(`(${clauses.join(' OR ')})`);
       }
     }
   }
@@ -4422,6 +4453,7 @@ export class QuestionnairesService {
     onlyPatientsWithTaskData?: boolean;
     requireSleepTa13?: boolean;
     requireAnyClinicalTask?: boolean;
+    requireFreeLiving?: boolean;
   }): Promise<string[]> {
     const qb = this.questionnairesRepository
       .createQueryBuilder('q')
