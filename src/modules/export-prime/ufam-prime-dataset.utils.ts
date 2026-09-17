@@ -13,12 +13,17 @@ import { samsungPdfReportDataPath } from '../samsung-sync/samsung-dataset.utils'
  *     ├── 06_Free_Living_Diary.csv
  *     ├── Clinic|Sleep/{Baiobit|EMG|PSG|Ring}/relatorio.pdf
  *     ├── Active_Tasks/{arquivos de coleta}
- *     └── FreeLiving/{FL01|FL02}/{arquivos}
+ *     └── FreeLiving/{FL01|FL02|FL03}/{arquivos}
  */
 
 export type ExportPrimePdfType = 'BIOBIT' | 'DELSYS' | 'POLYSOMNOGRAPHY';
 
-export const FREE_LIVING_EXPORT_TASK_CODES = ['FL01', 'FL02'] as const;
+export const FREE_LIVING_EXPORT_TASK_CODES = ['FL01', 'FL02', 'FL03'] as const;
+
+export function isFreeLivingExportTaskCode(taskCode: string): boolean {
+  const code = (taskCode || '').trim().toUpperCase();
+  return (FREE_LIVING_EXPORT_TASK_CODES as readonly string[]).includes(code);
+}
 
 export interface ExportPrimeSelectiveFilters {
   includeClinicalQuestionnaires?: boolean;
@@ -30,7 +35,7 @@ export interface ExportPrimeSelectiveFilters {
    * Quando true (Baixar todos):
    * - Sono: só pacientes com TA13
    * - Clínico: só pacientes com alguma TA clínica (≠ TA13, ≠ FL)
-   * - Free Living: só pacientes com FL01/FL02 ou diário
+   * - Free Living: só pacientes com FL01/FL02/FL03 ou diário
    */
   onlyPatientsWithTaskData?: boolean;
   requireSleepTa13?: boolean;
@@ -60,7 +65,7 @@ export function resolvePrimeZipName(filters: ExportPrimeSelectiveFilters): strin
     filters.includeClinicalQuestionnaires === true ||
     (filters.taskCodes?.some((c) => {
       const code = c.toUpperCase();
-      return code !== 'TA13' && code !== 'FL01' && code !== 'FL02';
+      return code !== 'TA13' && !isFreeLivingExportTaskCode(code);
     }) ?? false) ||
     (filters.pdfTypes?.some((t) => t === 'BIOBIT' || t === 'DELSYS') ?? false);
   const hasSleep =
@@ -69,9 +74,7 @@ export function resolvePrimeZipName(filters: ExportPrimeSelectiveFilters): strin
     (filters.pdfTypes?.includes('POLYSOMNOGRAPHY') ?? false);
   const hasFreeLiving =
     filters.includeFreeLivingQuestionnaires === true ||
-    (filters.taskCodes?.some((c) =>
-      FREE_LIVING_EXPORT_TASK_CODES.includes(c.toUpperCase() as 'FL01' | 'FL02'),
-    ) ?? false);
+    (filters.taskCodes?.some((c) => isFreeLivingExportTaskCode(c)) ?? false);
 
   const kinds = [hasClinic, hasSleep, hasFreeLiving].filter(Boolean).length;
   if (kinds === 1 && hasClinic) return 'Dados_Clinicos.zip';
@@ -93,7 +96,7 @@ export function resolveUfamBinaryTaskCode(collection: {
 
 export function ufamBinaryZipFolder(taskCode: string): string {
   const code = (taskCode || '').trim().toUpperCase();
-  if (code === 'FL01' || code === 'FL02') {
+  if (isFreeLivingExportTaskCode(code)) {
     return `FreeLiving/${code}`;
   }
   return 'Active_Tasks';
