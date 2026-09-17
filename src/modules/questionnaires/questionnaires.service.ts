@@ -72,6 +72,7 @@ import {
   resolveTaskCode,
 } from '../admin-collection-overview/device-upload-status.utils';
 import { ActiveTaskDefinition } from '../../entities/active-task-definition.entity';
+import { FREE_LIVING_EXPORT_TASK_CODES } from '../export-prime/ufam-prime-dataset.utils';
 
 const UPDRS_SCORE_FIELDS = [
   'speech',
@@ -4418,10 +4419,13 @@ export class QuestionnairesService {
           hasBinarySql("UPPER(TRIM(bc_sleep_at.task_code)) = 'TA13'", 'bc_sleep'),
         );
       }
+      const freeLivingSqlList = FREE_LIVING_EXPORT_TASK_CODES.map(
+        (code) => `'${code}'`,
+      ).join(', ');
       if (requireClinic) {
         clauses.push(
           hasBinarySql(
-            "UPPER(TRIM(bc_clinic_at.task_code)) NOT IN ('TA13', 'FL01', 'FL02')",
+            `UPPER(TRIM(bc_clinic_at.task_code)) NOT IN ('TA13', ${freeLivingSqlList})`,
             'bc_clinic',
           ),
         );
@@ -4429,7 +4433,7 @@ export class QuestionnairesService {
       if (requireFreeLiving) {
         clauses.push(
           `(${hasBinarySql(
-            "UPPER(TRIM(COALESCE(bc_fl_at.task_code, bc_fl.metadata->>'task_code', ''))) IN ('FL01', 'FL02')",
+            `UPPER(TRIM(COALESCE(bc_fl_at.task_code, bc_fl.metadata->>'task_code', ''))) IN (${freeLivingSqlList})`,
             'bc_fl',
             'left',
           )} OR ${hasDiarySql})`,

@@ -15,6 +15,9 @@ describe('ufam-prime-dataset.utils', () => {
     expect(resolvePrimeZipName({ taskCodes: ['fl02'] })).toBe(
       'Dados_FreeLiving.zip',
     );
+    expect(resolvePrimeZipName({ taskCodes: ['FL03'] })).toBe(
+      'Dados_FreeLiving.zip',
+    );
   });
 
   it('resolvePrimeZipName mistura protocolos vira Dados_Selecionados.zip', () => {
@@ -26,9 +29,10 @@ describe('ufam-prime-dataset.utils', () => {
     ).toBe('Dados_Selecionados.zip');
   });
 
-  it('ufamBinaryZipFolder coloca FL01/FL02 em FreeLiving', () => {
+  it('ufamBinaryZipFolder coloca FL01/FL02/FL03 em FreeLiving', () => {
     expect(ufamBinaryZipFolder('FL01')).toBe('FreeLiving/FL01');
     expect(ufamBinaryZipFolder('fl02')).toBe('FreeLiving/FL02');
+    expect(ufamBinaryZipFolder('FL03')).toBe('FreeLiving/FL03');
     expect(ufamBinaryZipFolder('TA1')).toBe('Active_Tasks');
   });
 
