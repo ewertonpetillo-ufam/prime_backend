@@ -50,7 +50,7 @@ Healthy, Early Parkinson, Advanced Parkinson
 ## Measurement Time per Subject
 - Visit 1 (In-Clinic): 2-4 hours
 - Visit 2 (PSG): up to 12 hours
-- Free-Living: 7 days with up to 8 hours daily using the commercial watch and up to 12 hours nightly using the smartwatch
+- Free-Living: 7 days with 8 hours daytime and 8 hours sleep per day
 
 ## Label Info
 Motor evaluation (User_Data → motorevaluation.csv) serves as reference for motor symptom detection.
