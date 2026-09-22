@@ -5,7 +5,7 @@ import { CurrentUser } from '../../common/decorators/user.decorator';
 import { AdminRoleGuard } from '../../common/guards/admin-role.guard';
 import { SamsungSyncService } from './samsung-sync.service';
 
-@ApiTags('Admin - Samsung Sync')
+@ApiTags('Admin - Entrega Samsung')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(AdminRoleGuard)
 @Controller('sync/samsung')
@@ -15,7 +15,7 @@ export class SamsungSyncController {
   constructor(private readonly samsungSyncService: SamsungSyncService) {}
 
   @Post('run')
-  @ApiOperation({ summary: 'Executa sincronização manual com BART' })
+  @ApiOperation({ summary: 'Executa Entrega Samsung (ZIP Study/Project/Session/Device → BART)' })
   async runSync(
     @CurrentUser() user: { userId: string },
     @Body()

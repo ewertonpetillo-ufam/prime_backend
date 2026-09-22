@@ -8,30 +8,19 @@ import pLimit = require('p-limit');
 import { PassThrough } from 'stream';
 import { EXPORT_ZIP_QUEUE } from '../queues/queues.module';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';
+import { FreelivingService } from '../freeliving/freeliving.service';
 import { MinioStorageService } from '../storage/minio-storage.service';
 import {
-  ZipEntryInput,
-  buildSubjectDataZipPath,
+  buildGuidelinesPatientEntries,
+  buildGuidelinesProjectInfoEntry,
+  toGuidelinesSubjectId,
+  type GuidelinesQuestionnaireExport,
+} from '../export-guidelines';
+import {
   buildDeliveryZipFileName,
-  buildDeviceSubZipPath,
-  buildSamsungDataFileZipPath,
-  createZipBufferFromEntries,
-  deviceGroupKey,
-  extractTaskCodeFromFilename,
-  formatCollectionDateForMetadata,
   getDeliveryDateFolder,
-  getUniqueFilename,
-  inferSamsungDevice,
-  inferSamsungProtocol,
   isSamsungExcludedPublicIdentifier,
-  isSamsungSmartphoneTask,
-  isSpeechTask,
-  samsungPdfReportDataPath,
-  sanitizeExternalDocBaseName,
-  toSamsungDeviceFolder,
-  toSamsungSubjectId,
-  toStageFolder,
-  buildSamsungActiveTaskFilename,
+  isSamsungExcludedPsgLaudo,
 } from '../samsung-sync/samsung-dataset.utils';
 
 interface ExportZipJobData {
@@ -54,6 +43,7 @@ export class ExportZipProcessor extends WorkerHost {
   constructor(
     @InjectQueue(EXPORT_ZIP_QUEUE) private readonly exportZipQueue: Queue,
     private readonly questionnairesService: QuestionnairesService,
+    private readonly freelivingService: FreelivingService,
     private readonly minioService: MinioStorageService,
     @InjectDataSource() private readonly db: DataSource,
   ) {
@@ -79,15 +69,8 @@ export class ExportZipProcessor extends WorkerHost {
     const limit = pLimit(3);
     const deliveryDate = getDeliveryDateFolder();
     const zipName = buildDeliveryZipFileName(deliveryDate);
-    const deviceGroups = new Map<string, ZipEntryInput[]>();
 
-    const addToDeviceGroup = (key: string, fileName: string, buffer: Buffer) => {
-      const list = deviceGroups.get(key) || [];
-      list.push({ name: fileName, buffer });
-      deviceGroups.set(key, list);
-    };
-
-    await this.updateStep(job, 0, 'Iniciando geração do ZIP...');
+    await this.updateStep(job, 0, 'Iniciando geração do ZIP Samsung...');
     await this.assertNotCancelled(job);
 
     await this.updateStep(job, 2, 'Consultando banco de dados...');
@@ -116,10 +99,21 @@ export class ExportZipProcessor extends WorkerHost {
       throw new Error('Nenhum questionário encontrado para os filtros informados.');
     }
 
-    await this.updateStep(job, 5, `Montando ZIP de entrega ${deliveryDate}...`);
+    const bySubject = new Map<string, any[]>();
+    for (const item of filteredData) {
+      const publicId =
+        item?.questionnaire?.patient?.public_identifier ??
+        item?.questionnaire?.public_identifier ??
+        '';
+      const subjectId = toGuidelinesSubjectId(publicId);
+      const list = bySubject.get(subjectId) || [];
+      list.push(item);
+      bySubject.set(subjectId, list);
+    }
+
+    await this.updateStep(job, 5, `Montando ZIP Samsung ${deliveryDate}...`);
 
     const archive = archiver('zip', { zlib: { level: 1 } });
-
     archive.on('warning', (err) => {
       if (err.code === 'ENOENT') {
         this.logger.warn(`[Job ${job.id}] Archiver warning: ${err.message}`);
@@ -136,178 +130,129 @@ export class ExportZipProcessor extends WorkerHost {
       'application/zip',
     );
 
-    archive.append(
-      `ZIP de entrega ${deliveryDate}. Dados do sujeito em Subject_Data/. Binários/PDFs agrupados em sub-ZIPs por dispositivo.`,
-      { name: 'README.txt' },
-    );
+    const projectInfo = buildGuidelinesProjectInfoEntry();
+    archive.append(projectInfo.buffer!, { name: projectInfo.zipPath });
 
-    const clinicalStageFolder = toStageFolder('Clinic');
+    let subjectIndex = 0;
+    const subjectTotal = bySubject.size;
+    for (const [subjectId, items] of bySubject.entries()) {
+      await this.assertNotCancelled(job);
+      subjectIndex += 1;
 
-    for (let i = 0; i < filteredData.length; i++) {
-      const item = filteredData[i];
-      const questionnaire = item?.questionnaire;
-      const publicIdentifier =
-        questionnaire?.patient?.public_identifier ??
-        questionnaire?.public_identifier ??
-        '';
-      const subjectId = toSamsungSubjectId(publicIdentifier);
-      const cpfHash: string = questionnaire?.cpfHash ?? questionnaire?.patient?.cpf_hash ?? '';
-      void formatCollectionDateForMetadata(questionnaire);
-
-      const csvFiles = item?.csvFiles ?? {};
-      const csvMetadataPrefix = `${deliveryDate}-${subjectId}`;
-      const clinicalFiles = [
-        { suffix: '01_demographic_anthropometric_clinical.csv', content: csvFiles.demographicAnthropometricClinical },
-        { suffix: '02_neurological_assessment_updrs.csv', content: csvFiles.neurologicalAssessment },
-        { suffix: '03_speech_therapy.csv', content: csvFiles.speechTherapy },
-        { suffix: '04_sleep_assessment.csv', content: csvFiles.sleepAssessment },
-        { suffix: '05_physiotherapy.csv', content: csvFiles.physiotherapy },
-      ];
-      for (const cf of clinicalFiles) {
-        archive.append(cf.content ?? '', {
-          name: buildSubjectDataZipPath(
-            deliveryDate,
-            subjectId,
-            clinicalStageFolder,
-            `${csvMetadataPrefix}-${cf.suffix}`,
-          ),
-        });
+      const binaryPayloadById = new Map<string, Buffer>();
+      const allBinaryIds: string[] = [];
+      for (const item of items) {
+        for (const bc of item?.binaryCollections || []) {
+          if (bc?.id) allBinaryIds.push(bc.id);
+        }
       }
+      const binaryMap = await this.getBinaryCsvDataMap(allBinaryIds);
+      for (const [id, buf] of binaryMap) binaryPayloadById.set(id, buf);
 
-      const pdfReports: any[] = Array.isArray(item?.pdfReports) ? item.pdfReports : [];
-      const pdfNameCounters = new Map<string, number>();
+      const exportItems: GuidelinesQuestionnaireExport[] = items.map((item) => ({
+        questionnaire: item.questionnaire,
+        csvFiles: item.csvFiles,
+        pdfReports: (item.pdfReports || []).filter((r: any) => {
+          if (!r?.id || !r?.file_path) return false;
+          return !isSamsungExcludedPsgLaudo(
+            r.report_type,
+            r.file_name || '',
+            r.mime_type,
+          );
+        }),
+        binaryCollections: item.binaryCollections || [],
+      }));
 
+      const pdfBuffers = new Map<string, Buffer>();
+      const uniqueReports = new Map<string, NonNullable<GuidelinesQuestionnaireExport['pdfReports']>[number]>();
+      for (const exp of exportItems) {
+        for (const report of exp.pdfReports || []) {
+          if (report?.id) uniqueReports.set(String(report.id), report);
+        }
+      }
       await Promise.all(
-        pdfReports
-          .filter((r: any) => Boolean(r?.id) && Boolean(r?.file_path))
-          .map((report: any) =>
-            limit(async () => {
-              try {
-                const { protocol, device } = samsungPdfReportDataPath(report.report_type);
-                const stageFolder = toStageFolder(protocol);
-                const deviceFolder = toSamsungDeviceFolder(device);
-                const isExternalDevice = ['Baiobit', 'EMG', 'Ring', 'PSG'].includes(device);
-                const baseName = isExternalDevice
-                  ? sanitizeExternalDocBaseName(report.file_name ?? 'relatorio.pdf', cpfHash)
-                  : report.file_name ?? 'relatorio.pdf';
-                const scope = `${stageFolder}/${deviceFolder}`;
-                const uniqueName = getUniqueFilename(baseName, pdfNameCounters, scope);
-                const pdfBuffer = await this.minioService.getObjectBuffer(report.file_path);
-                addToDeviceGroup(
-                  deviceGroupKey(subjectId, stageFolder, deviceFolder),
-                  uniqueName,
-                  pdfBuffer,
-                );
-              } catch (err) {
-                this.logger.warn(
-                  `[Job ${job.id}] PDF omitido (${report.id}): ${err instanceof Error ? err.message : String(err)}`,
-                );
-              }
-            }),
-          ),
+        [...uniqueReports.values()].map((report) =>
+          limit(async () => {
+            try {
+              if (!report?.file_path || !report.id) return;
+              const buf = await this.minioService.getObjectBuffer(report.file_path);
+              pdfBuffers.set(String(report.id), buf);
+            } catch (err) {
+              this.logger.warn(
+                `[Job ${job.id}] PDF omitido (${report?.id}): ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              );
+            }
+          }),
+        ),
       );
 
-      const binaryCollections: any[] = Array.isArray(item?.binaryCollections)
-        ? item.binaryCollections
-        : [];
-
-      const collectionsToInclude = binaryCollections
-        .filter((bc: any) => {
-          const fileName = String(bc?.metadata?.file_name ?? '');
-          if (!fileName) return false;
-          const taskCode = this.resolveTaskCode(bc);
-          return !isSpeechTask(taskCode);
-        })
-        .sort((a: any, b: any) => {
-          const ta = new Date(a?.collected_at ?? a?.uploaded_at ?? 0).getTime();
-          const tb = new Date(b?.collected_at ?? b?.uploaded_at ?? 0).getTime();
-          if (ta !== tb) return ta - tb;
-          return String(a?.id ?? '').localeCompare(String(b?.id ?? ''));
-        });
-
-      const patientBinaryIds = collectionsToInclude.map((bc: any) => bc.id).filter(Boolean);
-      const binaryCsvMap = await this.getBinaryCsvDataMap(patientBinaryIds);
-      const repetitionCounters = new Map<string, number>();
-
-      for (const bc of collectionsToInclude) {
-        const csvBuffer = binaryCsvMap.get(bc.id);
-        if (!csvBuffer || csvBuffer.length === 0) continue;
-
-        const fileName = String(bc?.metadata?.file_name ?? '');
-        const taskCode = this.resolveTaskCode(bc);
-        const isSmartphone = isSamsungSmartphoneTask(taskCode);
-        const protocol = isSmartphone
-          ? ('Clinic' as const)
-          : inferSamsungProtocol(taskCode, fileName);
-        const device = isSmartphone ? 'SP' : inferSamsungDevice(fileName, taskCode);
-        const stageFolder = toStageFolder(protocol);
-        const deviceFolder = toSamsungDeviceFolder(device);
-
-        const tentativeName = buildSamsungActiveTaskFilename(
-          fileName,
-          subjectId,
-          deliveryDate,
-          bc,
-          device,
-          taskCode,
-        );
-        const extMatch = tentativeName.match(/(\.[^.]+)$/i);
-        const ext = extMatch ? extMatch[1] : '.csv';
-        const stem = extMatch ? tentativeName.slice(0, -ext.length) : tentativeName;
-        const stemWithoutRep = stem.replace(/-Rep\d+$/i, '');
-        const repKey = `${stageFolder}/${deviceFolder}/${stemWithoutRep}`;
-        const nextRep = (repetitionCounters.get(repKey) ?? 0) + 1;
-        repetitionCounters.set(repKey, nextRep);
-        const finalName = `${stemWithoutRep}-Rep${nextRep}${ext}`;
-
-        addToDeviceGroup(deviceGroupKey(subjectId, stageFolder, deviceFolder), finalName, csvBuffer);
-        void buildSamsungDataFileZipPath(
-          deliveryDate,
-          subjectId,
-          stageFolder,
-          deviceFolder,
-          finalName,
+      for (const exp of exportItems) {
+        exp.pdfReports = (exp.pdfReports || []).filter((r) =>
+          pdfBuffers.has(String(r?.id)),
         );
       }
 
-      const percent = Math.round(5 + ((i + 1) / filteredData.length) * 85);
+      let freeLivingDiaryCsv: string | null = null;
+      const patientId =
+        items[0]?.questionnaire?.patient?.id ||
+        items[0]?.questionnaire?.patient_id ||
+        null;
+      const publicIdentifier =
+        items[0]?.questionnaire?.patient?.public_identifier ??
+        items[0]?.questionnaire?.public_identifier ??
+        subjectId;
+      try {
+        if (patientId) {
+          freeLivingDiaryCsv =
+            await this.freelivingService.buildDiaryQuestionnaireCsvForPatient(
+              patientId,
+              publicIdentifier,
+            );
+          const lines = (freeLivingDiaryCsv || '').trim().split('\n');
+          if (lines.length <= 1) freeLivingDiaryCsv = null;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[Job ${job.id}] Diário Free Living omitido (${subjectId}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+
+      const packed = buildGuidelinesPatientEntries({
+        publicIdentifier,
+        exportItems,
+        binaryPayloadById,
+        pdfBufferByReportId: pdfBuffers,
+        freeLivingDiaryCsv,
+        onlyPendingBinaries: false,
+        patientEverSynced: false,
+      });
+
+      for (const entry of packed.entries) {
+        if (entry.buffer) {
+          archive.append(entry.buffer, { name: entry.zipPath });
+        }
+      }
+
+      const percent = Math.round(5 + (subjectIndex / subjectTotal) * 85);
       await this.updateStep(
         job,
         percent,
-        `Processando paciente ${i + 1}/${filteredData.length} (${subjectId})...`,
+        `Processando paciente ${subjectIndex}/${subjectTotal} (${subjectId})...`,
       );
     }
 
-    for (const [groupKey, entries] of deviceGroups.entries()) {
-      const [subjectId, stageFolder, deviceFolder] = groupKey.split('::');
-      if (!subjectId || !stageFolder || !deviceFolder || entries.length === 0) continue;
-      const subZipBuffer = await createZipBufferFromEntries(entries);
-      archive.append(subZipBuffer, {
-        name: buildDeviceSubZipPath(deliveryDate, subjectId, stageFolder, deviceFolder),
-      });
-    }
-
-    await this.updateStep(job, 91, 'Finalizando compactação e fazendo upload para o MinIO...');
+    await this.updateStep(job, 91, 'Finalizando compactação e upload MinIO...');
     await archive.finalize();
     await uploadPromise;
 
-    await this.updateStep(job, 100, 'ZIP gerado com sucesso!');
+    await this.updateStep(job, 100, 'ZIP Samsung gerado com sucesso!');
     this.logger.log(`[Job ${job.id}] ZIP disponível: ${minioKey} (${zipName})`);
 
     return { minioKey, zipName };
-  }
-
-  private resolveTaskCode(collection: any): string | null {
-    const fromActiveTask = collection?.active_task?.task_code;
-    if (typeof fromActiveTask === 'string' && fromActiveTask.trim()) {
-      return fromActiveTask.trim().toUpperCase().replace(/^TA0*(\d{1,2})$/i, (_m, n) => `TA${Number(n)}`);
-    }
-    const fromMetadata = collection?.metadata?.task_code;
-    if (typeof fromMetadata === 'string' && fromMetadata.trim()) {
-      return fromMetadata.trim().toUpperCase().replace(/^TA0*(\d{1,2})$/i, (_m, n) => `TA${Number(n)}`);
-    }
-    const fileName = String(collection?.metadata?.file_name ?? '');
-    return extractTaskCodeFromFilename(fileName);
   }
 
   private async getBinaryCsvDataMap(ids: string[]): Promise<Map<string, Buffer>> {

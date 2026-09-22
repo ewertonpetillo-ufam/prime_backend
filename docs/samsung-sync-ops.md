@@ -1,6 +1,29 @@
-# Samsung Sync — procedimentos operacionais
+# Entrega Samsung — procedimentos operacionais
 
-## Antes do deploy da correção de OOM
+A entrega ao BART/Artifactory usa a hierarquia **Study → Project → Session → Device**
+(`MentalHealth/2026_UFAM_Parkinson_1/...`), conforme Data Submission Guidelines v1.9
+e `UFAM_PRIME_DataGuidleness_V1`. O envelope Artifactory permanece:
+
+- `Data/YYYYMMDD.zip`
+- `Metadata/YYYYMMDD_metadata.csv`
+
+O ZIP UFAM/PRIME (`export-prime`, `Dados_*_Pacientes.zip`) é independente e continua disponível.
+
+## Conteúdo do ZIP Samsung (layout Guidelines)
+
+```
+MentalHealth/2026_UFAM_Parkinson_1/
+  project_info.md
+  {Pxxx}_{YYYYMMDD}_InClinic|PSG|FreeLiving/
+    metadata.json
+    User_Data|GW8_PrimeInClinic|SP_PrimeInClinic|Baiobit|EMG|...
+```
+
+- Voz (TA10–TA12): apenas CSV de features (`features_ta10.csv`, …); `.wav` excluído.
+- Free Living: FL01/FL02 → `GW8_PrimeFreeLiving`; FL03 → `GW8_SamsungHealth`;
+  diário → `SP_SymptomsDiary/annotations.csv`.
+
+## Antes do deploy
 
 1. **Cancelar runs órfãos** com status `running` no banco:
    ```bash
@@ -20,38 +43,29 @@
    NODE_OPTIONS=--max-old-space-size=4096
    # docker-compose: memory: 10G
    ```
-   Heap do Node fica em 4 GiB; o cgroup precisa de folga para zlib, page cache e o PUT. Evitar valores de heap menores (ex.: 2048).
 
 3. **Redis BullMQ — política de eviction:**
    ```
    maxmemory-policy noeviction
    ```
-   Com `allkeys-lru`, jobs longos podem ser evictados durante sync de horas.
 
-4. **Espaço do ZIP de entrega:** o pipeline grava em `SAMSUNG_SYNC_TEMP_DIR` (produção: `/var/prime-samsung-sync/{runId}/`, volume Docker `samsung-sync-tmp`). Volume nomeado nasce como `root`; o entrypoint faz `chown nestjs` na subida. Cleanup automático ao finalizar.
+4. **Espaço do ZIP de entrega:** o pipeline grava em `SAMSUNG_SYNC_TEMP_DIR` (produção: `/var/prime-samsung-sync/{runId}/`, volume Docker `samsung-sync-tmp`). Cleanup automático ao finalizar.
 
 ## ZIP no BART e confirm crashou (não cancelar)
 
-Se o ZIP já está no Artifactory (`Data/YYYYMMDD.zip`) e o run falhou em `confirmRunDelivery` (Postgres OOM / "Connection terminated unexpectedly" / "the database system is not yet accepting connections"):
+Se o ZIP já está no Artifactory (`Data/YYYYMMDD.zip`) e o run falhou em `confirmRunDelivery`:
 
-1. **Não cancelar** o run e **não** redefinir pendências (`resetSyncPending`). Cancelar reabre `file_sync_pending` e pode reenviar o mesmo ZIP.
-2. Confirmar as flags no banco (`patients.sync_pending`, `binary_collections.file_sync_pending` / `file_synced_at`, `pdf_reports`) para os pacientes já entregues — o ZIP no BART é a fonte da verdade.
-3. Causa raiz: o trigger `audit_binary_collections` serializava o BYTEA `csv_data` em JSON a cada UPDATE. A migração `20260830_binary_collections_audit_omit_csv_data.sql` anula `csv_data` antes de `to_jsonb` e grava só metadados (`csv_data_omitted`, `file_size_bytes`, hash/checksum). Aplicar essa migração **antes** do próximo confirm.
+1. **Não cancelar** o run e **não** redefinir pendências (`resetSyncPending`).
+2. Confirmar as flags no banco para os pacientes já entregues — o ZIP no BART é a fonte da verdade.
+3. Causa raiz histórica: trigger `audit_binary_collections` serializava BYTEA — migração `20260830_binary_collections_audit_omit_csv_data.sql`.
 
 ## Após o deploy
 
-1. Confirmar volume e memória:
-   ```bash
-   docker inspect prime-backend --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
-   docker stats prime-backend --no-stream
-   # LIMITE esperado: 10GiB; volume: /var/prime-samsung-sync
-   ```
-2. Se houver run `RUNNING` no passo 6 com ZIP no volume, o boot **retoma o PUT** (não marca failed).
-3. Validar RSS durante o envio — não deve acompanhar o tamanho do ZIP.
-4. Confirmar entrega no Artifactory: `Data/YYYYMMDD.zip` e `Metadata/YYYYMMDD_metadata.csv`.
+1. Confirmar volume e memória.
+2. Se houver run `RUNNING` no passo 6 com ZIP no volume, o boot **retoma o PUT**.
+3. Validar no Artifactory: `Data/YYYYMMDD.zip` e `Metadata/YYYYMMDD_metadata.csv`.
+4. Inspecionar árvore interna: `MentalHealth/2026_UFAM_Parkinson_1/project_info.md` e pastas de sessão com `metadata.json`.
 
-## Simulação de restart (homologação)
+## API
 
-1. Iniciar sync com filtro P013–P030.
-2. Durante o passo 6 (`Enviando ZIP para o BART`): `docker restart prime-backend`.
-3. Esperado: run permanece `running`; PUT é retomado a partir do ZIP no volume; job Bull continua o polling pelo `runId`.
+Rotas em `/api/v1/sync/samsung/*`. UI: **Entrega Samsung**.

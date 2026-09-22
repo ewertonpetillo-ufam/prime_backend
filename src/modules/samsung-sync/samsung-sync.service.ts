@@ -18,14 +18,25 @@ import {
 } from '../../entities/samsung-sync-run-item.entity';
 import { withPgRetry } from '../../common/database/pg-transient';
 import { QuestionnairesService } from '../questionnaires/questionnaires.service';
+import { FreelivingService } from '../freeliving/freeliving.service';
 import { MinioStorageService } from '../storage/minio-storage.service';
 import { ArtifactoryService } from './artifactory.service';
+import {
+  buildGuidelinesCollectionZipPath,
+  buildGuidelinesPatientEntries,
+  buildGuidelinesProjectInfoEntry,
+  resolveGuidelinesTaskCode,
+  shouldIncludeSpeechBinary,
+  toGuidelinesSubjectId,
+  type GuidelinesBinaryInput,
+  type GuidelinesPackEntry,
+  type GuidelinesQuestionnaireExport,
+} from '../export-guidelines';
 import {
   DeliveryMetadataRow,
   SAMSUNG_SYNC_PROGRESS_STEPS,
   ZipEntryInput,
   buildArchiveEntryDownloadUrl,
-  buildSubjectDataZipPath,
   buildDataZipArtifactPath,
   buildDeliveryMetadataCsv,
   buildDeliveryZipFileName,
@@ -55,7 +66,6 @@ import {
   samsungStep,
   toDateFolder,
   toSamsungDeviceFolder,
-  toSamsungSubjectId,
   toStageFolder,
 } from './samsung-dataset.utils';
 
@@ -140,6 +150,7 @@ export class SamsungSyncService implements OnModuleInit {
     @InjectRepository(SamsungSyncRunItem)
     private readonly syncRunItemRepository: Repository<SamsungSyncRunItem>,
     private readonly questionnairesService: QuestionnairesService,
+    private readonly freelivingService: FreelivingService,
     private readonly artifactoryService: ArtifactoryService,
     private readonly configService: ConfigService,
     private readonly minioService: MinioStorageService,
@@ -174,9 +185,9 @@ export class SamsungSyncService implements OnModuleInit {
       this.configService.get<string>('SAMSUNG_SYNC_INTERVAL_MS') ||
         6 * 60 * 60 * 1000,
     );
-    this.logger.log(`Scheduler de sync Samsung habilitado. intervalMs=${intervalMs}`);
+    this.logger.log(`Scheduler de Entrega Samsung habilitado. intervalMs=${intervalMs}`);
     setInterval(() => {
-      this.logger.log('Disparando sync Samsung por scheduler');
+      this.logger.log('Disparando Entrega Samsung por scheduler');
       void this.runSync(null, 'scheduler', {});
     }, intervalMs);
   }
@@ -299,7 +310,7 @@ export class SamsungSyncService implements OnModuleInit {
   }
 
   private toSubjectId(publicIdentifier?: string | null): string {
-    return toSamsungSubjectId(publicIdentifier);
+    return toGuidelinesSubjectId(publicIdentifier);
   }
 
   private getPatientPath(patient: PendingPatient): {
@@ -319,15 +330,7 @@ export class SamsungSyncService implements OnModuleInit {
     activeTask: { task_code?: string | null } | null | undefined,
     fileName: string,
   ): string | null {
-    const fromActiveTask = activeTask?.task_code;
-    if (typeof fromActiveTask === 'string' && fromActiveTask.trim()) {
-      return fromActiveTask.trim().toUpperCase();
-    }
-    const fromMetadata = metadata?.task_code;
-    if (typeof fromMetadata === 'string' && fromMetadata.trim()) {
-      return fromMetadata.trim().toUpperCase();
-    }
-    return this.extractTaskCodeFromFilename(fileName);
+    return resolveGuidelinesTaskCode(metadata, activeTask, fileName);
   }
 
   private getCollectionPath(
@@ -336,30 +339,22 @@ export class SamsungSyncService implements OnModuleInit {
     fixedDate?: string,
     includeBasePath = true,
   ): string {
-    const { subjectId } = this.getPatientPath(patient);
     const originalName =
       (file.metadata?.file_name as string | undefined) || `${file.id}.csv`;
     const taskCode = this.resolveTaskCode(file.metadata, null, originalName);
-    if (this.isSpeechTask(taskCode)) {
+    if (!shouldIncludeSpeechBinary(taskCode, originalName)) {
       return '';
     }
-    const isSmartphoneTask = this.isSamsungSmartphoneTask(taskCode);
-    const protocol = isSmartphoneTask ? 'Clinic' : this.inferSamsungProtocol(taskCode, originalName);
-    const stageFolder = this.toStageFolder(protocol);
-    const device = isSmartphoneTask ? 'SP' : this.inferSamsungDevice(originalName, taskCode);
-    const deviceFolder = this.toSamsungDeviceFolder(device);
-    const collectionDate =
-      fixedDate || getDeliveryDateFolder();
-    const finalName = this.buildSamsungActiveTaskFilename(
-      originalName,
-      subjectId,
-      collectionDate,
-      file,
-      device,
+    const collectionDate = fixedDate || getDeliveryDateFolder();
+    const zipPath = buildGuidelinesCollectionZipPath({
+      publicIdentifier: patient.public_identifier,
+      fileName: originalName,
       taskCode,
-    );
+      sessionDate: file.collected_at || collectionDate,
+    });
+    if (!zipPath) return '';
     const prefix = includeBasePath ? `${this.basePath}/` : '';
-    return `${prefix}${collectionDate}/${subjectId}/${stageFolder}/${deviceFolder}/${finalName}`;
+    return `${prefix}${zipPath}`;
   }
 
   private getCollectionPathInZip(
@@ -498,6 +493,7 @@ export class SamsungSyncService implements OnModuleInit {
     deliveryDate: string,
     summary: { uploadedFiles: number },
   ): Promise<void> {
+    // Legacy sub-ZIP path retained for tests; Guidelines packing uses appendGuidelinesEntries.
     for (const [groupKey, entries] of deviceGroups.entries()) {
       if (entries.length === 0) continue;
       const [subjectId, stageFolder, deviceFolder] = groupKey.split('::');
@@ -541,6 +537,48 @@ export class SamsungSyncService implements OnModuleInit {
         );
       }
       deviceGroups.delete(groupKey);
+    }
+  }
+
+  private async appendGuidelinesEntries(
+    runId: string,
+    patientId: string | undefined,
+    entries: GuidelinesPackEntry[],
+    archive: archiver.Archiver,
+    metadataRows: DeliveryMetadataRow[],
+    deliveryDate: string,
+    summary: { uploadedFiles: number },
+  ): Promise<void> {
+    for (const entry of entries) {
+      if (entry.filePath) {
+        archive.append(createReadStream(entry.filePath), { name: entry.zipPath });
+      } else if (entry.buffer) {
+        archive.append(entry.buffer, { name: entry.zipPath });
+      } else {
+        continue;
+      }
+      const generationDate =
+        entry.generationDate ||
+        deliveryDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+      this.registerDeliveryMetadataEntry(
+        metadataRows,
+        deliveryDate,
+        entry.zipPath,
+        generationDate,
+      );
+      summary.uploadedFiles += 1;
+      await this.appendRunItem({
+        runId,
+        patientId,
+        action: SamsungSyncItemAction.METADATA,
+        repo: this.repoZip,
+        path: entry.zipPath,
+        uploaded: false,
+        message: entry.message || 'Arquivo Samsung incluído no ZIP',
+      });
+      if (entry.filePath) {
+        await unlink(entry.filePath).catch(() => undefined);
+      }
     }
   }
 
@@ -1189,9 +1227,9 @@ export class SamsungSyncService implements OnModuleInit {
         exportedBySubject.set(subjectId, items);
       }
 
-      /** Evita contar 2× o mesmo skip de fala (export do questionário + loop patient.files). */
+
+      /** Evita contar 2× o mesmo skip de áudio de fala. */
       const speechSkipCountedIds = new Set<string>();
-      const psgLaudoSkipCountedIds = new Set<string>();
 
       const minioConnectivity = await this.validateMinioConnectivityQuick(8000);
       if (!minioConnectivity.ok && minioConnectivity.warning) {
@@ -1206,6 +1244,25 @@ export class SamsungSyncService implements OnModuleInit {
         });
       }
 
+      // project_info.md uma vez por ZIP (nível Project)
+      const projectInfoEntry = buildGuidelinesProjectInfoEntry();
+      archive.append(projectInfoEntry.buffer!, { name: projectInfoEntry.zipPath });
+      this.registerDeliveryMetadataEntry(
+        metadataRows,
+        deliveryDate,
+        projectInfoEntry.zipPath,
+        deliveryDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'),
+      );
+      summary.uploadedFiles += 1;
+      await this.appendRunItem({
+        runId: run.id,
+        action: SamsungSyncItemAction.METADATA,
+        repo: this.repoZip,
+        path: projectInfoEntry.zipPath,
+        uploaded: false,
+        message: 'project_info.md incluído no ZIP Samsung',
+      });
+
       for (const patient of patients) {
         this.ensureRunNotCancelled(run.id);
         if (this.isSamsungExcludedPublicIdentifier(patient.public_identifier)) continue;
@@ -1214,83 +1271,16 @@ export class SamsungSyncService implements OnModuleInit {
           let patientHasCriticalError = false;
           const patientEverSynced = this.patientHadPriorBartSync(patient);
           const subjectId = this.toSubjectId(patient.public_identifier);
-          const subjectExportItems = exportedBySubject.get(subjectId) || [];
-          const patientDeviceGroups = new Map<string, ZipEntryInput[]>();
-
-          const addToDeviceGroup = (
-            key: string,
-            fileName: string,
-            payload: Pick<ZipEntryInput, 'buffer' | 'filePath'>,
-          ) => {
-            const list = patientDeviceGroups.get(key) || [];
-            list.push({ name: fileName, ...payload });
-            patientDeviceGroups.set(key, list);
-          };
+          const subjectExportItems = (exportedBySubject.get(subjectId) ||
+            []) as GuidelinesQuestionnaireExport[];
 
           await setCurrentStep(2, `${samsungStep(2)} (${subjectId})`);
-          const pdfNameCounters = new Map<string, number>();
-          const activeTaskRepCounters = new Map<string, number>();
-          const includedCollectionIds = new Set<string>();
-          const clinicalStageFolder = this.toStageFolder('Clinic');
+          await setCurrentStep(3, `${samsungStep(3)} (${subjectId})`);
 
+          // Baixar PDFs do MinIO para temp
+          const pdfTempPathByReportId = new Map<string, string>();
           for (const exportedItem of subjectExportItems) {
-            this.ensureRunNotCancelled(run.id);
-            const generationDate = formatCollectionDateForMetadata(exportedItem?.questionnaire);
-            const clinicalCsvPrefix = `${deliveryDate}-${subjectId}`;
-            const clinicalCsvFiles = [
-              {
-                name: `${clinicalCsvPrefix}-01_demographic_anthropometric_clinical.csv`,
-                content: exportedItem?.csvFiles?.demographicAnthropometricClinical || '',
-              },
-              {
-                name: `${clinicalCsvPrefix}-02_neurological_assessment_updrs.csv`,
-                content: exportedItem?.csvFiles?.neurologicalAssessment || '',
-              },
-              {
-                name: `${clinicalCsvPrefix}-03_speech_therapy.csv`,
-                content: exportedItem?.csvFiles?.speechTherapy || '',
-              },
-              {
-                name: `${clinicalCsvPrefix}-04_sleep_assessment.csv`,
-                content: exportedItem?.csvFiles?.sleepAssessment || '',
-              },
-              {
-                name: `${clinicalCsvPrefix}-05_physiotherapy.csv`,
-                content: exportedItem?.csvFiles?.physiotherapy || '',
-              },
-            ];
-            for (const clinicalFile of clinicalCsvFiles) {
-              const zipPath = buildSubjectDataZipPath(
-                deliveryDate,
-                subjectId,
-                clinicalStageFolder,
-                clinicalFile.name,
-              );
-              const buffer = Buffer.from(clinicalFile.content, 'utf-8');
-              archive.append(buffer, { name: zipPath });
-              this.registerDeliveryMetadataEntry(
-                metadataRows,
-                deliveryDate,
-                zipPath,
-                generationDate,
-              );
-              summary.uploadedFiles += 1;
-              await this.appendRunItem({
-                runId: run.id,
-                patientId: patient.id,
-                action: SamsungSyncItemAction.METADATA,
-                repo: this.repoCollections,
-                path: zipPath,
-                uploaded: false,
-                message: 'CSV clínico adicionado ao ZIP de entrega (Subject_Data)',
-              });
-            }
-
-            await setCurrentStep(3, `${samsungStep(3)} (${subjectId})`);
-            const pdfReports = Array.isArray(exportedItem?.pdfReports)
-              ? exportedItem.pdfReports
-              : [];
-            for (const report of pdfReports) {
+            for (const report of exportedItem?.pdfReports || []) {
               this.ensureRunNotCancelled(run.id);
               if (
                 patientEverSynced &&
@@ -1299,164 +1289,210 @@ export class SamsungSyncService implements OnModuleInit {
                 continue;
               }
               if (this.isExcludedPsgLaudo(report)) {
-                const rid = report?.id ? String(report.id) : '';
-                if (rid) {
-                  if (!psgLaudoSkipCountedIds.has(rid)) {
-                    psgLaudoSkipCountedIds.add(rid);
-                    summary.skippedFiles += 1;
-                  }
-                } else {
-                  summary.skippedFiles += 1;
-                }
+                summary.skippedFiles += 1;
                 await this.appendRunItem({
                   runId: run.id,
                   patientId: patient.id,
                   action: SamsungSyncItemAction.SKIP,
                   repo: this.repoZip,
-                  path: buildSamsungDataFileZipPath(
-                    deliveryDate,
-                    subjectId,
-                    this.toStageFolder('Sleep'),
-                    'PSG',
-                    report?.file_name || 'laudo.pdf',
-                  ),
+                  path: report?.file_name || 'laudo.pdf',
                   uploaded: false,
                   message:
-                    'Laudo PDF de polissonografia excluído da entrega BART (dados pessoais)',
+                    'Laudo PDF de polissonografia excluído da entrega Samsung (dados pessoais)',
                 });
                 continue;
               }
-              const { protocol, device } = this.samsungPdfReportDataPath(
-                this.normalizePdfReportType(report),
-              );
-              const stageFolder = this.toStageFolder(protocol);
-              const deviceFolderName = this.toSamsungDeviceFolder(device);
-              const isExternalDevice = ['Baiobit', 'EMG', 'Ring', 'PSG'].includes(device);
-              const cpfHash =
-                exportedItem?.questionnaire?.cpfHash ||
-                exportedItem?.questionnaire?.patient?.cpf_hash ||
-                '';
-              const baseFileName = isExternalDevice
-                ? this.sanitizeExternalDocBaseName(
-                    report?.file_name || 'relatorio.pdf',
-                    cpfHash,
-                  )
-                : report?.file_name || 'relatorio.pdf';
-              const uniqueFileName = this.getUniqueFilename(
-                baseFileName,
-                pdfNameCounters,
-                `${stageFolder}/${deviceFolderName}`,
-              );
               const pdfPath = report?.file_path as string | undefined;
-              const pdfFilePath = pdfPath
-                ? await minioDownloadLimit(() =>
-                    this.downloadMinioToTempFile(syncTempDir, pdfPath),
-                  )
-                : null;
+              if (!pdfPath || !report?.id) continue;
+              const pdfFilePath = await minioDownloadLimit(() =>
+                this.downloadMinioToTempFile(syncTempDir, pdfPath),
+              );
               if (!pdfFilePath) {
                 patientHasCriticalError = true;
                 summary.errorFiles += 1;
-                const minioHint = !minioConnectivity.ok
-                  ? ` ${minioConnectivity.warning}`
-                  : '';
                 await this.appendRunItem({
                   runId: run.id,
                   patientId: patient.id,
                   action: SamsungSyncItemAction.ERROR,
                   repo: this.repoZip,
-                  path: buildSamsungDataFileZipPath(
-                    deliveryDate,
-                    subjectId,
-                    stageFolder,
-                    deviceFolderName,
-                    uniqueFileName,
-                  ),
+                  path: report.file_name || 'relatorio.pdf',
                   uploaded: false,
-                  error: `Falha ao baixar PDF do MinIO para inclusão no ZIP.${minioHint}`,
+                  error: 'Falha ao baixar PDF do MinIO para inclusão no ZIP Samsung.',
                 });
                 continue;
               }
-              addToDeviceGroup(
-                deviceGroupKey(subjectId, stageFolder, deviceFolderName),
-                uniqueFileName,
-                { filePath: pdfFilePath },
-              );
-              if (report?.id) {
-                let set = pdfReportIdsByPatient.get(patient.id);
-                if (!set) {
-                  set = new Set<string>();
-                  pdfReportIdsByPatient.set(patient.id, set);
-                }
-                set.add(String(report.id));
-              }
+              pdfTempPathByReportId.set(String(report.id), pdfFilePath);
             }
+          }
 
-            await setCurrentStep(4, `${samsungStep(4)} (${subjectId})`);
-            const exportedBinaryCollections = (exportedItem?.binaryCollections || [])
-              .slice()
-              .sort((a, b) => {
-                const ta = new Date(a?.collected_at || 0).getTime();
-                const tb = new Date(b?.collected_at || 0).getTime();
-                if (ta !== tb) return ta - tb;
-                return String(a?.id || '').localeCompare(String(b?.id || ''));
+          // Fallback PDFs pendentes se não houver export do questionário
+          if (subjectExportItems.length === 0) {
+            const dbPdfReports = await this.getPendingPdfReportsForPatient(
+              patient.id,
+              patientEverSynced,
+            );
+            const synthetic: GuidelinesQuestionnaireExport = {
+              questionnaire: {
+                public_identifier: patient.public_identifier,
+                patient: { public_identifier: patient.public_identifier },
+              },
+              csvFiles: {},
+              pdfReports: [],
+              binaryCollections: [],
+            };
+            for (const report of dbPdfReports) {
+              if (this.isExcludedPsgLaudo(report)) {
+                summary.skippedFiles += 1;
+                continue;
+              }
+              const dbPdfPath = report?.file_path as string | undefined;
+              if (!dbPdfPath) continue;
+              const pdfFilePath = await minioDownloadLimit(() =>
+                this.downloadMinioToTempFile(syncTempDir, dbPdfPath),
+              );
+              if (!pdfFilePath) {
+                patientHasCriticalError = true;
+                summary.errorFiles += 1;
+                continue;
+              }
+              pdfTempPathByReportId.set(String(report.id), pdfFilePath);
+              synthetic.pdfReports!.push({
+                id: report.id,
+                report_type: report.report_type,
+                file_name: report.file_name,
+                file_path: report.file_path,
+                file_sync_pending: true,
+                mime_type: report.mime_type,
               });
-            const exportBinaryIds = exportedBinaryCollections
-              .map((bc) => bc?.id)
-              .filter((id): id is string => Boolean(id));
-            const binaryPayloadMap = await this.getBinaryPayloadMap(exportBinaryIds);
-            for (const collection of exportedBinaryCollections) {
-              this.ensureRunNotCancelled(run.id);
+            }
+            if ((synthetic.pdfReports || []).length > 0) {
+              subjectExportItems.push(synthetic);
+            }
+          }
+
+          await setCurrentStep(4, `${samsungStep(4)} (${subjectId})`);
+
+          // Merge binaries do export + arquivos pendentes do paciente
+          const exportItemsForPack: GuidelinesQuestionnaireExport[] =
+            subjectExportItems.map((item) => ({
+              ...item,
+              binaryCollections: [...(item.binaryCollections || [])],
+            }));
+          if (exportItemsForPack.length === 0) {
+            exportItemsForPack.push({
+              questionnaire: {
+                public_identifier: patient.public_identifier,
+                patient: { public_identifier: patient.public_identifier },
+              },
+              csvFiles: {},
+              pdfReports: [],
+              binaryCollections: [],
+            });
+          }
+          const seenBinaryIds = new Set<string>();
+          for (const item of exportItemsForPack) {
+            for (const bc of item.binaryCollections || []) {
+              if (bc?.id) seenBinaryIds.add(bc.id);
+            }
+          }
+          const pendingAsBinary: GuidelinesBinaryInput[] = [];
+          for (const file of patient.files || []) {
+            if (!file?.id || seenBinaryIds.has(file.id)) continue;
+            const fileIsPending =
+              file.deleted_pending === true || file.file_sync_pending === true;
+            if (patientEverSynced && !fileIsPending) continue;
+            pendingAsBinary.push({
+              id: file.id,
+              metadata: file.metadata,
+              collected_at: file.collected_at,
+              file_sync_pending: file.file_sync_pending,
+              deleted_pending: file.deleted_pending,
+            });
+          }
+          exportItemsForPack[0].binaryCollections = [
+            ...(exportItemsForPack[0].binaryCollections || []),
+            ...pendingAsBinary,
+          ];
+
+          const allBinaryIds = exportItemsForPack
+            .flatMap((i) => i.binaryCollections || [])
+            .map((b) => b.id)
+            .filter(Boolean);
+          const binaryPayloadMap = await this.getBinaryPayloadMap(allBinaryIds);
+
+          // Deletes pendentes
+          for (const file of patient.files || []) {
+            if (!file.deleted_pending) continue;
+            const artifactPath = this.getCollectionPath(patient, file, deliveryDate, true);
+            summary.deletedFiles += 1;
+            await this.appendRunItem({
+              runId: run.id,
+              patientId: patient.id,
+              collectionId: file.id,
+              action: SamsungSyncItemAction.DELETE,
+              repo: this.repoCollections,
+              path: artifactPath || file.id,
+              uploaded: false,
+              message: 'Arquivo marcado para remoção — será excluído ao confirmar entrega',
+            });
+          }
+
+          let freeLivingDiaryCsv: string | null = null;
+          try {
+            freeLivingDiaryCsv =
+              await this.freelivingService.buildDiaryQuestionnaireCsvForPatient(
+                patient.id,
+                patient.public_identifier,
+              );
+            // Header-only CSV → sem diário útil
+            const lines = (freeLivingDiaryCsv || '').trim().split('\n');
+            if (lines.length <= 1) freeLivingDiaryCsv = null;
+          } catch (err) {
+            this.logger.warn(
+              `Run ${run.id}: falha ao montar diário Free Living de ${subjectId}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          }
+
+          const packed = buildGuidelinesPatientEntries({
+            publicIdentifier: patient.public_identifier,
+            exportItems: exportItemsForPack,
+            binaryPayloadById: binaryPayloadMap,
+            pdfTempPathByReportId,
+            freeLivingDiaryCsv,
+            onlyPendingBinaries: true,
+            patientEverSynced,
+          });
+
+          for (const skippedId of packed.skippedSpeechAudioIds) {
+            if (!speechSkipCountedIds.has(skippedId)) {
+              speechSkipCountedIds.add(skippedId);
+              summary.skippedFiles += 1;
+            }
+          }
+
+          // Erros de payload ausente para binários que deveriam entrar
+          for (const item of exportItemsForPack) {
+            for (const collection of item.binaryCollections || []) {
+              if (collection.deleted_pending) continue;
               if (
                 patientEverSynced &&
-                collection.deleted_pending !== true &&
                 collection.file_sync_pending !== true
               ) {
                 continue;
               }
               const fileName = (collection?.metadata?.file_name || '').toString();
-              if (!fileName) continue;
               const taskCode = this.resolveTaskCode(
-                collection?.metadata,
-                collection?.active_task,
+                collection.metadata,
+                collection.active_task,
                 fileName,
               );
-              if (this.isSpeechTask(taskCode)) {
-                const cid = collection.id;
-                if (cid) {
-                  if (!speechSkipCountedIds.has(cid)) {
-                    speechSkipCountedIds.add(cid);
-                    summary.skippedFiles += 1;
-                  }
-                } else {
-                  summary.skippedFiles += 1;
-                }
-                continue;
-              }
-              const isSmartphoneTask = this.isSamsungSmartphoneTask(taskCode);
-              const protocol = isSmartphoneTask
-                ? 'Clinic'
-                : this.inferSamsungProtocol(taskCode, fileName);
-              const device = isSmartphoneTask ? 'SP' : this.inferSamsungDevice(fileName, taskCode);
-              const stageFolder = this.toStageFolder(protocol);
-              const deviceFolderName = this.toSamsungDeviceFolder(device);
-              const tentativeName = this.buildSamsungActiveTaskFilename(
-                fileName,
-                subjectId,
-                deliveryDate,
-                collection as any,
-                device,
-                taskCode,
-              );
-              const extMatch = tentativeName.match(/(\.[^.]+)$/i);
-              const ext = extMatch ? extMatch[1] : '.csv';
-              const stem = extMatch ? tentativeName.slice(0, -ext.length) : tentativeName;
-              const stemWithoutRep = stem.replace(/-Rep\d+$/i, '');
-              const repKey = `${stageFolder}/${deviceFolderName}/${stemWithoutRep}`;
-              const nextRep = (activeTaskRepCounters.get(repKey) ?? 0) + 1;
-              activeTaskRepCounters.set(repKey, nextRep);
-              const finalName = `${stemWithoutRep}-Rep${nextRep}${ext}`;
-              const payload = binaryPayloadMap.get(collection.id);
-              if (!payload) {
+              if (!shouldIncludeSpeechBinary(taskCode, fileName)) continue;
+              if (packed.includedCollectionIds.has(collection.id)) continue;
+              if (packed.skippedSpeechAudioIds.includes(collection.id)) continue;
+              if (!fileName) continue;
+              if (!binaryPayloadMap.get(collection.id)) {
                 patientHasCriticalError = true;
                 summary.errorFiles += 1;
                 await this.appendRunItem({
@@ -1465,212 +1501,27 @@ export class SamsungSyncService implements OnModuleInit {
                   collectionId: collection.id,
                   action: SamsungSyncItemAction.ERROR,
                   repo: this.repoCollections,
-                  path: buildSamsungDataFileZipPath(
-                    deliveryDate,
-                    subjectId,
-                    stageFolder,
-                    deviceFolderName,
-                    finalName,
-                  ),
+                  path: fileName,
                   uploaded: false,
-                  error: 'Payload da tarefa ativa não encontrado para inclusão no ZIP',
+                  error: 'Payload da tarefa ativa não encontrado para inclusão no ZIP Samsung',
                 });
-                continue;
-              }
-              const zipPath = buildSamsungDataFileZipPath(
-                deliveryDate,
-                subjectId,
-                stageFolder,
-                deviceFolderName,
-                finalName,
-              );
-              addToDeviceGroup(
-                deviceGroupKey(subjectId, stageFolder, deviceFolderName),
-                finalName,
-                { buffer: payload },
-              );
-              includedCollectionIds.add(collection.id);
-            }
-          }
-
-          if (subjectExportItems.length === 0) {
-            await setCurrentStep(3, `${samsungStep(3)} (${subjectId})`);
-            const dbPdfReports = await this.getPendingPdfReportsForPatient(
-              patient.id,
-              patientEverSynced,
-            );
-            for (const report of dbPdfReports) {
-              this.ensureRunNotCancelled(run.id);
-              if (this.isExcludedPsgLaudo(report)) {
-                const rid = report?.id ? String(report.id) : '';
-                if (rid) {
-                  if (!psgLaudoSkipCountedIds.has(rid)) {
-                    psgLaudoSkipCountedIds.add(rid);
-                    summary.skippedFiles += 1;
-                  }
-                } else {
-                  summary.skippedFiles += 1;
-                }
-                await this.appendRunItem({
-                  runId: run.id,
-                  patientId: patient.id,
-                  action: SamsungSyncItemAction.SKIP,
-                  repo: this.repoZip,
-                  path: buildSamsungDataFileZipPath(
-                    deliveryDate,
-                    subjectId,
-                    this.toStageFolder('Sleep'),
-                    'PSG',
-                    report?.file_name || 'laudo.pdf',
-                  ),
-                  uploaded: false,
-                  message:
-                    'Laudo PDF de polissonografia excluído da entrega BART (dados pessoais)',
-                });
-                continue;
-              }
-              const generationDate = formatCollectionDateForMetadata({
-                collection_date: report.collection_date,
-                created_at: report.questionnaire_created_at,
-              });
-              const { protocol, device } = this.samsungPdfReportDataPath(
-                this.normalizePdfReportType(report),
-              );
-              const stageFolder = this.toStageFolder(protocol);
-              const deviceFolderName = this.toSamsungDeviceFolder(device);
-              const isExternalDevice = ['Baiobit', 'EMG', 'Ring', 'PSG'].includes(device);
-              const cpfHash = report.cpf_hash || '';
-              const baseFileName = isExternalDevice
-                ? this.sanitizeExternalDocBaseName(
-                    report?.file_name || 'relatorio.pdf',
-                    cpfHash,
-                  )
-                : report?.file_name || 'relatorio.pdf';
-              const uniqueFileName = this.getUniqueFilename(
-                baseFileName,
-                pdfNameCounters,
-                `${stageFolder}/${deviceFolderName}`,
-              );
-              const dbPdfPath = report?.file_path as string | undefined;
-              const pdfFilePath = dbPdfPath
-                ? await minioDownloadLimit(() =>
-                    this.downloadMinioToTempFile(syncTempDir, dbPdfPath),
-                  )
-                : null;
-              if (!pdfFilePath) {
-                patientHasCriticalError = true;
-                summary.errorFiles += 1;
-                const minioHint = !minioConnectivity.ok
-                  ? ` ${minioConnectivity.warning}`
-                  : '';
-                await this.appendRunItem({
-                  runId: run.id,
-                  patientId: patient.id,
-                  action: SamsungSyncItemAction.ERROR,
-                  repo: this.repoZip,
-                  path: buildSamsungDataFileZipPath(
-                    deliveryDate,
-                    subjectId,
-                    stageFolder,
-                    deviceFolderName,
-                    uniqueFileName,
-                  ),
-                  uploaded: false,
-                  error: `Falha ao baixar PDF do MinIO para inclusão no ZIP.${minioHint}`,
-                });
-                continue;
-              }
-              addToDeviceGroup(
-                deviceGroupKey(subjectId, stageFolder, deviceFolderName),
-                uniqueFileName,
-                { filePath: pdfFilePath },
-              );
-              let set = pdfReportIdsByPatient.get(patient.id);
-              if (!set) {
-                set = new Set<string>();
-                pdfReportIdsByPatient.set(patient.id, set);
-              }
-              set.add(String(report.id));
-            }
-          }
-
-          const pendingFileIds = (patient.files || [])
-            .map((file) => file?.id)
-            .filter((id): id is string => Boolean(id));
-          const patientBinaryPayloadMap = await this.getBinaryPayloadMap(pendingFileIds);
-          for (const file of patient.files || []) {
-            this.ensureRunNotCancelled(run.id);
-            const fileIsPending =
-              file.deleted_pending === true || file.file_sync_pending === true;
-            if (!fileIsPending) {
-              continue;
-            }
-            const artifactPath = this.getCollectionPath(patient, file, deliveryDate, true);
-            if (!artifactPath) {
-              const fid = file.id;
-              if (fid) {
-                if (!speechSkipCountedIds.has(fid)) {
-                  speechSkipCountedIds.add(fid);
-                  summary.skippedFiles += 1;
-                }
-              } else {
-                summary.skippedFiles += 1;
-              }
-              continue;
-            }
-            if (file.deleted_pending) {
-              summary.deletedFiles += 1;
-              await this.appendRunItem({
-                runId: run.id,
-                patientId: patient.id,
-                collectionId: file.id,
-                action: SamsungSyncItemAction.DELETE,
-                repo: this.repoCollections,
-                path: artifactPath,
-                uploaded: false,
-                message: 'Arquivo marcado para remoção — será excluído ao confirmar entrega',
-              });
-              continue;
-            }
-            const payload = patientBinaryPayloadMap.get(file.id);
-            if (!payload) {
-              patientHasCriticalError = true;
-              summary.errorFiles += 1;
-              await this.appendRunItem({
-                runId: run.id,
-                patientId: patient.id,
-                collectionId: file.id,
-                action: SamsungSyncItemAction.ERROR,
-                repo: this.repoCollections,
-                path: artifactPath,
-                uploaded: false,
-                error: 'Payload pendente não encontrado para confirmação de sincronização',
-              });
-              continue;
-            }
-            if (!includedCollectionIds.has(file.id)) {
-              const zipPath = this.getCollectionPathInZip(patient, file, deliveryDate);
-              if (!zipPath) {
-                summary.skippedFiles += 1;
-              } else {
-                const parts = zipPath.split('/');
-                const fileName = parts[parts.length - 1] || `${file.id}.csv`;
-                const stageFolder = parts[parts.length - 3] || this.toStageFolder('Clinic');
-                const deviceFolderName = parts[parts.length - 2] || 'SW';
-                addToDeviceGroup(
-                  deviceGroupKey(subjectId, stageFolder, deviceFolderName),
-                  fileName,
-                  { buffer: payload },
-                );
-                includedCollectionIds.add(file.id);
               }
             }
           }
 
-          await this.flushDeviceGroupsToArchive(
+          for (const reportId of packed.pdfReportIds) {
+            let set = pdfReportIdsByPatient.get(patient.id);
+            if (!set) {
+              set = new Set<string>();
+              pdfReportIdsByPatient.set(patient.id, set);
+            }
+            set.add(reportId);
+          }
+
+          await this.appendGuidelinesEntries(
             run.id,
-            syncTempDir,
-            patientDeviceGroups,
+            patient.id,
+            packed.entries,
             archive,
             metadataRows,
             deliveryDate,
@@ -1683,7 +1534,7 @@ export class SamsungSyncService implements OnModuleInit {
             summary.syncedPatients += 1;
             patientsReadyForConfirm.push(patient.id);
           }
-          this.logMem(`Run ${run.id}: ${subjectId} processado`);
+          this.logMem(`Run ${run.id}: ${subjectId} processado (Samsung)`);
           await this.updateRunProgress(run.id, summary);
         } catch (error) {
           summary.erroredPatients += 1;
@@ -1693,7 +1544,7 @@ export class SamsungSyncService implements OnModuleInit {
             runId: run.id,
             patientId: patient.id,
             action: SamsungSyncItemAction.ERROR,
-            repo: this.repoCollections,
+            repo: this.repoZip,
             path: this.basePath,
             uploaded: false,
             error: message,
