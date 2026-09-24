@@ -4,6 +4,7 @@ import {
   buildGuidelinesSessionId,
   guidelinesFilePath,
   isSpeechAudioFile,
+  anonymizeExternalReportFileName,
   normalizeGuidelinesFileName,
   shouldIncludeSpeechBinary,
   toGuidelinesSubjectId,
@@ -25,6 +26,32 @@ describe('guidelines-dataset.utils', () => {
     expect(shouldIncludeSpeechBinary('TA11', 'features_TA11.csv')).toBe(true);
     expect(shouldIncludeSpeechBinary('TA10', 'P001_TA10_papapa.wav')).toBe(false);
     expect(isSpeechAudioFile('x.wav')).toBe(true);
+  });
+
+  it('substitui o nome do paciente por PXXX em EMG e Baiobit', () => {
+    expect(
+      anonymizeExternalReportFileName('maria_auxiliadora_-_fog_01.csv', 'P001'),
+    ).toBe('P001_fog_01.csv');
+    expect(
+      anonymizeExternalReportFileName('jos_milton_da_silva_costa-_fog_01.csv', 'P008'),
+    ).toBe('P008_fog_01.csv');
+    expect(
+      anonymizeExternalReportFileName('jefferson_souto_p13_26.03_--_tc10_rep1', 'P010'),
+    ).toBe('P010_tc10_rep1');
+    expect(
+      anonymizeExternalReportFileName('paulo_roberto_tc10-_rep3.txt', 'P012'),
+    ).toBe('P012_tc10_rep3.txt');
+    expect(anonymizeExternalReportFileName('tc10_26.03_rep1', 'P003')).toBe(
+      'P003_tc10_rep1',
+    );
+    expect(
+      normalizeGuidelinesFileName(
+        'Maria Auxiliadora - tremor_repouso_02.csv',
+        null,
+        'EMG',
+        'P001',
+      ),
+    ).toBe('P001_tremor_repouso_02.csv');
   });
 
   it('normaliza nome de features por TA', () => {

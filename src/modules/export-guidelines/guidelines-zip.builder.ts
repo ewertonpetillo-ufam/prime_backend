@@ -265,7 +265,7 @@ export function buildGuidelinesPatientEntries(input: {
       const normalized =
         deviceId === 'PSG_Annotations' && /\.edf$/i.test(fileName)
           ? 'annotations.edf'
-          : normalizeGuidelinesFileName(fileName, null, deviceId);
+          : normalizeGuidelinesFileName(fileName, null, deviceId, subjectId);
       const tempPath =
         report.id && input.pdfTempPathByReportId
           ? input.pdfTempPathByReportId.get(String(report.id))
@@ -323,7 +323,12 @@ export function buildGuidelinesPatientEntries(input: {
         collection.collected_at || qDate,
       );
       const bucket = ensureSession(sessions, subjectId, kind, collectedDate);
-      const normalized = normalizeGuidelinesFileName(fileName, taskCode, deviceId);
+      const normalized = normalizeGuidelinesFileName(
+        fileName,
+        taskCode,
+        deviceId,
+        subjectId,
+      );
       addDeviceFile(
         bucket,
         deviceId,
@@ -419,6 +424,7 @@ export function buildGuidelinesCollectionZipPath(input: {
     input.fileName,
     input.taskCode,
     deviceId,
+    subjectId,
   );
   return guidelinesFilePath(sessionId, deviceId, fileName);
 }
