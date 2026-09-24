@@ -103,13 +103,13 @@ export class SamsungSyncController {
   }
 
   @Get('storage/config')
-  @ApiOperation({ summary: 'Configuração da raiz do dataset no Artifactory' })
+  @ApiOperation({ summary: 'Repositório Artifactory da entrega Samsung (Data e Metadata na raiz)' })
   getStorageConfig() {
     return this.samsungSyncService.getStorageConfig();
   }
 
   @Get('storage')
-  @ApiOperation({ summary: 'Navega pastas e arquivos sob ARTIFACTORY_BASE_PATH' })
+  @ApiOperation({ summary: 'Navega pastas e arquivos na raiz do repositório Artifactory' })
   async browseStorage(@Query('path') path?: string) {
     return this.samsungSyncService.browseStorage(path);
   }

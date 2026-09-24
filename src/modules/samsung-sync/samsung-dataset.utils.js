@@ -111,24 +111,18 @@ var buildDeliveryZipFileName = function (deliveryDate) {
     return "".concat(deliveryDate, ".zip");
 };
 exports.buildDeliveryZipFileName = buildDeliveryZipFileName;
-var buildDataZipArtifactPath = function (artifactoryBasePath, deliveryDate) {
-    var prefix = (artifactoryBasePath || '').replace(/^\/+|\/+$/g, '');
-    return prefix
-        ? "".concat(prefix, "/Data/").concat((0, exports.buildDeliveryZipFileName)(deliveryDate))
-        : "Data/".concat((0, exports.buildDeliveryZipFileName)(deliveryDate));
+var buildDataZipArtifactPath = function (deliveryDate) {
+    return "Data/".concat((0, exports.buildDeliveryZipFileName)(deliveryDate));
 };
 exports.buildDataZipArtifactPath = buildDataZipArtifactPath;
-var buildMetadataCsvArtifactPath = function (artifactoryBasePath, deliveryDate) {
-    var prefix = (artifactoryBasePath || '').replace(/^\/+|\/+$/g, '');
-    return prefix
-        ? "".concat(prefix, "/Metadata/").concat(deliveryDate, "_metadata.csv")
-        : "Metadata/".concat(deliveryDate, "_metadata.csv");
+var buildMetadataCsvArtifactPath = function (deliveryDate) {
+    return "Metadata/".concat(deliveryDate, "_metadata.csv");
 };
 exports.buildMetadataCsvArtifactPath = buildMetadataCsvArtifactPath;
 /** URL Artifactory para entrada dentro do ZIP de entrega (sintaxe !/). */
-var buildArchiveEntryDownloadUrl = function (artifactoryBaseUrl, repo, artifactoryBasePath, deliveryDate, entryPathInsideZip) {
+var buildArchiveEntryDownloadUrl = function (artifactoryBaseUrl, repo, deliveryDate, entryPathInsideZip) {
     var base = artifactoryBaseUrl.replace(/\/$/, '');
-    var zipPath = (0, exports.buildDataZipArtifactPath)(artifactoryBasePath, deliveryDate);
+    var zipPath = (0, exports.buildDataZipArtifactPath)(deliveryDate);
     var encodedZipPath = zipPath
         .split('/')
         .filter(Boolean)

@@ -86,36 +86,23 @@ export const formatCollectionDateForMetadata = (questionnaire?: {
 export const buildDeliveryZipFileName = (deliveryDate: string): string =>
   `${deliveryDate}.zip`;
 
-export const buildDataZipArtifactPath = (
-  artifactoryBasePath: string,
-  deliveryDate: string,
-): string => {
-  const prefix = (artifactoryBasePath || '').replace(/^\/+|\/+$/g, '');
-  return prefix
-    ? `${prefix}/Data/${buildDeliveryZipFileName(deliveryDate)}`
-    : `Data/${buildDeliveryZipFileName(deliveryDate)}`;
-};
+/** ZIP de entrega na raiz do repositório: Data/{YYYYMMDD}.zip */
+export const buildDataZipArtifactPath = (deliveryDate: string): string =>
+  `Data/${buildDeliveryZipFileName(deliveryDate)}`;
 
-export const buildMetadataCsvArtifactPath = (
-  artifactoryBasePath: string,
-  deliveryDate: string,
-): string => {
-  const prefix = (artifactoryBasePath || '').replace(/^\/+|\/+$/g, '');
-  return prefix
-    ? `${prefix}/Metadata/${deliveryDate}_metadata.csv`
-    : `Metadata/${deliveryDate}_metadata.csv`;
-};
+/** CSV de metadata na raiz do repositório: Metadata/{YYYYMMDD}_metadata.csv */
+export const buildMetadataCsvArtifactPath = (deliveryDate: string): string =>
+  `Metadata/${deliveryDate}_metadata.csv`;
 
 /** URL Artifactory para entrada dentro do ZIP de entrega (sintaxe !/). */
 export const buildArchiveEntryDownloadUrl = (
   artifactoryBaseUrl: string,
   repo: string,
-  artifactoryBasePath: string,
   deliveryDate: string,
   entryPathInsideZip: string,
 ): string => {
   const base = artifactoryBaseUrl.replace(/\/$/, '');
-  const zipPath = buildDataZipArtifactPath(artifactoryBasePath, deliveryDate);
+  const zipPath = buildDataZipArtifactPath(deliveryDate);
   const encodedZipPath = zipPath
     .split('/')
     .filter(Boolean)

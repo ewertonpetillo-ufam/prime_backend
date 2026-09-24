@@ -75,7 +75,6 @@ pipeline {
         ARTIFACTORY_TOKEN = credentials('prime-artifactory-token')
         ARTIFACTORY_REPO_PATIENTS = credentials('prime-artifactory-repo-patients')
         ARTIFACTORY_REPO_COLLECTIONS = credentials('prime-artifactory-repo-collections')
-        ARTIFACTORY_BASE_PATH = credentials('prime-artifactory-base-path')
         SAMSUNG_SYNC_CRON_ENABLED = credentials('prime-samsung-sync-cron-enabled')
         SAMSUNG_SYNC_INTERVAL_MS = credentials('prime-samsung-sync-interval-ms')
 
@@ -283,7 +282,6 @@ ARTIFACTORY_USER=${ARTIFACTORY_USER}
 ARTIFACTORY_TOKEN=${ARTIFACTORY_TOKEN}
 ARTIFACTORY_REPO_PATIENTS=${ARTIFACTORY_REPO_PATIENTS}
 ARTIFACTORY_REPO_COLLECTIONS=${ARTIFACTORY_REPO_COLLECTIONS}
-ARTIFACTORY_BASE_PATH=${ARTIFACTORY_BASE_PATH}
 SAMSUNG_SYNC_CRON_ENABLED=${SAMSUNG_SYNC_CRON_ENABLED}
 SAMSUNG_SYNC_INTERVAL_MS=${SAMSUNG_SYNC_INTERVAL_MS}
 SAMSUNG_SYNC_TEMP_DIR=/var/prime-samsung-sync

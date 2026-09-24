@@ -109,9 +109,6 @@ var SamsungSyncService = /** @class */ (function () {
                 this.repoPatients;
         this.repoZip =
             this.configService.get('ARTIFACTORY_REPO_ZIP') || this.repoCollections;
-        this.basePath = (this.configService.get('ARTIFACTORY_BASE_PATH') || 'test_api').replace(/^\/+|\/+$/g, '');
-        this.zipBasePath = (this.configService.get('ARTIFACTORY_ZIP_BASE_PATH') ||
-            this.basePath).replace(/^\/+|\/+$/g, '');
     }
     SamsungSyncService_1 = SamsungSyncService;
     SamsungSyncService.prototype.onModuleInit = function () {
@@ -282,9 +279,8 @@ var SamsungSyncService = /** @class */ (function () {
     SamsungSyncService.prototype.resolveTaskCode = function (metadata, activeTask, fileName) {
         return (0, export_guidelines_1.resolveGuidelinesTaskCode)(metadata, activeTask, fileName);
     };
-    SamsungSyncService.prototype.getCollectionPath = function (patient, file, fixedDate, includeBasePath) {
+    SamsungSyncService.prototype.getCollectionPath = function (patient, file, fixedDate) {
         var _a;
-        if (includeBasePath === void 0) { includeBasePath = true; }
         var originalName = ((_a = file.metadata) === null || _a === void 0 ? void 0 : _a.file_name) || "".concat(file.id, ".csv");
         var taskCode = this.resolveTaskCode(file.metadata, null, originalName);
         if (!(0, export_guidelines_1.shouldIncludeSpeechBinary)(taskCode, originalName)) {
@@ -299,11 +295,10 @@ var SamsungSyncService = /** @class */ (function () {
         });
         if (!zipPath)
             return '';
-        var prefix = includeBasePath ? "".concat(this.basePath, "/") : '';
-        return "".concat(prefix).concat(zipPath);
+        return zipPath;
     };
     SamsungSyncService.prototype.getCollectionPathInZip = function (patient, file, fixedDate) {
-        var path = this.getCollectionPath(patient, file, fixedDate, false);
+        var path = this.getCollectionPath(patient, file, fixedDate);
         if (!path)
             return '';
         return path;
@@ -589,7 +584,7 @@ var SamsungSyncService = /** @class */ (function () {
     SamsungSyncService.prototype.registerDeliveryMetadataEntry = function (metadataRows, deliveryDate, entryPathInsideZip, generationDate) {
         metadataRows.push({
             generation_date: generationDate,
-            download_url: (0, samsung_dataset_utils_1.buildArchiveEntryDownloadUrl)(this.artifactoryService.getPublicBaseUrl(), this.repoZip, this.basePath, deliveryDate, entryPathInsideZip),
+            download_url: (0, samsung_dataset_utils_1.buildArchiveEntryDownloadUrl)(this.artifactoryService.getPublicBaseUrl(), this.repoZip, deliveryDate, entryPathInsideZip),
         });
     };
     SamsungSyncService.prototype.normalizePdfReportType = function (report) {
@@ -1024,7 +1019,7 @@ var SamsungSyncService = /** @class */ (function () {
                                 runId: run.id,
                                 action: samsung_sync_run_item_entity_1.SamsungSyncItemAction.SKIP,
                                 repo: this.repoZip,
-                                path: this.basePath,
+                                path: '/',
                                 uploaded: false,
                                 message: connectivity.warning,
                             })];
@@ -1066,7 +1061,7 @@ var SamsungSyncService = /** @class */ (function () {
                         deliveryDate = (0, samsung_dataset_utils_1.getDeliveryDateFolder)();
                         zipName = this.buildDeliveryZipName(deliveryDate);
                         summary.zipName = zipName;
-                        zipArtifactPath = (0, samsung_dataset_utils_1.buildDataZipArtifactPath)(this.basePath, deliveryDate);
+                        zipArtifactPath = (0, samsung_dataset_utils_1.buildDataZipArtifactPath)(deliveryDate);
                         summary.zipPath = zipArtifactPath;
                         metadataRows = [];
                         return [4 /*yield*/, (0, samsung_dataset_utils_1.ensureSamsungSyncTempDir)(run.id)];
@@ -1125,7 +1120,7 @@ var SamsungSyncService = /** @class */ (function () {
                                 runId: run.id,
                                 action: samsung_sync_run_item_entity_1.SamsungSyncItemAction.SKIP,
                                 repo: this.repoZip,
-                                path: this.basePath,
+                                path: '/',
                                 uploaded: false,
                                 message: minioConnectivity.warning,
                             })];
@@ -1368,7 +1363,7 @@ var SamsungSyncService = /** @class */ (function () {
                         file = _r[_q];
                         if (!file.deleted_pending)
                             return [3 /*break*/, 43];
-                        artifactPath = this.getCollectionPath(patient, file, deliveryDate, true);
+                        artifactPath = this.getCollectionPath(patient, file, deliveryDate);
                         summary.deletedFiles += 1;
                         return [4 /*yield*/, this.appendRunItem({
                                 runId: run.id,
@@ -1503,7 +1498,7 @@ var SamsungSyncService = /** @class */ (function () {
                                 patientId: patient.id,
                                 action: samsung_sync_run_item_entity_1.SamsungSyncItemAction.ERROR,
                                 repo: this.repoZip,
-                                path: this.basePath,
+                                path: '/',
                                 uploaded: false,
                                 error: message,
                             })];
@@ -1629,7 +1624,7 @@ var SamsungSyncService = /** @class */ (function () {
                             })];
                     case 3:
                         _a.sent();
-                        metadataCsvPath = (0, samsung_dataset_utils_1.buildMetadataCsvArtifactPath)(this.basePath, deliveryDate);
+                        metadataCsvPath = (0, samsung_dataset_utils_1.buildMetadataCsvArtifactPath)(deliveryDate);
                         metadataCsvBuffer = Buffer.from((0, samsung_dataset_utils_1.buildDeliveryMetadataCsv)(metadataRows), 'utf-8');
                         return [4 /*yield*/, this.artifactoryService.uploadFile(this.repoZip, metadataCsvPath, metadataCsvBuffer, 'text/csv')];
                     case 4:
@@ -1853,7 +1848,7 @@ var SamsungSyncService = /** @class */ (function () {
     };
     SamsungSyncService.prototype.getStorageConfig = function () {
         return {
-            basePath: this.basePath,
+            basePath: '',
             repo: this.repoZip,
         };
     };
@@ -1864,12 +1859,11 @@ var SamsungSyncService = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         safeRelative = this.sanitizeStorageRelativePath(relativePath || '');
-                        fullPath = safeRelative ? "".concat(this.basePath, "/").concat(safeRelative) : this.basePath;
-                        return [4 /*yield*/, this.artifactoryService.listStorage(this.repoZip, fullPath)];
+                        return [4 /*yield*/, this.artifactoryService.listStorage(this.repoZip, safeRelative)];
                     case 1:
                         items = _a.sent();
                         return [2 /*return*/, {
-                                basePath: this.basePath,
+                                basePath: '',
                                 repo: this.repoZip,
                                 path: safeRelative,
                                 items: items,
@@ -1886,8 +1880,7 @@ var SamsungSyncService = /** @class */ (function () {
                 if (!safeRelative) {
                     throw new Error('Caminho inválido');
                 }
-                fullPath = "".concat(this.basePath, "/").concat(safeRelative);
-                return [2 /*return*/, this.artifactoryService.downloadFile(this.repoZip, fullPath)];
+                return [2 /*return*/, this.artifactoryService.downloadFile(this.repoZip, safeRelative)];
             });
         });
     };
@@ -1901,8 +1894,7 @@ var SamsungSyncService = /** @class */ (function () {
                         if (!safeRelative) {
                             throw new Error('Caminho inválido');
                         }
-                        fullPath = "".concat(this.basePath, "/").concat(safeRelative);
-                        return [4 /*yield*/, this.artifactoryService.deleteFile(this.repoZip, fullPath)];
+                        return [4 /*yield*/, this.artifactoryService.deleteFile(this.repoZip, safeRelative)];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];
@@ -1914,8 +1906,7 @@ var SamsungSyncService = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             var dataPath;
             return __generator(this, function (_a) {
-                dataPath = "".concat(this.basePath, "/Data");
-                return [2 /*return*/, this.artifactoryService.listArtifacts(this.repoZip, dataPath)];
+                return [2 /*return*/, this.artifactoryService.listArtifacts(this.repoZip, 'Data')];
             });
         });
     };
@@ -1927,7 +1918,7 @@ var SamsungSyncService = /** @class */ (function () {
                 if (!safeName.endsWith('.zip')) {
                     throw new Error('Artefato inválido');
                 }
-                return [2 /*return*/, this.artifactoryService.downloadFile(this.repoZip, (0, samsung_dataset_utils_1.buildDataZipArtifactPath)(this.basePath, safeName.replace(/\.zip$/i, '')))];
+                return [2 /*return*/, this.artifactoryService.downloadFile(this.repoZip, (0, samsung_dataset_utils_1.buildDataZipArtifactPath)(safeName.replace(/\.zip$/i, '')))];
             });
         });
     };
@@ -1942,7 +1933,7 @@ var SamsungSyncService = /** @class */ (function () {
                             throw new Error('Artefato inválido');
                         }
                         deliveryDate = safeName.replace(/\.zip$/i, '');
-                        return [4 /*yield*/, this.artifactoryService.deleteFile(this.repoZip, (0, samsung_dataset_utils_1.buildDataZipArtifactPath)(this.basePath, deliveryDate))];
+                        return [4 /*yield*/, this.artifactoryService.deleteFile(this.repoZip, (0, samsung_dataset_utils_1.buildDataZipArtifactPath)(deliveryDate))];
                     case 1:
                         _a.sent();
                         return [2 /*return*/];

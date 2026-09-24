@@ -138,8 +138,6 @@ export class SamsungSyncService implements OnModuleInit {
   private readonly repoPatients: string;
   private readonly repoCollections: string;
   private readonly repoZip: string;
-  private readonly basePath: string;
-  private readonly zipBasePath: string;
   private readonly cancelledRunIds = new Set<string>();
   private readonly runAbortControllers = new Map<string, AbortController>();
 
@@ -163,13 +161,6 @@ export class SamsungSyncService implements OnModuleInit {
       this.repoPatients;
     this.repoZip =
       this.configService.get<string>('ARTIFACTORY_REPO_ZIP') || this.repoCollections;
-    this.basePath = (
-      this.configService.get<string>('ARTIFACTORY_BASE_PATH') || 'test_api'
-    ).replace(/^\/+|\/+$/g, '');
-    this.zipBasePath = (
-      this.configService.get<string>('ARTIFACTORY_ZIP_BASE_PATH') ||
-      this.basePath
-    ).replace(/^\/+|\/+$/g, '');
   }
 
   async onModuleInit() {
@@ -337,7 +328,6 @@ export class SamsungSyncService implements OnModuleInit {
     patient: PendingPatient,
     file: PendingFile,
     fixedDate?: string,
-    includeBasePath = true,
   ): string {
     const originalName =
       (file.metadata?.file_name as string | undefined) || `${file.id}.csv`;
@@ -353,8 +343,7 @@ export class SamsungSyncService implements OnModuleInit {
       sessionDate: file.collected_at || collectionDate,
     });
     if (!zipPath) return '';
-    const prefix = includeBasePath ? `${this.basePath}/` : '';
-    return `${prefix}${zipPath}`;
+    return zipPath;
   }
 
   private getCollectionPathInZip(
@@ -362,7 +351,7 @@ export class SamsungSyncService implements OnModuleInit {
     file: PendingFile,
     fixedDate: string,
   ): string {
-    const path = this.getCollectionPath(patient, file, fixedDate, false);
+    const path = this.getCollectionPath(patient, file, fixedDate);
     if (!path) return '';
     return path;
   }
@@ -597,7 +586,6 @@ export class SamsungSyncService implements OnModuleInit {
       download_url: buildArchiveEntryDownloadUrl(
         this.artifactoryService.getPublicBaseUrl(),
         this.repoZip,
-        this.basePath,
         deliveryDate,
         entryPathInsideZip,
       ),
@@ -1154,7 +1142,7 @@ export class SamsungSyncService implements OnModuleInit {
           runId: run.id,
           action: SamsungSyncItemAction.SKIP,
           repo: this.repoZip,
-          path: this.basePath,
+          path: '/',
           uploaded: false,
           message: connectivity.warning,
         });
@@ -1190,7 +1178,7 @@ export class SamsungSyncService implements OnModuleInit {
       const deliveryDate = getDeliveryDateFolder();
       const zipName = this.buildDeliveryZipName(deliveryDate);
       summary.zipName = zipName;
-      const zipArtifactPath = buildDataZipArtifactPath(this.basePath, deliveryDate);
+      const zipArtifactPath = buildDataZipArtifactPath(deliveryDate);
       summary.zipPath = zipArtifactPath;
       const metadataRows: DeliveryMetadataRow[] = [];
       const syncTempDir = await ensureSamsungSyncTempDir(run.id);
@@ -1238,7 +1226,7 @@ export class SamsungSyncService implements OnModuleInit {
           runId: run.id,
           action: SamsungSyncItemAction.SKIP,
           repo: this.repoZip,
-          path: this.basePath,
+          path: '/',
           uploaded: false,
           message: minioConnectivity.warning,
         });
@@ -1423,7 +1411,7 @@ export class SamsungSyncService implements OnModuleInit {
           // Deletes pendentes
           for (const file of patient.files || []) {
             if (!file.deleted_pending) continue;
-            const artifactPath = this.getCollectionPath(patient, file, deliveryDate, true);
+            const artifactPath = this.getCollectionPath(patient, file, deliveryDate);
             summary.deletedFiles += 1;
             await this.appendRunItem({
               runId: run.id,
@@ -1545,7 +1533,7 @@ export class SamsungSyncService implements OnModuleInit {
             patientId: patient.id,
             action: SamsungSyncItemAction.ERROR,
             repo: this.repoZip,
-            path: this.basePath,
+            path: '/',
             uploaded: false,
             error: message,
           });
@@ -1661,7 +1649,7 @@ export class SamsungSyncService implements OnModuleInit {
       message: `ZIP de entrega ${zipName} enviado com sucesso`,
     });
 
-    const metadataCsvPath = buildMetadataCsvArtifactPath(this.basePath, deliveryDate);
+    const metadataCsvPath = buildMetadataCsvArtifactPath(deliveryDate);
     const metadataCsvBuffer = Buffer.from(buildDeliveryMetadataCsv(metadataRows), 'utf-8');
     const metadataCsvSha256 = await this.artifactoryService.uploadFile(
       this.repoZip,
@@ -1928,17 +1916,16 @@ export class SamsungSyncService implements OnModuleInit {
 
   getStorageConfig() {
     return {
-      basePath: this.basePath,
+      basePath: '',
       repo: this.repoZip,
     };
   }
 
   async browseStorage(relativePath?: string) {
     const safeRelative = this.sanitizeStorageRelativePath(relativePath || '');
-    const fullPath = safeRelative ? `${this.basePath}/${safeRelative}` : this.basePath;
-    const items = await this.artifactoryService.listStorage(this.repoZip, fullPath);
+    const items = await this.artifactoryService.listStorage(this.repoZip, safeRelative);
     return {
-      basePath: this.basePath,
+      basePath: '',
       repo: this.repoZip,
       path: safeRelative,
       items,
@@ -1950,8 +1937,7 @@ export class SamsungSyncService implements OnModuleInit {
     if (!safeRelative) {
       throw new Error('Caminho inválido');
     }
-    const fullPath = `${this.basePath}/${safeRelative}`;
-    return this.artifactoryService.downloadFile(this.repoZip, fullPath);
+    return this.artifactoryService.downloadFile(this.repoZip, safeRelative);
   }
 
   async deleteStorageItem(relativePath: string) {
@@ -1959,13 +1945,11 @@ export class SamsungSyncService implements OnModuleInit {
     if (!safeRelative) {
       throw new Error('Caminho inválido');
     }
-    const fullPath = `${this.basePath}/${safeRelative}`;
-    await this.artifactoryService.deleteFile(this.repoZip, fullPath);
+    await this.artifactoryService.deleteFile(this.repoZip, safeRelative);
   }
 
   async listZipArtifacts() {
-    const dataPath = `${this.basePath}/Data`;
-    return this.artifactoryService.listArtifacts(this.repoZip, dataPath);
+    return this.artifactoryService.listArtifacts(this.repoZip, 'Data');
   }
 
   async downloadZipArtifact(name: string) {
@@ -1975,7 +1959,7 @@ export class SamsungSyncService implements OnModuleInit {
     }
     return this.artifactoryService.downloadFile(
       this.repoZip,
-      buildDataZipArtifactPath(this.basePath, safeName.replace(/\.zip$/i, '')),
+      buildDataZipArtifactPath(safeName.replace(/\.zip$/i, '')),
     );
   }
 
@@ -1987,7 +1971,7 @@ export class SamsungSyncService implements OnModuleInit {
     const deliveryDate = safeName.replace(/\.zip$/i, '');
     await this.artifactoryService.deleteFile(
       this.repoZip,
-      buildDataZipArtifactPath(this.basePath, deliveryDate),
+      buildDataZipArtifactPath(deliveryDate),
     );
   }
 }

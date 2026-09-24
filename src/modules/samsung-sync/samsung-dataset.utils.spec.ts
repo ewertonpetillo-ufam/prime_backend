@@ -31,12 +31,10 @@ describe('samsung-dataset.utils', () => {
     ).toBe('2026-03-12');
   });
 
-  it('builds artifact paths under ARTIFACTORY_BASE_PATH only', () => {
-    expect(buildDataZipArtifactPath('test_api', '20250602')).toBe(
-      'test_api/Data/20250602.zip',
-    );
-    expect(buildMetadataCsvArtifactPath('test_api', '20250602')).toBe(
-      'test_api/Metadata/20250602_metadata.csv',
+  it('builds Data and Metadata paths at the repository root', () => {
+    expect(buildDataZipArtifactPath('20250602')).toBe('Data/20250602.zip');
+    expect(buildMetadataCsvArtifactPath('20250602')).toBe(
+      'Metadata/20250602_metadata.csv',
     );
     expect(buildDeliveryZipFileName('20250602')).toBe('20250602.zip');
   });
@@ -45,12 +43,11 @@ describe('samsung-dataset.utils', () => {
     const url = buildArchiveEntryDownloadUrl(
       'https://bart.example.com/artifactory',
       'srbr-ufamprime-generic-local',
-      'test_api',
       '20260602',
       '20260602/S001/1_In-Clinic/SP.zip',
     );
     expect(url).toBe(
-      'https://bart.example.com/artifactory/srbr-ufamprime-generic-local/test_api/Data/20260602.zip!/20260602/S001/1_In-Clinic/SP.zip',
+      'https://bart.example.com/artifactory/srbr-ufamprime-generic-local/Data/20260602.zip!/20260602/S001/1_In-Clinic/SP.zip',
     );
   });
 
