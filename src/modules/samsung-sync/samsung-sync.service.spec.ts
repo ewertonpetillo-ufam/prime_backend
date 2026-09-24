@@ -217,7 +217,7 @@ describe('SamsungSyncService.recoverStaleRuns', () => {
         summary: {
           currentStepIndex: 6,
           currentStep: 'Enviando ZIP para o BART',
-          zipPath: 'test_api/Data/20260828.zip',
+          zipPath: 'Data/20260828.zip',
           zipName: '20260828.zip',
           deliveryDate: '20260828',
           metadataRows: [],

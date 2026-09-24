@@ -12,6 +12,10 @@
       {
         "include": "**/*.png",
         "watchAssets": true
+      },
+      {
+        "include": "**/*.md",
+        "watchAssets": true
       }
     ]
   }
