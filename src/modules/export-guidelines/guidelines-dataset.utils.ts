@@ -215,11 +215,46 @@ export const resolveGuidelinesDeviceId = (input: {
   return 'GW8_PrimeInClinic';
 };
 
+/**
+ * EMG/Baiobit chegam com o nome do paciente no arquivo
+ * (ex.: maria_auxiliadora_-_fog_01.csv). Mantém só o trecho clínico
+ * e prefixa o identificador PXXX.
+ */
+export const anonymizeExternalReportFileName = (
+  rawFileName: string,
+  subjectId: string,
+): string => {
+  const base = (rawFileName || 'file').trim().split(/[/\\]/).pop() || 'file';
+  const extMatch = base.match(/(\.(?:csv|txt|edf|pdf|zip|json|md))$/i);
+  const ext = extMatch ? extMatch[1].toLowerCase() : '';
+  let stem = (ext ? base.slice(0, -ext.length) : base).toLowerCase();
+  stem = stem.replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, '');
+  stem = stem.replace(/\b\d{11}\b/g, '');
+  stem = stem.replace(/\d{1,2}\.\d{1,2}(?:\.\d{2,4})?/g, '');
+  const marker = /(fog|tc\d+|tremor(?:_[a-z]+)*)/i.exec(stem);
+  if (marker?.index != null) {
+    stem = stem.slice(marker.index);
+  }
+  stem = stem.replace(/[^a-z0-9.]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  stem = stem.replace(/_(?:0?[1-9]|[12]\d|3[01])(?:0?[1-9]|1[0-2])(?=_|$)/g, '');
+  stem = stem.replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  const id = (subjectId || 'P000').trim().toUpperCase() || 'P000';
+  if (!stem) return ext ? `${id}${ext}` : id;
+  if (stem.startsWith(`${id.toLowerCase()}_`) || stem === id.toLowerCase()) {
+    return `${id}${stem.slice(id.length)}${ext}`;
+  }
+  return `${id}_${stem}${ext}`;
+};
+
 export const normalizeGuidelinesFileName = (
   rawFileName: string,
   taskCode: string | null,
   deviceId: GuidelinesDeviceId,
+  subjectId?: string | null,
 ): string => {
+  if (deviceId === 'EMG' || deviceId === 'Baiobit') {
+    return anonymizeExternalReportFileName(rawFileName, subjectId || '');
+  }
   const base =
     (rawFileName || 'file').trim().split(/[/\\]/).pop() || 'file';
   const lower = base.toLowerCase();
