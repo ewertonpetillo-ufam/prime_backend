@@ -473,6 +473,27 @@ export class SamsungSyncService implements OnModuleInit {
     }
   }
 
+  /** Lê o arquivo até o fim antes de devolvê-lo. Apagar antes disso gera ENOENT e derruba o processo. */
+  private appendFileWhenReadable(
+    archive: archiver.Archiver,
+    filePath: string,
+    name: string,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const stream = createReadStream(filePath);
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        if (error) reject(error);
+        else resolve();
+      };
+      stream.on('error', (error) => finish(error));
+      stream.on('end', () => finish());
+      archive.append(stream, { name });
+    });
+  }
+
   private async flushDeviceGroupsToArchive(
     runId: string,
     tempDir: string,
@@ -497,7 +518,7 @@ export class SamsungSyncService implements OnModuleInit {
           stageFolder,
           deviceFolder,
         );
-        archive.append(createReadStream(subZipTempPath), { name: subZipInnerPath });
+        await this.appendFileWhenReadable(archive, subZipTempPath, subZipInnerPath);
         const subZipGenerationDate = deliveryDate.replace(
           /(\d{4})(\d{2})(\d{2})/,
           '$1-$2-$3',
@@ -540,7 +561,15 @@ export class SamsungSyncService implements OnModuleInit {
   ): Promise<void> {
     for (const entry of entries) {
       if (entry.filePath) {
-        archive.append(createReadStream(entry.filePath), { name: entry.zipPath });
+        try {
+          await this.appendFileWhenReadable(archive, entry.filePath, entry.zipPath);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `Run ${runId}: arquivo temporário indisponível (${entry.zipPath}): ${message}`,
+          );
+          continue;
+        }
       } else if (entry.buffer) {
         archive.append(entry.buffer, { name: entry.zipPath });
       } else {
